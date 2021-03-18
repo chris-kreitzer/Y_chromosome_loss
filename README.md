@@ -1,2 +1,2 @@
 # Y_chromosome_loss
-PanCancer investigation of Y chromosome loss
+PanCancer analysis of Y-chromosome loss
