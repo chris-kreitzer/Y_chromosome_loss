@@ -1,0 +1,170 @@
+suppressPackageStartupMessages({
+    library(dplyr)
+    library(data.table)
+    library(stringr)
+    library(readr)
+    library(purrr)
+    library(usethis)
+    library(jsonlite)
+    library(plyr)
+})
+
+# Genome builds ---------------------------------------------------------------------------------------------------
+# The code use to download the genome builds is commented, the resulting data is in the form of tribbles below.
+
+# extract_genome_info = function(url) {
+#     
+#     # url can be a path to a single file or a list of urls if split by chromosome
+#     build = map_dfr(url, function(x) {
+#         read_tsv(x, col_names = c('bin', 'chrom', 'start', 'end', 'ix', 'n', 'size', 'type', 'bridge'))
+#         }) %>% 
+#         group_by(chrom) %>% 
+#         summarize(
+#             size = max(end),
+#             centstart = min(start[type == 'centromere']),
+#             centend = max(end[type == 'centromere']),
+#             centromere = centstart + ((centend-centstart)/2)) %>% 
+#         mutate(chrom = str_replace(chrom, 'chr', ''),
+#                chrom = str_replace_all(chrom, c('X' = '23', 'Y' = '24')),
+#                chrom = as.numeric(chrom)) %>% 
+#         filter(chrom %in% seq(1, 24)) %>% 
+#         arrange(chrom)
+# }
+
+# hg19 // pulled from UCSC
+# hg19 = extract_genome_info('http://hgdownload.cse.ucsc.edu/goldenPath/hg19/database/gap.txt.gz')
+hg19 = tibble::tribble(
+    ~chrom,     ~size, ~centstart,  ~centend, ~centromere,
+    1, 249250621,  121535434, 124535434,   121535434,
+    2, 243199373,   92326171,  95326171,    92326171,
+    3, 198022430,   90504854,  93504854,    90504854,
+    4, 191154276,   49660117,  52660117,    49660117,
+    5, 180915260,   46405641,  49405641,    46405641,
+    6, 171115067,   58830166,  61830166,    58830166,
+    7, 159138663,   58054331,  61054331,    58054331,
+    8, 146364022,   43838887,  46838887,    43838887,
+    9, 141213431,   47367679,  50367679,    47367679,
+    10, 135534747,   39254935,  42254935,    39254935,
+    11, 135006516,   51644205,  54644205,    51644205,
+    12, 133851895,   34856694,  37856694,    34856694,
+    13, 115169878,    1.6e+07,   1.9e+07,     1.6e+07,
+    14, 107349540,    1.6e+07,   1.9e+07,     1.6e+07,
+    15, 102531392,    1.7e+07,     2e+07,     1.7e+07,
+    16,  90354753,   35335801,  38335801,    35335801,
+    17,  79759049,   22263006,  25263006,    22263006,
+    18,  78077248,   15460898,  18460898,    15460898,
+    19,  59128983,   24681782,  27681782,    24681782,
+    20,  63025520,   26369569,  29369569,    26369569,
+    21,  48129895,   11288129,  14288129,    11288129,
+    22,  51304566,    1.3e+07,   1.6e+07,     1.3e+07,
+    23, 155270560,   58632012,  61632012,    58632012,
+    24,  59373566,   10104553,  13104553,    10104553
+)
+
+# hg38 // pulled from UCSC
+# hg38 = 'http://hgdownload.cse.ucsc.edu/goldenPath/hg38/database/gap.txt.gz' # note: centromere info not longer in this type of file, but in centromeres.txt.gz
+# hg38_centromeres = 'http://hgdownload.cse.ucsc.edu/goldenPath/hg38/database/centromeres.txt.gz' 
+# hg38_centromeres = read_tsv(grch38_centromeres, col_names = c('bin', 'chrom', 'start', 'end', 'name')) %>% 
+#     group_by(chrom) %>% 
+#     summarize(centstart = min(start),
+#               centend = max(end),
+#               centromere = centstart + ((centend-centstart)/2)) %>% 
+#     mutate(chrom = str_replace(chrom, 'chr', ''),
+#            chrom = str_replace_all(chrom, c('X' = '23', 'Y' = '24')),
+#            chrom = as.numeric(chrom))
+# 
+# hg38 = extract_genome_info(hg38) %>% 
+#     select(-matches('cent')) %>% 
+#     left_join(., hg38_centromeres, by = 'chrom')
+
+hg38 = tibble::tribble(
+    ~chrom,     ~size, ~centstart,  ~centend, ~centromere,
+    1, 248956422,  122026459, 124932724, 123479591.5,
+    2, 242193529,   92188145,  94090557,    93139351,
+    3, 198295559,   90772458,  93655574,    92214016,
+    4, 190214555,   49712061,  51743951,    50728006,
+    5, 181538259,   46485900,  50059807,  48272853.5,
+    6, 170805979,   58553888,  59829934,    59191911,
+    7, 159345973,   58169653,  61528020,  59848836.5,
+    8, 145138636,   44033744,  45877265,  44955504.5,
+    9, 138394717,   43389635,  45518558,  44454096.5,
+    10, 133797422,   39686682,  41593521,  40640101.5,
+    11, 135086622,   51078348,  54425074,    52751711,
+    12, 133275309,   34769407,  37185252,  35977329.5,
+    13, 114364328,    1.6e+07,  18051248,    17025624,
+    14, 107043718,    1.6e+07,  18173523,  17086761.5,
+    15, 101991189,   17083673,  19725254,  18404463.5,
+    16,  90338345,   36311158,  38265669,  37288413.5,
+    17,  83257441,   22813679,  26616164,  24714921.5,
+    18,  80373285,   15460899,  20861206,  18161052.5,
+    19,  58617616,   24498980,  27190874,    25844927,
+    20,  64444167,   26436232,  30038348,    28237290,
+    21,  46709983,   10864560,  12915808,    11890184,
+    22,  50818468,   12954788,  15054318,    14004553,
+    23, 156040895,   58605579,  62412542,  60509060.5,
+    24,  57227415,   10316944,  10544039,  10430491.5
+)
+
+# Gene positions --------------------------------------------------------------------------------------------------
+tumor_suppressors = fromJSON(readLines('http://oncokb.org/api/v1/genes', warn = FALSE)) %>% 
+    filter(tsg == TRUE) %>% 
+    select(hugoSymbol) %>% 
+    mutate(hugoSymbol = mapvalues(hugoSymbol,
+                                  c('FAM175A', 'FAM58A', 'MRE11A', 'PARK2', 'FAM46C'), # these are not the official symbols
+                                  c('ABRAXAS1', 'CCNQ', 'MRE11', 'PRKN', 'TENT5C'))) # these are
+
+genes_hg19 = fread('ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_29/GRCh37_mapping/gencode.v29lift37.basic.annotation.gtf.gz',
+                   header = F, skip = 'chr1',
+                   col.names = c('chrom', 'source', 'type', 'start', 'end', 'na_1', 'strand', 'na_2', 'info')) %>%
+    filter(type == 'gene', info %like% 'protein_coding') %>%
+    mutate(chrom = str_replace(chrom, 'chr', ''),
+           gene = str_extract(info, '(?<=gene_name ")[A-Za-z0-9\\.\\-]+(?=";)')) %>%
+    group_by(gene, chrom) %>%
+    mutate(tsg = gene %in% tumor_suppressors$hugoSymbol) %>%
+    ungroup()
+    
+
+# Chromosome arms ------------------------------------------------------------------------------------------------
+Chromosome.arms.hg19 = fread("http://hgdownload.cse.ucsc.edu/goldenpath/hg19/database/cytoBand.txt.gz", 
+           col.names = c("chrom","chromStart","chromEnd","name","gieStain"))
+
+Chromosome.arms.hg19$arm = gsub(pattern = '^([[:alpha:]]*).*',
+                                replacement = '\\1', x = Chromosome.arms.hg19$name)
+
+Chromosome.arms.hg19$Chromosome = gsub(pattern = '[a-z]',
+                                       replacement = '',
+                                       x = Chromosome.arms.hg19$chrom)
+                                
+Chromosome.arms.hg19.out = data.frame()
+for(i in unique(Chromosome.arms.hg19$Chromosome)){
+    sub = Chromosome.arms.hg19[which(Chromosome.arms.hg19$Chromosome == i), ]
+    for(j in unique(sub$arm)){
+        out = data.frame(Chromosome = i,
+                         Arm = j,
+                         Start = min(sub$chromStart[which(sub$arm == j)]),
+                         End = ifelse(j == 'p', max(sub$chromStart[which(sub$arm == j)]),
+                                      hg19$size[which(hg19$chrom == i)]))
+        
+        Chromosome.arms.hg19.out = rbind(Chromosome.arms.hg19.out, out)
+    }
+}
+
+Chromosome.arms.hg19.out[Chromosome.arms.hg19.out$Chromosome == 'X' & Chromosome.arms.hg19.out$Arm == 'q', 'End'] = 155270560
+Chromosome.arms.hg19.out[Chromosome.arms.hg19.out$Chromosome == 'Y' & Chromosome.arms.hg19.out$Arm == 'q', 'End'] = 59373566
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
