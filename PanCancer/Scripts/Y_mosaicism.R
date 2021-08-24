@@ -63,7 +63,6 @@ WES_paths = paste0('/juno/work/tempo/wes_repo/Results/v1.3.x/cohort_level/MSKWES
 write.table(WES_paths, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/WES_facetspaths.txt', col.names = F, row.names = F, quote = F)
 
 
-
 depth_out = data.frame()
 for(i in unique(Normals_Prostate$sample)){
   data.selected = Normals_Prostate[which(Normals_Prostate$sample == i), ]
@@ -88,18 +87,45 @@ for(i in unique(Normals_Prostate$sample)){
 
 
 #' make summary over all autosomes / sample and compare to allosomes
-Y_mosaic_df = data.frame()
+chromo_out = data.frame()
+
 for(i in unique(depth_out$sample)){
-  if(length(depth_out$depth[which(depth_out$sample == i & depth_out$chrom == 24)]) != 0){
-    autosomes.median = median(depth_out$depth[which(depth_out$chrom %in% seq(1, 23, 1) & depth_out$sample == i)])
-    allosomes.median = median(depth_out$depth[which(depth_out$chrom == 24 & depth_out$sample == i)])
-    Y_mosaic = data.frame(Sample = i,
-                          autosomes.median = autosomes.median,
-                          allosomes.median = allosomes.median)
+  if(length(unique(depth_out$chrom[which(depth_out$sample == i)])) == 24){
+    print('yes')
+    patient = depth_out[which(depth_out$sample == i), ]
+    for(chromo in unique(patient$chrom)){
+      median_genome = median(patient$depth[!patient$chrom %in% chromo & patient$sample == i])
+      median_target = median(patient$depth[which(patient$chrom == chromo & patient$sample == i)])
+      summary_df = data.frame(sample = i,
+                              target = chromo,
+                              ratio = median_target / median_genome)
+      chromo_out = rbind(chromo_out, summary_df)
+    }
   } else next
-  
-  Y_mosaic_df = rbind(Y_mosaic_df, Y_mosaic)
 }
+
+#' make a ploidy correction through population-wise determination of the observed (peak) to 
+#' expected ploidy level across chromosomes.
+
+chromo_out$CN = chromo_out$ratio * 2
+chromo_out$corrected.CN = NA
+for(i in unique(chromo_out$target)){
+  density.chromo = density(chromo_out$CN[which(chromo_out$target == i)], bw = 'SJ')
+  print(density.chromo$x[which.max(density.chromo$y)])
+  density.max = density.chromo$x[which.max(density.chromo$y)]
+  corrected.CN = ifelse(i <= 22, (density.max - 2), (density.max - 1))
+  print(corrected.CN)
+  for(patient in unique(chromo_out$sample)){
+    chromo_out$corrected.CN[which(chromo_out$target == i & chromo_out$sample == patient)] = chromo_out$CN[which(chromo_out$sample == patient & chromo_out$target == i)] - corrected.CN 
+  }
+}
+
+chromo_out$target = factor(chromo_out$target, levels = seq(1, 24, 1))
+library(ggplot2)
+ggplot(chromo_out, aes(x = target, y = corrected.CN)) + geom_boxplot()
+
+
+
 
 
 #' investigate the results:
@@ -113,16 +139,17 @@ Y_max = Y_ratio_density$x[which.max(Y_ratio_density$y)]
 Y_mosaic_df$ratio.corrected = Y_mosaic_df$ratio - Y_max
 
 #' merge with clinical data:
-x = merge(Y_mosaic_df, Annotation[c('Sample.ID', 'Age.at.Which.Sequencing.was.Reported..Years.')],
-          by.x = 'Sample', by.y = 'Sample.ID', all.x = T)
+chromo_out$sample = substr(x = chromo_out$sample, start = 17, stop = 33)
+x = merge(chromo_out, Annotation[c('Sample.ID', 'Age.at.Which.Sequencing.was.Reported..Years.')],
+          by.x = 'sample', by.y = 'Sample.ID', all.x = T)
 
 x = x[order(x$Age.at.Which.Sequencing.was.Reported..Years., decreasing = T), ]
 View(x)
-
-
-
-
-
+head(Annotation)
+head(chromo_out)
+plot(x$Age.at.Which.Sequencing.was.Reported..Years.[which(x$target == 24)],x$corrected.CN[which(x$target == 24)])
+abline(lm(x$Age.at.Which.Sequencing.was.Reported..Years.[which(x$target == 24)] ~ x$corrected.CN[which(x$target == 24)]))
+summary(lm(x$corrected.CN[which(x$target == 24)] ~ x$Age.at.Which.Sequencing.was.Reported..Years.[which(x$target == 24)]))
 
 plot(density(Y_mosaic_df$ratio.corrected))
 head(Y_mosaic_df)
