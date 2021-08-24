@@ -124,63 +124,16 @@ chromo_out$target = factor(chromo_out$target, levels = seq(1, 24, 1))
 library(ggplot2)
 ggplot(chromo_out, aes(x = target, y = corrected.CN)) + geom_boxplot()
 
-
-
-
-
-#' investigate the results:
-#' the main hypothesis is the following:
-#' The older patient gets, the more likely the suffer from a Y-chromosome loss.
-#' We use the median read depth ratio as proxy
-Y_mosaic_df$Sample = substr(x = Y_mosaic_df$Sample, start = 17, stop = 33)
-Y_mosaic_df$ratio = (Y_mosaic_df$allosomes.median / Y_mosaic_df$autosomes.median) * 2
-Y_ratio_density = density(Y_mosaic_df$ratio, bw = 'SJ')
-Y_max = Y_ratio_density$x[which.max(Y_ratio_density$y)]
-Y_mosaic_df$ratio.corrected = Y_mosaic_df$ratio - Y_max
-
-#' merge with clinical data:
-chromo_out$sample = substr(x = chromo_out$sample, start = 17, stop = 33)
-x = merge(chromo_out, Annotation[c('Sample.ID', 'Age.at.Which.Sequencing.was.Reported..Years.')],
-          by.x = 'sample', by.y = 'Sample.ID', all.x = T)
-
-x = x[order(x$Age.at.Which.Sequencing.was.Reported..Years., decreasing = T), ]
-View(x)
-head(Annotation)
-head(chromo_out)
-plot(x$Age.at.Which.Sequencing.was.Reported..Years.[which(x$target == 24)],x$corrected.CN[which(x$target == 24)])
-abline(lm(x$Age.at.Which.Sequencing.was.Reported..Years.[which(x$target == 24)] ~ x$corrected.CN[which(x$target == 24)]))
-summary(lm(x$corrected.CN[which(x$target == 24)] ~ x$Age.at.Which.Sequencing.was.Reported..Years.[which(x$target == 24)]))
-
-plot(density(Y_mosaic_df$ratio.corrected))
-head(Y_mosaic_df)
-
-
-a = Normals_Prostate[which(Normals_Prostate$Sample == 'countsMerged____P-0021240-T01-IM6_P-0021240-N01-IM6.dat.gz'), ]
-
-al = data.frame()
-for(i in unique(a$chrom)){
-  b = data.frame(chrom = i,
-                 median = median(a$rCountN[which(a$chrom == i)]))
-  al = rbind(al, b)
+## calculate the CI interval
+normConfInt = function(x, alpha = 0.05){
+  mean(x) + qt(1 - alpha / 2, length(x) - 1) * sd(x) / sqrt(length(x)) * c(-1, 1)
 }
+  
+normConfInt(x = chromo_out$corrected.CN[which(chromo_out$target == 24)], 0.1)
+summary(chromo_out$corrected.CN[which(chromo_out$target == 24)])
 
-plot(al$chrom, al$median)
-abline(h = 383)
-median(al$median[which(al$chrom %in% seq(1, 23, 1))])
-102/383 * 2
-
-
-
-Y_mosaic_df$ratio = 
-plot(Y_mosaic_df$ratio)
-
-confint(Y_mosaic_df$ratio)
-
-abline(h = 0.4)
-plot(density(Y_mosaic_df$ratio))
-mad(Y_mosaic_df$ratio)
-
-
+hist(chromo_out$corrected.CN[which(chromo_out$target == 24)], nclass = 50)
+lines(density(chromo_out$corrected.CN[which(chromo_out$target == 24)]))
 
 
 
