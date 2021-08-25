@@ -1,20 +1,23 @@
-## FacetsY on IMPACT  Prostate cancer samples; n = 238
+## FacetsY on IMPACT  samples;
 ## This script is intened to be run on the juno cluster
 ##
 ## 04/16/2021
 ## chris kreitzer
+## modified: 08/25/2021
+
 
 ## install local FacetsY and pctGCdata
 require('pctGCdata', '/juno/home/kreitzec/R/x86_64-pc-linux-gnu-library/4.0/')
 require('facetsY', '/juno/home/kreitzec/R/x86_64-pc-linux-gnu-library/4.0/')
-source('/juno/home/kreitzec/WES_Prostate/FacetsQC.R')
+source('/juno/home/kreitzec/Y_chromosome_loss/Loss/FacetsQC.R')
 library(facetsSuite)
 library(dplyr)
 library(data.table)
 
-# load FACETS countsfiles for Prostate WES samples
-IMPACT.prostate.samples = read.csv('/juno/home/kreitzec/WES_Prostate/Panel.prostate.samplepath.txt', header = F)
-IMPACT.prostate.samples = as.character(IMPACT.prostate.samples$V1)
+
+# load IMPACT samplepaths
+IMPACT.samples = readRDS('/juno/home/kreitzec/Y_chromosome_loss/Data/cohort_data.rds')
+IMPACT.samples = as.character(IMPACT.samples$IMPACT.cohort$counts_file)
 
 #' function for data conversion to IGV 
 format_igv_seg = function(facets_output, sample_id, normalize = TRUE) {
@@ -40,24 +43,25 @@ format_igv_seg = function(facets_output, sample_id, normalize = TRUE) {
 cval.preprocess = 75
 cval.purity = 300
 cval.postprocess = 100
-snp.nbhd = 250
+snp.nbhd = 150
 
 
-Prostate.out_df = data.frame()
+CopyNumber_out = data.frame()
 flags.out = c()
-Cnlr.prostate.out_df = data.frame()
-IMPACT.prostate.IGV_out = data.frame()
-IMPACT.prostate.arm_change_out = data.frame()
-IMPACT.prostate.fit.out = data.frame()
+Cnlr_out = data.frame()
+IMPACT_IGV_out = data.frame()
+IMPACT_arm_change_out = data.frame()
+QC_metrics = data.frame()
 
-for(i in unique(IMPACT.prostate.samples)){
+for(i in unique(IMPACT.samples)){
   try({
     print(i)
-    data.in = facetsY::readSnpMatrix(i)
+    data.in = facetsY::readSnpMatrix(i, err.thresh = 10, del.thresh = 10)
     data.in = rbind(data.in[which(data.in$Chromosome != 'Y'), ], 
                     data.in[which(data.in$Chromosome == 'Y' & data.in$Position < 30000000), ])
     
-    data.pre = facetsY::preProcSample(data.in, 
+    data.pre = facetsY::preProcSample(rcmat = data.in, 
+                                      ndepth = 35,
                                       cval = cval.preprocess, 
                                       gbuild = 'hg19', 
                                       snp.nbhd = snp.nbhd)
@@ -74,7 +78,7 @@ for(i in unique(IMPACT.prostate.samples)){
                                            dipLogR = dipLogR.purity)
     data.out = facetsY::emcncf(data.process_out)
     
-    ID = substr(i, start = 70, stop = 98)
+    ID = substr(i, start = 59, stop = 75)
     purity = data.out$purity
     purity = ifelse(is.na(purity), 0, purity)
     
@@ -85,7 +89,7 @@ for(i in unique(IMPACT.prostate.samples)){
     data.return$purity = purity
     data.return$ploidy = data.out$ploidy
     
-    #' run quality metric on WES samples
+    #' run quality metric
     FacetsQuality = facetsSuite::run_facets(data.in,
                                             genome = 'hg19',
                                             cval = cval.postprocess, 
@@ -98,22 +102,21 @@ for(i in unique(IMPACT.prostate.samples)){
                             wgd = Quality$wgd,
                             ID = ID)
     
-    IMPACT.prostate.fit.out = rbind(IMPACT.prostate.fit.out, fit.out_df)
+    QC_metrics = rbind(QC_metrics, fit.out_df)
     
     # catch flags, if there are some
-    
     facets.flags = data.out$emflags
     if(!is.null(facets.flags)){
       flags.out = c(flags.out, paste0(facets.flags, ';', ID))
     }
     
-    Prostate.out_df = rbind(Prostate.out_df, data.return)
+    CopyNumber_out = rbind(CopyNumber_out, data.return)
     
     # fetch cnlr values for chrY; orthogonal validation
     data.cnlr = data.process_out$jointseg
     data.cnlr = data.cnlr[which(data.cnlr$chrom == 24), ]
     data.cnlr$ID = ID
-    Cnlr.prostate.out_df = rbind(Cnlr.prostate.out_df, data.cnlr)
+    Cnlr_out = rbind(Cnlr_out, data.cnlr)
     
     #' run FacetsY to IGV converstion
     #' create list
@@ -124,7 +127,7 @@ for(i in unique(IMPACT.prostate.samples)){
     IGV_out = format_igv_seg(facets_output = FacetsY_output,
                              sample_id = ID)
     
-    IMPACT.prostate.IGV_out = rbind(IMPACT.prostate.IGV_out, IGV_out)
+    IMPACT_IGV_out = rbind(IMPACT_IGV_out, IGV_out)
     
     #' run facetsSuite and create arm-level-change
     arm_change = facetsSuite::arm_level_changes(segs = FacetsY_output$segs,
@@ -138,18 +141,19 @@ for(i in unique(IMPACT.prostate.samples)){
     arm_change.out$AS = arm_change$aneuploidy_score
     arm_change.out$ID = ID
     
-    IMPACT.prostate.arm_change_out = rbind(IMPACT.prostate.arm_change_out , arm_change.out)
+    IMPACT_arm_change_out = rbind(IMPACT_arm_change_out , arm_change.out)
     
     
   })
 }
 
-write.table(Prostate.out_df, file = '/juno/home/kreitzec/WES_Prostate/IMPACT.Prostate.processed.out.16.4.txt', row.names = F, sep = '\t')
-write.table(flags.out, file = '/juno/home/kreitzec/WES_Prostate/IMPACT_errorflags.16.4.txt', row.names = F)
-write.table(Cnlr.prostate.out_df, file = '/juno/home/kreitzec/WES_Prostate/Cnlr.IMPACT.prostate.out.16.4.txt', row.names = F, sep = '\t')
-write.table(IMPACT.prostate.IGV_out, file = '/juno/home/kreitzec/WES_Prostate/IMPACT.prostate.IGV.16.4.seg', row.names = F, sep = '\t', quote = F)
-write.table(IMPACT.prostate.arm_change_out, file = '/juno/home/kreitzec/WES_Prostate/IMPACT.prostate.arm_change.16.4.txt', row.names = F, sep = '\t')
-write.table(IMPACT.prostate.fit.out, file = '/juno/home/kreitzec/WES_Prostate/IMPACT.prostate.arm_change.16.4.txt', row.names = F, sep = '\t')
+write.table(x = CopyNumber_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Loss/IMPACT_copynumber_out.txt', row.names = F, sep = '\t')
+write.table(flags.out, file = '/juno/home/kreitzec/Y_chromosome_loss/Loss/IMPACT_errorflags', row.names = F)
+write.table(Cnlr_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Loss/Cnlr_out.txt', row.names = F, sep = '\t')
+write.table(IMPACT_IGV_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Loss/IMPACT_IGV_out.seg', row.names = F, sep = '\t', quote = F)
+write.table(IMPACT_arm_change_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Loss/IMPACT_arm_change_out.txt', row.names = F, sep = '\t')
+write.table(QC_metrics, file = '/juno/home/kreitzec/Y_chromosome_loss/Loss/QC_metrics.txt', row.names = F, sep = '\t')
+
 
 #' qualitatively call y chromosome loss
 ## qualitative calling of WES loss (50% rule) and adherent analysis
@@ -185,12 +189,12 @@ Y_loss_call = function(data, sample.id){
 }
 
 ## apply to data, analyzed above
-IMPACT.Prostate.Y.out_df = lapply(unique(Prostate.out_df$ID),
-                               function(x) Y_loss_call(data = Prostate.out_df, sample.id = x))
+IMPACT.binaryLoss_out = lapply(unique(CopyNumber_out$ID),
+                               function(x) Y_loss_call(data = CopyNumber_out, sample.id = x))
 
-IMPACT.Prostate.Y.out_df = data.frame(do.call('rbind', IMPACT.Prostate.Y.out_df))
-write.table(IMPACT.Prostate.Y.out_df, 
-            file = '/juno/home/kreitzec/WES_Prostate/IMPACT.Prostate.binary.16.4.txt', 
+IMPACT.binaryLoss_out = data.frame(do.call('rbind', IMPACT.binaryLoss_out))
+write.table(IMPACT.binaryLoss_out, 
+            file = '/juno/home/kreitzec/Y_chromosome_loss/Loss/IMPACT.binaryLoss_out.txt', 
             row.names = F,
             sep = '\t')
 
