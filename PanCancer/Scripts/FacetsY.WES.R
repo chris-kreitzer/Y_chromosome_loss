@@ -1,4 +1,5 @@
-## FacetsY on WES  Prostate cancer samples; n = 238
+## FacetsY on WES recapture samples
+## I will start with n = 957 samples which have corresponding IMPACT sequencing
 ## This script is intened to be run on the juno cluster
 
 ## run purity run (cval = 700) first; then get dipLogR and run with cval 150
@@ -7,6 +8,9 @@
 ## run FacetsQC and flag samples with QC == FALSE
 
 ## 04/14/2021
+## modified on 08/25/2021
+## chris Kreitzer
+
 
 # install local FacetsY and pctGCdata
 require('pctGCdata', '/juno/home/kreitzec/R/x86_64-pc-linux-gnu-library/4.0/')
@@ -17,8 +21,10 @@ library(dplyr)
 library(data.table)
 
 # load FACETS countsfiles for Prostate WES samples
-WES.prostate.samples = read.csv('/juno/home/kreitzec/WES_Prostate/WES.prostate.samplepath.txt', header = F)
-WES.prostate.samples = as.character(WES.prostate.samples$V1)
+WES.samples = readRDS('/juno/home/kreitzec/Y_chromosome_loss/Data/cohort_data.rds')
+WES.samples = as.character(WES.samples$WES.cohort$Facet_Countfile)
+
+WES.samples = WES.samples[1:2]
 
 #' function for data conversion to IGV 
 format_igv_seg = function(facets_output, sample_id, normalize = TRUE) {
@@ -46,17 +52,17 @@ cval.purity = 700
 cval.postprocess = 200
 snp.nbhd = 250
 
-Prostate.out_df = data.frame()
+WES_copyNumber_out = data.frame()
 flags.out = c()
-Cnlr.prostate.out_df = data.frame()
-WES.prostate.IGV_out = data.frame()
-WES.prostate.arm_change_out = data.frame()
-WES.prostate.fit.out = data.frame()
+WES_cnLR_out = data.frame()
+WES_IGV_out = data.frame()
+WES_arm_alteration_out = data.frame()
+WES_QC_out = data.frame()
 
-for(i in unique(WES.prostate.samples)){
+for(i in unique(WES.samples)){
   try({
     print(i)
-    data.in = facetsY::readSnpMatrix(i)
+    data.in = facetsY::readSnpMatrix(i, err.thresh = 10, del.thresh = 10)
     data.in = rbind(data.in[which(data.in$Chromosome != 'Y'), ], 
                     data.in[which(data.in$Chromosome == 'Y' & data.in$Position < 30000000), ])
     
@@ -77,7 +83,7 @@ for(i in unique(WES.prostate.samples)){
                                            dipLogR = dipLogR.purity)
     data.out = facetsY::emcncf(data.process_out)
     
-    ID = substr(i, start = 70, stop = 98)
+    ID = substr(i, start = 72, stop = 107)
     purity = data.out$purity
     purity = ifelse(is.na(purity), 0, purity)
     
@@ -101,7 +107,7 @@ for(i in unique(WES.prostate.samples)){
                             wgd = Quality$wgd,
                             ID = ID)
     
-    WES.prostate.fit.out = rbind(WES.prostate.fit.out, fit.out_df)
+    WES_QC_out = rbind(WES_QC_out, fit.out_df)
     
     # catch flags, if there are some
     
@@ -110,13 +116,13 @@ for(i in unique(WES.prostate.samples)){
       flags.out = c(flags.out, paste0(facets.flags, ';', ID))
     }
     
-    Prostate.out_df = rbind(Prostate.out_df, data.return)
+    WES_copyNumber_out = rbind(WES_copyNumber_out, data.return)
     
     # fetch cnlr values for chrY; orthogonal validation
     data.cnlr = data.process_out$jointseg
     data.cnlr = data.cnlr[which(data.cnlr$chrom == 24), ]
     data.cnlr$ID = ID
-    Cnlr.prostate.out_df = rbind(Cnlr.prostate.out_df, data.cnlr)
+    WES_cnLR_out = rbind(WES_cnLR_out, data.cnlr)
     
     #' run FacetsY to IGV converstion
     #' create list
@@ -127,7 +133,7 @@ for(i in unique(WES.prostate.samples)){
     IGV_out = format_igv_seg(facets_output = FacetsY_output,
                              sample_id = ID)
     
-    WES.prostate.IGV_out = rbind(WES.prostate.IGV_out, IGV_out)
+    WES_IGV_out = rbind(WES_IGV_out, IGV_out)
     
     #' run facetsSuite and create arm-level-change
     arm_change = facetsSuite::arm_level_changes(segs = FacetsY_output$segs,
@@ -141,18 +147,18 @@ for(i in unique(WES.prostate.samples)){
     arm_change.out$AS = arm_change$aneuploidy_score
     arm_change.out$ID = ID
     
-    WES.prostate.arm_change_out = rbind(WES.prostate.arm_change_out, arm_change.out)
+    WES_arm_alteration_out = rbind(WES_arm_alteration_out, arm_change.out)
     
     
   })
 }
 
-write.table(Prostate.out_df, file = '/home/kreitzec/WES_Prostate/WES.Prostate.processed.out.14.4.txt', row.names = F, sep = '\t')
-write.table(flags.out, file = '/home/kreitzec/WES_Prostate/WES_errorflags.14.4.txt', row.names = F)
-write.table(Cnlr.prostate.out_df, file = '/home/kreitzec/WES_Prostate/Cnlr.WES.prostate.out.14.4.txt', row.names = F, sep = '\t')
-write.table(WES.prostate.IGV_out, file = '/home/kreitzec/WES_Prostate/WES.prostate.IGV.14.4.txt', row.names = F, sep = '\t')
-write.table(WES.prostate.arm_change_out, file = '/home/kreitzec/WES_Prostate/WES.prostate.arm_change.14.4.txt', row.names = F, sep = '\t')
-write.table(WES.prostate.fit.out, file = '/home/kreitzec/WES_Prostate/WES.prostate.QC.14.4.txt', row.names = F, sep = '\t')
+write.table(WES_copyNumber_out, file = '/home/kreitzec/Y_chromosome_loss/Loss/WES_copyNumber_out.txt', row.names = F, sep = '\t', quote = F)
+write.table(flags.out, file = '/home/kreitzec/Y_chromosome_loss/Loss/WES_errorflags.txt', row.names = F)
+write.table(WES_cnLR_out, file = '/home/kreitzec/Y_chromosome_loss/Loss/WES_cnLR_out.txt', row.names = F, sep = '\t', quote = F)
+write.table(WES_IGV_out, file = '/home/kreitzec/Y_chromosome_loss/Loss/WES_IGV_out.txt', row.names = F, sep = '\t', quote = F)
+write.table(WES_arm_alteration_out, file = '/home/kreitzec/Y_chromosome_loss/Loss/WES_arm_alteration_out.txt', row.names = F, sep = '\t', quote = F)
+write.table(WES_QC_out, file = '/home/kreitzec/Y_chromosome_loss/Loss/WES_QC_out.txt', row.names = F, sep = '\t', quote = F)
 
 #' qualitatively call y chromosome loss
 ## qualitative calling of WES loss (50% rule) and adherent analysis
@@ -188,13 +194,14 @@ Y_loss_call = function(data, sample.id){
 }
 
 ## apply to data, analyzed above
-WES.Prostate.Y.out_df = lapply(unique(Prostate.out_df$ID),
-                               function(x) Y_loss_call(data = Prostate.out_df, sample.id = x))
+WES.binaryLoss_out = lapply(unique(WES_copyNumber_out$ID),
+                               function(x) Y_loss_call(data = WES_copyNumber_out, sample.id = x))
 
-WES.Prostate.Y.out_df = data.frame(do.call('rbind', WES.Prostate.Y.out_df))
-write.table(WES.Prostate.Y.out_df, 
-            file = '/juno/home/kreitzec/WES_Prostate/WES.Prostate.binary.14.4.txt', 
+WES.binaryLoss_out = data.frame(do.call('rbind', WES.binaryLoss_out))
+write.table(WES.binaryLoss_out, 
+            file = '/juno/home/kreitzec/Y_chromosome_loss/Loss/WES.binaryLoss_out.txt', 
             row.names = F,
-            sep = '\t')
+            sep = '\t',
+            quote = F)
 
 ## out
