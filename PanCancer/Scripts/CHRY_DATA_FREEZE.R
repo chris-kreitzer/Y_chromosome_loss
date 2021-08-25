@@ -21,8 +21,15 @@ data_freeze <- samp_df %>%
 write.table(data_freeze, "~/Downloads/data_freeze_cancer_type_082321.txt", sep = "\t", row.names = F, quote = F)
 
 
+
 #' make an automated data selection process
 data_freeze1 = read.csv('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/data_freeze_cancer_type_082321.txt', sep = '\t')
 data_WES = read.csv('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/WES_cBio_ID.match.txt', sep = '\t')
+Facets_annotation = read.csv('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/Facets_annotated.cohort.txt', sep = '\t')
+Facets_Countsfile = Facets_annotation[, c('tumor_sample', 'counts_file')]
+data_freeze1 = merge(data_freeze1, Facets_Countsfile, by.x = 'SAMPLE_ID', by.y = 'tumor_sample', all.x = T)
+data_freeze1 = data_freeze1[-which(duplicated(data_freeze1$SAMPLE_ID)), ]
 
-
+#' save output; for generell purpose
+Y_chromosome_cohort_data = list(IMPACT.cohort = data_freeze1)
+saveRDS(object = Y_chromosome_cohort_data, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
