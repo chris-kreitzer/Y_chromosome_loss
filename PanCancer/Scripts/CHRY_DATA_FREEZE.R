@@ -1,11 +1,11 @@
 # Read in clinical data
 # This should be at the patient level 
-# Need to select on sample per patient
+# Need to select one sample per patient
 # use_for_patient_level (T/F): column indicating which of the tumor samples to use for patient-level analyses. Relevant when a patient has multiple biopsies sequenced
 # use_for_sample_level (T/F): column indicating whether sample passed basic purity check.
 
-pat_df <- read.delim("~/Downloads/mskimpact_clinical_data (65).tsv")
-pat_df <- pat_df %>% 
+pat_df = read.delim("~/Downloads/mskimpact_clinical_data (65).tsv")
+pat_df = pat_df %>% 
   mutate_if(is.factor, as.character) 
 samp_df <- read.delim("~/Desktop/Projects/40K_Analysis/data/data_clinical_sample.oncokb.txt")
 samp_df <- samp_df %>% 
@@ -21,5 +21,8 @@ data_freeze <- samp_df %>%
 write.table(data_freeze, "~/Downloads/data_freeze_cancer_type_082321.txt", sep = "\t", row.names = F, quote = F)
 
 
-data_freeze1  <- table(data_freeze$CANCER_TYPE,data_freeze$Sex)
+#' make an automated data selection process
+data_freeze1 = read.csv('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/data_freeze_cancer_type_082321.txt', sep = '\t')
+data_WES = read.csv('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/WES_cBio_ID.match.txt', sep = '\t')
+
 
