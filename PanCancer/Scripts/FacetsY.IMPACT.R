@@ -164,30 +164,39 @@ message('evaluating binary Y loss')
 Y_loss_call = function(data, sample.id){
   data.sub = data[which(data$ID == sample.id), ]
   data.sub = data.sub[which(data.sub$chrom == 24), ]
-  data.sub$length = data.sub$end - data.sub$start
-  Y_ratio = sum(data.sub$length[which(data.sub$tcn.em == 0)], na.rm = T) / sum(data.sub$length, na.rm = T)
-  
-  # return values:
-  purity = unique(data.sub$purity)
-  length = unique(sum(data.sub$length, na.rm = T))
-  ploidy = unique(data.sub$ploidy)
-  min.segment = unique(min(data.sub$start))
-  max.segment = unique(max(data.sub$end))
-  
-  Y_call = ifelse(Y_ratio >= 0.5, 'Y_chrom_loss', 'intact_Y_chrom')
-  Y_call = unique(Y_call)
-  
-  sample.id = unique(sample.id)
-  
-  return(cbind(Y_call, 
-               sample.id,
-               length,
-               ploidy,
-               purity,
-               min.segment = min.segment,
-               max.segment = max.segment))
+  if(nrow(data.sub) == 0){
+    return(data.frame(cbind(Y_call = NA, 
+                            sample.id,
+                            length = NA,
+                            ploidy = NA,
+                            purity = NA,
+                            min.segment = NA,
+                            max.segment = NA)))
+  } else {
+    data.sub$length = data.sub$end - data.sub$start
+    Y_ratio = sum(data.sub$length[which(data.sub$tcn.em == 0)], na.rm = T) / sum(data.sub$length, na.rm = T)
+    
+    # return values:
+    purity = unique(data.sub$purity)
+    length = unique(sum(data.sub$length, na.rm = T))
+    ploidy = unique(data.sub$ploidy)
+    min.segment = unique(min(data.sub$start))
+    max.segment = unique(max(data.sub$end))
+    
+    Y_call = ifelse(Y_ratio >= 0.5, 'Y_chrom_loss', 'intact_Y_chrom')
+    Y_call = unique(Y_call)
+    
+    sample.id = unique(sample.id)
+    
+    return(data.frame(cbind(Y_call, 
+                            sample.id,
+                            length,
+                            ploidy,
+                            purity,
+                            min.segment = min.segment,
+                            max.segment = max.segment)))
+  }
 }
-
 ## apply to data, analyzed above
 IMPACT.binaryLoss_out = lapply(unique(CopyNumber_out$ID),
                                function(x) Y_loss_call(data = CopyNumber_out, sample.id = x))
