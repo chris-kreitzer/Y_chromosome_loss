@@ -1,6 +1,6 @@
 ## Investigate Y-chromosome mosaicism:
 ## This should help to distinguish whether Y-chromosome loss happened
-## as a physiological cuase (age) or truly because of the cancer.
+## as a physiological cause (e.g., age) or truly because of the cancer.
 ## 
 ## start data: 08/20/2021
 ## chris kreitzer
@@ -11,68 +11,75 @@
 ## install local FacetsY and pctGCdata
 require('pctGCdata', '/juno/home/kreitzec/R/x86_64-pc-linux-gnu-library/4.0/')
 require('facetsY', '/juno/home/kreitzec/R/x86_64-pc-linux-gnu-library/4.0/')
-source('/juno/home/kreitzec/WES_Prostate/FacetsQC.R')
+require('vroom', '/juno')
 library(facetsSuite)
 library(dplyr)
 library(data.table)
 
-# load FACETS countsfiles for Prostate WES samples
-IMPACT.prostate.samples = read.csv('/juno/home/kreitzec/WES_Prostate/Panel.prostate.samplepath.txt', header = F)
-IMPACT.prostate.samples = as.character(IMPACT.prostate.samples$V1)
+# load WES_paths (only male samples to assess Y_chromosome mosaicism)
+WES.samples = readRDS('/juno/home/kreitzec/Y_chromosome_loss/Data/cohort_data.rds')
+WES.samples = as.character(WES.samples$WES_male$Facet_Countfile)
 
-#' mappability issues and GC content are already considered in Facets pipeline
-#' I will only include regions with GC content between 45 and 55%; equal distribution across the genome.
-snp.nbhd = 0
-normal_coverage_df_prostate = data.frame()
-for(i in unique(IMPACT.prostate.samples)){
-  try({
-    print(i)
-    data.in = facetsY::readSnpMatrix(i)
-    data.pre = facetsY::preProcSample(data.in, 
-                                      gbuild = 'hg19', 
-                                      snp.nbhd = snp.nbhd)
-    data.pre = data.pre$jointseg[which(data.pre$jointseg$gcpct >= 0.45 & data.pre$jointseg$gcpct <= 0.55),
-                                 c('chrom', 'maploc', 'rCountN', 'gcpct')]
-    data.pre$sample = i
-    
-    normal_coverage_df_prostate = rbind(normal_coverage_df_prostate , data.pre)
-    
-  })
-}
-
-write.table(normal_coverage_df_prostate, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/WES_normal_coverage_Prostate.txt', row.names = F, sep = '\t')
-
-
-
-## Start with the downstream analysis;
 ## the main hypothesis is, that the Y-chromosome DNA content is roughly half of that of autosomes 
-## I claim that I can estimate the Y-chromosome copy number from the normal sequencing results via the read depth
+## I claim, that I can estimate the Y-chromosome copy number from the normal sequencing results via the read depth
 ## I will calculate the median normal coverage among the autosomes and compare to the allosomes
 ## the ratio allosomes / median autosomes will inform us, whether patient has an intact Y-chromosome or not
 ## look for age dependence
 
-#' sliding window approach with evoBiR (1kb windows; median depth of sequencing in the normals)
-library(evobiR)
+#' mappability issues and GC content are already considered in Facets pipeline
+#' I will only include regions with GC content between 45 and 55%; equal distribution across the genome.
+print(length(unique(WES.samples)))
 
-## Input
-Normals_Prostate = read.csv('../Data_out/WES_normal_coverage_Prostate.txt', sep = '\t')
-Normals_Prostate$sample = basename(Normals_Prostate$sample)
-Annotation = read.table('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/WES_clinical_annotation.txt', sep = '\t', quote = "", header = T)
-WES_paths = read.csv('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/WES_paths.txt', header = F)
-WES_paths = paste0('/juno/work/tempo/wes_repo/Results/v1.3.x/cohort_level/MSKWESRP/somatic/', WES_paths$V1, '/facets/', WES_paths$V1, '/', WES_paths$V1, '.snp_pileup.gz')
-write.table(WES_paths, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/WES_facetspaths.txt', col.names = F, row.names = F, quote = F)
+#' start processing the normal samples
+snp.nbhd = 250
+normal_coverage_df = data.frame()
+for(i in unique(WES.samples)){
+  try({
+    print(i)
+    data.in = suppressMessages(vroom::vroom(i))
+    data.in_summary = data.frame(Chromosome = data.in$Chromosome,
+                                 Position = data.in$Position,
+                                 NOR.DP = data.in$File1A + data.in$File1R,
+                                 NOR.RD = data.in$File1R,
+                                 TUM.DP = data.in$File2A + data.in$File2R,
+                                 TUM.RD = data.in$File2R)
+    
+    data.pre = facetsY::preProcSample(data.in_summary, 
+                                      gbuild = 'hg19', 
+                                      snp.nbhd = snp.nbhd)
+    data.pre = data.pre$jointseg[which(data.pre$jointseg$gcpct >= 0.45 & data.pre$jointseg$gcpct <= 0.55),
+                                 c('chrom', 'maploc', 'rCountN')]
+    data.pre$sample = i
+    normal_coverage_df = rbind(normal_coverage_df, data.pre)
+    
+  })
+}
+
+## SlidingWindow approach
+SlidingWindow = function(FUN, data, window, step) {
+  total = length(data)
+  spots = seq(from = 1, to = (total - window), by = step)
+  result = vector(length = length(spots))
+  for (i in 1:length(spots)) {
+    result[i] = match.fun(FUN)(data[spots[i]:(spots[i] + 
+                                                window - 1)])
+  }
+  return(result)
+}
+
+message('starting SlidingWindow now')
 
 
 depth_out = data.frame()
-for(i in unique(Normals_Prostate$sample)){
-  data.selected = Normals_Prostate[which(Normals_Prostate$sample == i), ]
+for(i in unique(normal_coverage_df$sample)){
+  data.selected = normal_coverage_df[which(normal_coverage_df$sample == i), ]
   print(i)
   for(j in seq_along(data.selected$chrom)){
     if(length(data.selected$rCountN[which(data.selected$chrom == j)]) > 1000){
-      median_depth = evobiR::SlidingWindow(FUN = median,
-                                           data = data.selected$rCountN[which(data.selected$chrom == j)],
-                                           window = 1000,
-                                           step = 1000)
+      median_depth = SlidingWindow(FUN = median,
+                                   data = data.selected$rCountN[which(data.selected$chrom == j)],
+                                   window = 1000,
+                                   step = 1000)
     } else if(length(data.selected$rCountN[which(data.selected$chrom == j)]) <= 1000 & 
               length(data.selected$rCountN[which(data.selected$chrom == j)]) > 100){
       median_depth = median(data.selected$rCountN[which(data.selected$chrom == j)])
@@ -85,7 +92,13 @@ for(i in unique(Normals_Prostate$sample)){
   }
 }
 
+write.table(normal_coverage_df, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/WES_normal_coverage.txt', row.names = F, sep = '\t')
+write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/Normal_coverage_bins.txt', row.names = F, sep = '\t')
 
+
+
+###############################################################################
+##' Downstream analysis; investigate the output from above
 #' make summary over all autosomes / sample and compare to allosomes
 chromo_out = data.frame()
 
