@@ -137,5 +137,43 @@ lines(density(chromo_out$corrected.CN[which(chromo_out$target == 24)]))
 
 
 
+###############################################################################
+## Load data from Juno; algorithm above was run on n = 1,500 samples
+## Investigate the output
+Normal_coverage = read.csv('Mosaicism/Normal_coverage_bins.txt', sep = '\t')
+Bins_in = read.csv('Mosaicism/bins_summary.txt', sep = '\t')
+
+Bins_in$CN = Bins_in$ratio * 2
+Bins_in$corrected.CN = NA
+for(i in unique(Bins_in$target)){
+  density.chromo = density(Bins_in$CN[which(Bins_in$target == i)], bw = 'SJ')
+  print(density.chromo$x[which.max(density.chromo$y)])
+  density.max = density.chromo$x[which.max(density.chromo$y)]
+  corrected.CN = ifelse(i <= 22, (density.max - 2), (density.max - 1))
+  print(corrected.CN)
+  for(patient in unique(Bins_in$sample)){
+    Bins_in$corrected.CN[which(Bins_in$target == i & Bins_in$sample == patient)] = Bins_in$CN[which(Bins_in$sample == patient & Bins_in$target == i)] - corrected.CN 
+  }
+}
+
+Bins_in$target = factor(Bins_in$target, levels = seq(1, 24, 1))
+library(ggplot2)
+ggplot(Bins_in, aes(x = target, y = corrected.CN)) + geom_boxplot()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
