@@ -118,4 +118,72 @@ Y_continious_loss
 ggsave_golden(filename = 'Figures/Method_validation.pdf', plot = Y_continious_loss, width = 16)
 
 
+
+#' Purity and Ploidy estimates of both methods (supplement for validation)
+cohortData = readRDS(file = 'Data_out/cohort_data.rds')
+IMPACT = cohortData$IMPACT.cohort
+IMPACT$counts_file = NULL
+WES = cohortData$WES.cohort
+WES$Facet_Countfile = NULL
+WES$Facet_Path = NULL
+WES$CMO_Sample_ID = NULL
+
+ID_match = cohortData$ID_matches
+ID_match$Facet_Countfile = NULL
+ID_match$Facet_Path = NULL
+
+#' create matching data.frame for IMPACT vs WES
+match_out = data.frame()
+for(i in 1:nrow(WES)){
+  print(WES$User_Sample_ID[i])
+  WES.sample = WES$User_Sample_ID[i]
+  WES.purity = WES$purity[i]
+  WES.ploidy = WES$ploidy[i]
+  IMPACT.sample = ID_match$DMP_Sample_ID[which(ID_match$User_Sample_ID == WES.sample)]
+  print(IMPACT.sample)
+  IMPACT.purity = IMPACT$purity[which(IMPACT$SAMPLE_ID == IMPACT.sample)]
+  IMPACT.ploidy = IMPACT$ploidy[which(IMPACT$SAMPLE_ID == IMPACT.sample)]
+  
+  out = data.frame(WES = WES.sample,
+                   WES.purity = WES.purity,
+                   WES.ploidy = WES.ploidy,
+                   IMPACT = IMPACT.sample,
+                   IMPACT.purity = IMPACT.purity,
+                   IMPACT.ploidy = IMPACT.ploidy)
+
+  match_out = rbind(match_out, out)
+  
+}
+
+#' Visualization
+match_out = match_out[which(match_out$WES.purity != 0 & match_out$IMPACT.purity != 0), ]
+
+#' purity agreement plot
+purity.plot = ggplot(match_out, aes(x = WES.purity, y = IMPACT.purity)) +
+  geom_jitter() +
+  scale_y_continuous(expand = c(0,0),
+                     limits = c(0, 1)) +
+  scale_x_continuous(expand = c(0, 0),
+                     limits = c(0, 1)) +
+  theme_bw() +
+  theme(aspect.ratio = 1) +
+  labs(x = 'WES recapture', y = 'IMPACT targeted panel', 
+       title = paste0('Purity agreement plot\nn = 946, r = ', round(cor.test(match_out$WES.purity, match_out$IMPACT.purity)[[4]][1], 3)))
+
+#' ploidy agreement plot
+ploidy.plot = ggplot(match_out, aes(x = WES.ploidy, y = IMPACT.ploidy)) +
+  geom_jitter() +
+  scale_y_continuous(expand = c(0,0),
+                     limits = c(1, 5)) +
+  scale_x_continuous(expand = c(0, 0),
+                     limits = c(1, 5)) +
+  theme_bw() +
+  theme(aspect.ratio = 1) +
+  labs(x = 'WES recapture', y = 'IMPACT targeted panel', 
+       title = paste0('Ploidy agreement plot\nn = 946, r = ', round(cor.test(match_out$WES.ploidy, match_out$IMPACT.ploidy)[[4]][1], 3)))
+
+Supplement1 = ploidy.plot + purity.plot
+ggsave_golden(Supplement1, filename = 'Figures/PurityPloidy_Validation.pdf', width = 12)
+
+
 #' out
