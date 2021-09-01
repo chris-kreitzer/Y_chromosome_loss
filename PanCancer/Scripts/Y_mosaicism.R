@@ -15,6 +15,7 @@ require('vroom', '/juno')
 library(facetsSuite)
 library(dplyr)
 library(data.table)
+library(ggplot2)
 
 # load WES_paths (only male samples to assess Y_chromosome mosaicism)
 WES.samples = readRDS('/juno/home/kreitzec/Y_chromosome_loss/Data/cohort_data.rds')
@@ -98,6 +99,7 @@ write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/N
 
 
 ###############################################################################
+###############################################################################
 ##' Downstream analysis; investigate the output from above
 #' make summary over all autosomes / sample and compare to allosomes
 Normal_coverage = read.csv('Mosaicism/Normal_coverage_bins.txt', sep = '\t')
@@ -139,60 +141,27 @@ for(i in unique(CN_correction$chromosome)){
   sample_summary$corrected.CN[which(sample_summary$target == i)] = sample_summary$CN[which(sample_summary$target == i)] - CN_correction$correction_factor[which(CN_correction$chromosome == i)]
 }
 
-sample_summary$target = factor(sample_summary$target, levels = seq(1, 24, 1))
-library(ggplot2)
-ggplot(sample_summary, aes(x = target, y = corrected.CN)) + geom_boxplot()
 
-## calculate the CI interval
+#' Visualization:
+sample_summary$target = factor(sample_summary$target, levels = seq(1, 24, 1))
+Germline_CN = ggplot(sample_summary, aes(x = target, y = corrected.CN)) + 
+  geom_boxplot() +
+  theme_bw() +
+  labs(x = 'chromosome', y = 'corrected copy Number', 
+       title = 'Estimated germline copy number\ndetermined from read depth data\nn=158 WES samples')
+
+ggsave_golden(plot = Germline_CN, filename = 'Figures/Germline_CN.pdf', width = 8)
+
+
+
+#' define the LOY mosaicism threshold based on the 99% CI
 normConfInt = function(x, alpha = 0.05){
   mean(x) + qt(1 - alpha / 2, length(x) - 1) * sd(x) / sqrt(length(x)) * c(-1, 1)
 }
-  
-normConfInt(x = chromo_out$corrected.CN[which(chromo_out$target == 24)], 0.1)
-summary(chromo_out$corrected.CN[which(chromo_out$target == 24)])
-
-hist(chromo_out$corrected.CN[which(chromo_out$target == 24)], nclass = 50)
-lines(density(chromo_out$corrected.CN[which(chromo_out$target == 24)]))
 
 
-
-###############################################################################
-## Load data from Juno; algorithm above was run on n = 1,500 samples
-## Investigate the output
-Normal_coverage = read.csv('Mosaicism/Normal_coverage_bins.txt', sep = '\t')
-Bins_in = read.csv('Mosaicism/bins_summary.txt', sep = '\t')
-
-Bins_in$CN = Bins_in$ratio * 2
-Bins_in$corrected.CN = NA
-for(i in unique(Bins_in$target)){
-  density.chromo = density(Bins_in$CN[which(Bins_in$target == i)], bw = 'SJ')
-  print(density.chromo$x[which.max(density.chromo$y)])
-  density.max = density.chromo$x[which.max(density.chromo$y)]
-  corrected.CN = ifelse(i <= 22, (density.max - 2), (density.max - 1))
-  print(corrected.CN)
-  for(patient in unique(Bins_in$sample)){
-    Bins_in$corrected.CN[which(Bins_in$target == i & Bins_in$sample == patient)] = Bins_in$CN[which(Bins_in$sample == patient & Bins_in$target == i)] - corrected.CN 
-  }
-}
-
-Bins_in$target = factor(Bins_in$target, levels = seq(1, 24, 1))
-library(ggplot2)
-ggplot(Bins_in, aes(x = target, y = corrected.CN)) + geom_boxplot()
+lower_Y_threshold = normConfInt(x = sample_summary$corrected.CN[which(sample_summary$target == 24)])
+length(sample_summary$sample[which(sample_summary$target == 24 & sample_summary$corrected.CN < 0.8189)])
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#' out
