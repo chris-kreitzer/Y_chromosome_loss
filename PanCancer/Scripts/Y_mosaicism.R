@@ -100,42 +100,48 @@ write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/N
 ###############################################################################
 ##' Downstream analysis; investigate the output from above
 #' make summary over all autosomes / sample and compare to allosomes
-chromo_out = data.frame()
+Normal_coverage = read.csv('Mosaicism/Normal_coverage_bins.txt', sep = '\t')
+Normal_coverage$sample = basename(Normal_coverage$sample)
+Bins_summarised = read.csv('Mosaicism/bins_summary.txt', sep = '\t')
 
-for(i in unique(depth_out$sample)){
-  if(length(unique(depth_out$chrom[which(depth_out$sample == i)])) == 24){
-    print('yes')
-    patient = depth_out[which(depth_out$sample == i), ]
+sample_summary = data.frame() 
+for(i in unique(Normal_coverage$sample)){
+  if(length(unique(Normal_coverage$chrom[which(Normal_coverage$sample == i)])) == 24){
+    patient = Normal_coverage[which(Normal_coverage$sample == i), ]
     for(chromo in unique(patient$chrom)){
       median_genome = median(patient$depth[!patient$chrom %in% chromo & patient$sample == i])
       median_target = median(patient$depth[which(patient$chrom == chromo & patient$sample == i)])
       summary_df = data.frame(sample = i,
                               target = chromo,
                               ratio = median_target / median_genome)
-      chromo_out = rbind(chromo_out, summary_df)
+      sample_summary = rbind(sample_summary, summary_df)
     }
   } else next
 }
 
 #' make a ploidy correction through population-wise determination of the observed (peak) to 
 #' expected ploidy level across chromosomes.
-
-chromo_out$CN = chromo_out$ratio * 2
-chromo_out$corrected.CN = NA
-for(i in unique(chromo_out$target)){
-  density.chromo = density(chromo_out$CN[which(chromo_out$target == i)], bw = 'SJ')
-  print(density.chromo$x[which.max(density.chromo$y)])
+sample_summary$target = as.integer(as.character(sample_summary$target))
+sample_summary$CN = sample_summary$ratio * 2
+sample_summary$corrected.CN = NA
+CN_correction = data.frame()
+for(i in unique(sample_summary$target)){
+  density.chromo = density(sample_summary$CN[which(sample_summary$target == i)], bw = 'SJ')
   density.max = density.chromo$x[which.max(density.chromo$y)]
-  corrected.CN = ifelse(i <= 22, (density.max - 2), (density.max - 1))
-  print(corrected.CN)
-  for(patient in unique(chromo_out$sample)){
-    chromo_out$corrected.CN[which(chromo_out$target == i & chromo_out$sample == patient)] = chromo_out$CN[which(chromo_out$sample == patient & chromo_out$target == i)] - corrected.CN 
-  }
+  corrected.CN = ifelse(i %in% seq(1, 22, 1), (density.max - 2), (density.max - 1))
+  correction_factor = data.frame(chromosome = i,
+                                 correction_factor = corrected.CN)
+  CN_correction = rbind(CN_correction, correction_factor)
 }
 
-chromo_out$target = factor(chromo_out$target, levels = seq(1, 24, 1))
+#' correct the CN values by their density as calculated above;
+for(i in unique(CN_correction$chromosome)){
+  sample_summary$corrected.CN[which(sample_summary$target == i)] = sample_summary$CN[which(sample_summary$target == i)] - CN_correction$correction_factor[which(CN_correction$chromosome == i)]
+}
+
+sample_summary$target = factor(sample_summary$target, levels = seq(1, 24, 1))
 library(ggplot2)
-ggplot(chromo_out, aes(x = target, y = corrected.CN)) + geom_boxplot()
+ggplot(sample_summary, aes(x = target, y = corrected.CN)) + geom_boxplot()
 
 ## calculate the CI interval
 normConfInt = function(x, alpha = 0.05){
