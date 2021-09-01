@@ -41,5 +41,43 @@ Y_chromosome_cohort_data = list(IMPACT.cohort = data_freeze1,
                                 WES.cohort = WES_data)
 saveRDS(object = Y_chromosome_cohort_data, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
 
-a = readRDS(file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
-length(a$WES.cohort$Facet_Countfile)
+
+
+#######################################
+#######################################
+#' prepare TCGA data
+TCGA_clinical_annotation = read.csv('Data_in/TCGA_Clinical_Annotation.txt', sep = '\t')
+TCGA_filepaths = read.csv('Data_in/TCGA_filepaths.txt', sep = '\t', header = F)
+TCGA_filepaths$sample_id = substr(TCGA_filepaths$V1, start = 1, stop = 12)
+TCGA_male = TCGA_clinical_annotation[which(TCGA_clinical_annotation$gender == 'MALE'), c('bcr_patient_barcode', 'type', 'age_at_initial_pathologic_diagnosis', 'gender') ]
+TCGA_cohort = TCGA_male[which(TCGA_male$bcr_patient_barcode %in% TCGA_filepaths$sample_id), ]
+
+#' use the first TCGA sample; regardless of number of samples
+#' discard all additional samples
+TCGA_filepaths$keep = NA
+for(i in unique(TCGA_filepaths$sample_id)){
+  if(length(TCGA_filepaths$sample_id[which(TCGA_filepaths$sample_id == i)]) > 1){
+    TCGA_filepaths[which(TCGA_filepaths$sample_id == i), 'keep'][1] = 'keep'
+    TCGA_filepaths[which(TCGA_filepaths$sample_id == i), 'keep'][2:length(TCGA_filepaths$sample_id[which(TCGA_filepaths$sample_id == i)])] = 'discard'
+  } else {
+    TCGA_filepaths[which(TCGA_filepaths$sample_id == i), 'keep'] = 'keep'
+  }
+}
+
+TCGA_filepaths = TCGA_filepaths[which(TCGA_filepaths$keep %in% 'keep'), ]
+TCGA_cohort = merge(TCGA_cohort, TCGA_filepaths, by.x = 'bcr_patient_barcode', by.y = 'sample_id', all.x = T)
+
+
+#' create processing Y-chromosome loss pipeline; n = 4,875 male samples TCGA
+TCGA_cohort$path = paste0('/juno/work/ccs/tcga_facets/snp-pileup/', TCGA_cohort$V1)
+TCGA_cohort$V1 = NULL
+write.table(TCGA_cohort, file = 'Data_in/TCGA_paths.txt', sep = '\t', row.names = F, quote = F)
+
+
+##' create common data-container for distribution and sharing
+TCGA_data = read.csv('Data_in/TCGA_paths.txt', sep = '\t')
+cohortData = readRDS('Data_out/cohort_data.rds')
+cohortData = append(cohortData, list(TCGA_data))
+names(cohortData)[5] = 'male_TCGA_cohort'
+cohortData$male_TCGA_cohort
+saveRDS(cohortData, file = 'Data_out/cohort_data.rds')
