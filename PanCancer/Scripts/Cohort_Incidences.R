@@ -134,3 +134,27 @@ IMPACT_incidence_plot = ggplot(IMPACT_incidence,
 IMPACT_incidence_plot  
 
 ggsave_golden(IMPACT_incidence_plot, filename = 'Figures/IMPACT_Y_Loss.pdf', width = 9)
+
+
+###############################################################################
+###############################################################################
+#' look at the age distribution, and whether age may be associated with higher Y chromosome loss
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
