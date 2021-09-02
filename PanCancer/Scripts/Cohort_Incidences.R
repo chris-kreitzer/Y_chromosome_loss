@@ -5,11 +5,9 @@
 ## chris-kreitzer
 ## 
 
-
 set.seed(112)
 rm(list = ls())
 .rs.restartR()
-
 
 ## Libraries and Input
 cohortData = readRDS('Data_out/cohort_data.rds')
@@ -102,14 +100,37 @@ for(i in unique(names(IMPACT_top_20))){
   rm(cancer_median)
 }
 
-IMPACT_incidence
+#' add sample amount
+IMPACT_incidence$mergedCancerType = NA
+for(i in unique(names(IMPACT_top_20))){
+  IMPACT_incidence$mergedCancerType[which(IMPACT_incidence$CancerType == i)] = IMPACT_top_20[which(names(IMPACT_top_20) == i)][[1]]
+}
 
+IMPACT_incidence$mergedCancerType = paste0(IMPACT_incidence$CancerType, ' (n=', IMPACT_incidence$mergedCancerType, ')')
+
+#' make the visualization
 IMPACT_incidence_plot = ggplot(IMPACT_incidence, 
-                               aes(x = reorder(CancerType, median_cancerType), 
+                               aes(x = reorder(mergedCancerType, median_cancerType), 
                                    y = value, 
                                    fill = Type)) + 
                                  
   geom_bar(stat = 'identity', position = position_dodge(0.82), width = 0.8) +
-  coord_flip()
+  scale_fill_manual(values = c('Primary' = '#c31f21',
+                               'Metastasis' = '#4977b0'),
+                    guide = guide_legend(direction = 'horizontal',
+                                         title = 'Site',
+                                         label.theme = element_text(size = 12))) +
+  scale_y_continuous(expand = c(0.005, 0)) +
+  geom_hline(yintercept = seq(0, 0.6, 0.2), color = 'grey85', linetype = 'dashed', size = 0.2) +
+  theme(legend.position = 'top',
+        panel.background = element_rect(fill = NA),
+        axis.ticks.y = element_blank(),
+        axis.ticks.x = element_line(size = 0.2),
+        axis.line.x = element_line(size = 0.4),
+        axis.text = element_text(size = 10, color = 'black')) +
+  coord_flip() +
+  labs(y = '% Y chromosome loss', x = '')
+  
+IMPACT_incidence_plot  
 
-IMPACT_incidence_plot
+ggsave_golden(IMPACT_incidence_plot, filename = 'Figures/IMPACT_Y_Loss.pdf', width = 9)
