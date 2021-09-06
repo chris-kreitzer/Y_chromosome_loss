@@ -1,9 +1,14 @@
 ## Investigate Y-chromosome mosaicism:
 ## This should help to distinguish whether Y-chromosome loss happened
 ## as a physiological cause (e.g., age) or truly because of the cancer.
+## Importantly, note that you are analyzing mostly blood samples - normal coverage
+## and this is not directly linked to the tissue of cancer you are investigating. 
+## So, mosaicism of the blood is not necessarily tissue mosaicism of the e.g. the pancreas
 ## 
 ## start data: 08/20/2021
 ## chris kreitzer
+
+setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
 
 ## I will start working on whole exome sequenced samples;
 ## Firstly fetch the information from the cluster
@@ -104,7 +109,6 @@ write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/N
 #' make summary over all autosomes / sample and compare to allosomes
 Normal_coverage = read.csv('Mosaicism/Normal_coverage_bins.txt', sep = '\t')
 Normal_coverage$sample = basename(Normal_coverage$sample)
-Bins_summarised = read.csv('Mosaicism/bins_summary.txt', sep = '\t')
 
 sample_summary = data.frame() 
 for(i in unique(Normal_coverage$sample)){
