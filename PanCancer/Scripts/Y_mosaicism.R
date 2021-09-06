@@ -152,7 +152,7 @@ Germline_CN = ggplot(sample_summary, aes(x = target, y = corrected.CN)) +
   geom_boxplot() +
   theme_bw() +
   labs(x = 'chromosome', y = 'corrected copy Number', 
-       title = 'Estimated germline copy number\ndetermined from read depth data\nn=158 WES samples')
+       title = paste0('Estimated germline copy number\ndetermined from read depth data\nn=', length(unique(sample_summary$sample)), ' WES samples'))
 
 ggsave_golden(plot = Germline_CN, filename = 'Figures/Germline_CN.pdf', width = 8)
 
