@@ -81,3 +81,26 @@ cohortData = append(cohortData, list(TCGA_data))
 names(cohortData)[5] = 'male_TCGA_cohort'
 cohortData$male_TCGA_cohort
 saveRDS(cohortData, file = 'Data_out/cohort_data.rds')
+
+
+#' binary calls in TCGA
+a = readRDS('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
