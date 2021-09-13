@@ -84,20 +84,17 @@ saveRDS(cohortData, file = 'Data_out/cohort_data.rds')
 
 
 #' binary calls in TCGA
-a = readRDS('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
+TCGA_binary = read.csv('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/TCGA/TCGA.binaryLoss_out.txt', sep = '\t')
+TCGA = a$male_TCGA_cohort
 
+TCGA_full = merge(TCGA, TCGA_binary[,c('Y_call', 'sample.id', 'ploidy', 'purity')],
+                  by.x = 'bcr_patient_barcode', by.y = 'sample.id', all.x = T)
 
-
-
-
-
-
-
-
-
-
-
-
+cohortData = readRDS('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
+cohortData = append(cohortData, list(TCGA_full))
+names(cohortData)[6] = 'TCGA.cohort'
+cohortData$male_TCGA_cohort = NULL
+saveRDS(cohortData, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
 
 
 
