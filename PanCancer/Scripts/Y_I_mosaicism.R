@@ -26,9 +26,6 @@ IMPACT.samples = as.character(IMPACT.samples$IMPACT.cohort$counts_file)
 #' I will only include regions with GC content between 45 and 55%; equal distribution across the genome.
 print(length(unique(IMPACT.samples)))
 
-#' work with 5,000 IMPACT samples
-IMPACT.samples
-
 
 #' start processing the normal samples
 snp.nbhd = 0
