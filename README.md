@@ -54,3 +54,6 @@ A. Pan-cancer whole-genome analyses of metastatic solid tumours (Hartwig).
 
 ### Refinements:
 A. Transform binary call (50% rule tcn.em == 0) into continious scale. Plot WES vs IMPACT samples and see whether discrepancies can be resolved (cluster of certain samples, etc.)(updated script).
+
+
+### Mosaicism in IMPACT & WES (correspondence with Peter Priestly)
