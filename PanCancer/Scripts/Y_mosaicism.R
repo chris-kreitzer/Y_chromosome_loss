@@ -103,6 +103,8 @@ write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/N
 
 
 
+
+
 ###############################################################################
 ###############################################################################
 ##' Downstream analysis; investigate the output from above
@@ -158,14 +160,29 @@ ggsave_golden(plot = Germline_CN, filename = 'Figures/Germline_CN.pdf', width = 
 
 
 
+
 #' define the LOY mosaicism threshold based on the 99% CI
 normConfInt = function(x, alpha = 0.05){
   mean(x) + qt(1 - alpha / 2, length(x) - 1) * sd(x) / sqrt(length(x)) * c(-1, 1)
 }
 
-
 lower_Y_threshold = normConfInt(x = sample_summary$corrected.CN[which(sample_summary$target == 24)])
 length(sample_summary$sample[which(sample_summary$target == 24 & sample_summary$corrected.CN < 0.8189)])
+CI_z(x = sample_summary$corrected.CN[which(sample_summary$target == 24)])
+
+
+# ggplot(sample_summary[which(sample_summary$target == 24), ], aes(x = corrected.CN)) +
+#   geom_density(size = 1.5) +
+#   geom_vline(xintercept = lower_Y_threshold) +
+#   scale_x_continuous(expand = c(0, 0),
+#                      limits = c(0.55, 1.25)) +
+#   scale_y_continuous(expand = c(0.02, 0)) +
+#   theme_bw(base_size = 14) +
+#   theme(panel.grid = element_blank(),
+#         axis.text.y = element_blank(),
+#         axis.ticks.y = element_blank()) +
+#   labs(x = 'Copy Number', y = 'Density')
+  
 
 
 #' out
