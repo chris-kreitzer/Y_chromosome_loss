@@ -157,8 +157,19 @@ Germline_CN = ggplot(sample_summary, aes(x = target, y = corrected.CN)) +
        title = paste0('Estimated germline copy number\ndetermined from read depth data\nn=', length(unique(sample_summary$sample)), ' WES samples'))
 
 
-write.table(x = sample_summary, file = 'Data_out/MSK_WES_GermlineCN.txt', 
+#' assign Mosaic loss or not in sample:
+lower_Y_threshold = normConfInt(x = sample_summary$corrected.CN[which(sample_summary$target == 24)])
+length(sample_summary$sample[which(sample_summary$target == 24 & sample_summary$corrected.CN < 0.8189)])
+CI_z(x = sample_summary$corrected.CN[which(sample_summary$target == 24)])
+
+sample_summary$Mosaic = NA
+for(i in unique(sample_summary$sample)){
+  sample_summary$Mosaic[which(sample_summary$sample == i)] = ifelse(sample_summary$corrected.CN[which(sample_summary$target == 24 & sample_summary$sample == i)] <= lower_Y_threshold[1], 'mosaic', 'intakt')
+}
+
+write.table(x = sample_summary, file = 'Data_out/WES/MSK_WES_GermlineCN.txt', 
           sep = '\t', row.names = F, quote = F)
+
 ggsave_golden(plot = Germline_CN, filename = 'Figures/Germline_CN.pdf', width = 8)
 
 
@@ -169,9 +180,6 @@ normConfInt = function(x, alpha = 0.05){
   mean(x) + qt(1 - alpha / 2, length(x) - 1) * sd(x) / sqrt(length(x)) * c(-1, 1)
 }
 
-lower_Y_threshold = normConfInt(x = sample_summary$corrected.CN[which(sample_summary$target == 24)])
-length(sample_summary$sample[which(sample_summary$target == 24 & sample_summary$corrected.CN < 0.8189)])
-CI_z(x = sample_summary$corrected.CN[which(sample_summary$target == 24)])
 
 
 # ggplot(sample_summary[which(sample_summary$target == 24), ], aes(x = corrected.CN)) +
