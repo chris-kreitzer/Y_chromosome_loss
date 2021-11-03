@@ -128,6 +128,17 @@ cohort$WES.cohort = WES_cohort
 saveRDS(cohort, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
 
 
+#' clinical associations:
+clinical = read.csv('Data_out/sub_clinical.tsv', sep = '\t')
+clinical = clinical[, c('Sample.ID', 'Overall.Survival..Months.', 'Overall.Survival.Status')]
+colnames(clinical) = c('Sample_ID', 'OS', 'OS_Status')
+
+MSK_WES = merge(MSK_WES, clinical, by.x = 'DMP_Sample_ID', by.y = 'Sample_ID', all.x = T)
+cohort$WES.cohort = MSK_WES
+saveRDS(cohort, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
+
+
+
 
 
 
