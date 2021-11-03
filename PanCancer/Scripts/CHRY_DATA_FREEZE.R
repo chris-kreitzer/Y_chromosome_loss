@@ -97,6 +97,37 @@ cohortData$male_TCGA_cohort = NULL
 saveRDS(cohortData, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
 
 
+#' add mosaicism to cohort
+#' MSK_WES_GermlineCN = read.csv('Data_out/WES/MSK_WES_GermlineCN.txt', sep = '\t')
+sample_summary$id = substr(sample_summary$sample, start = 3, stop = 17)
+MSK_WES = sample_summary[which(sample_summary$target == 24), c('target', 'corrected.CN', 'id', 'Mosaic')]
+colnames(MSK_WES)[2] = 'corrected_GermlineCN'
+colnames(MSK_WES)[4] = 'Mosaic'
+MSK_WES$Mosaic[which(MSK_WES$Mosaic == 'intakt')] = 'no'
+MSK_WES$Mosaic[which(MSK_WES$Mosaic == 'mosaic')] = 'yes'
+
+#' merge with current data cohort
+WES_cohort = readRDS('Data_out/cohort_data.rds')$WES.cohort
+WES_cohort$Y_mosaic = NA
+
+for(i in 1:nrow(WES_cohort)){
+  if(WES_cohort$CMO_Sample_ID[i] %in% MSK_WES$id){
+    WES_cohort$Y_mosaic[i] = MSK_WES$Mosaic[which(MSK_WES$id == WES_cohort$CMO_Sample_ID[i])]
+  } else {
+    WES_cohort$Y_mosaic[i] = NA
+  }
+}
+
+#' add age annotation to MSK-WES;
+cohort = readRDS('Data_out/cohort_data.rds')
+age = cohort$IMPACT.cohort[,c('SAMPLE_ID', 'AGE_AT_SEQ_REPORTED_YEARS')]
+WES_cohort = merge(WES_cohort, age, by.x = 'DMP_Sample_ID', by.y = 'SAMPLE_ID', all.x = T)
+
+
+cohort$WES.cohort = WES_cohort
+saveRDS(cohort, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
+
+
 
 
 
