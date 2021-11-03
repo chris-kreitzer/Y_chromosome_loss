@@ -156,6 +156,9 @@ Germline_CN = ggplot(sample_summary, aes(x = target, y = corrected.CN)) +
   labs(x = 'chromosome', y = 'corrected copy Number', 
        title = paste0('Estimated germline copy number\ndetermined from read depth data\nn=', length(unique(sample_summary$sample)), ' WES samples'))
 
+
+write.table(x = sample_summary, file = 'Data_out/MSK_WES_GermlineCN.txt', 
+          sep = '\t', row.names = F, quote = F)
 ggsave_golden(plot = Germline_CN, filename = 'Figures/Germline_CN.pdf', width = 8)
 
 
