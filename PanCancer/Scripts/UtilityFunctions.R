@@ -16,3 +16,8 @@ CI_z <- function (x, ci = 0.95){
                         values_to = "values", 1:6)
   return(df_out)
 }
+
+
+ggsave_golden = function(filename, plot, width, ...){
+  ggsave(filename = filename, plot = plot, device = cairo_pdf, width = width, height = width / 1.61803398875)
+}
