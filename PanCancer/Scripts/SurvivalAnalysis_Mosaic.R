@@ -85,6 +85,10 @@ coxph(Surv(OS, OS_Status) ~ Y_mosaic, data = WES_survival) %>%
 
 #' survival analysis
 f1 = survfit(Surv(OS, OS_Status) ~ Y_mosaic, data = WES_survival)
+WES_survival$age = ifelse(WES_survival$AGE_AT_SEQ_REPORTED_YEARS < 50, 'group1', 
+                          ifelse(WES_survival$AGE_AT_SEQ_REPORTED_YEARS > 50 & WES_survival$AGE_AT_SEQ_REPORTED_YEARS < 70, 'group2', 'group3')) 
+                                 
+f2 = survfit(Surv(OS, OS_Status) ~ Y_mosaic + age, data = WES_survival)
 
 #' make the plot
 a = ggsurvplot(f1,
