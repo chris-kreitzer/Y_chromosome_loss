@@ -182,6 +182,22 @@ normConfInt = function(x, alpha = 0.05){
 
 
 
+test = read.csv('Data_out/WES/MSK_WES_GermlineCN.txt', sep = '\t')
+test = test[which(test$target == 24), ]
+head(test)
+
+a = ggplot(test, aes(x = seq(1, nrow(test), 1), y = corrected.CN)) +
+  geom_jitter() +
+  coord_flip()
+
+b = ggplot(test, aes( y = corrected.CN)) +
+  geom_histogram() +
+  geom_density() +
+  coord_flip()
+
+library(patchwork)
+a/b
+
 # ggplot(sample_summary[which(sample_summary$target == 24), ], aes(x = corrected.CN)) +
 #   geom_density(size = 1.5) +
 #   geom_vline(xintercept = lower_Y_threshold) +
