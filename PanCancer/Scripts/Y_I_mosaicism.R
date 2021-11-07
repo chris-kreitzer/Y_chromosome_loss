@@ -105,8 +105,31 @@ write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/I
 
 ###############################################################################
 #' Downstream analysis:
+#' bin autosomes and allosomes and calculate the read-depth ratio
 data = read.csv('Mosaicism/IMPACT_coverage_bins.txt', sep = '\t')
+Normal_coverage = data
 
+bins_summary = function(data){
+  data = Normal_coverage[which(Normal_coverage$sample == data), ]
+  summary_df_out = data.frame()
+  if(length(unique(data$chrom)) == 24){
+    for(chromo in unique(data$chrom)){
+      median_genome = median(data$depth[!data$chrom %in% chromo])
+      median_target = median(data$depth[which(data$chrom == chromo)])
+      summary_df = data.frame(sample = unique(data$sample),
+                              target = chromo,
+                              ratio = median_target / median_genome)
+      summary_df_out = rbind(summary_df_out, summary_df)
+    }
+    
+  } else {
+    return()
+  }
+  summary_df_out
+}
+
+sample_summary = lapply(unique(Normal_coverage$sample), function(x) bins_summary(x))
+sample_summary = data.table::rbindlist(sample_summary)
 
 
 
