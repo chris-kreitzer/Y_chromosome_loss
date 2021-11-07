@@ -103,10 +103,9 @@ write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/I
 
 
 
-
-
-
-
+###############################################################################
+#' Downstream analysis:
+data = read.csv('Mosaicism/IMPACT_coverage_bins.txt', sep = '\t')
 
 
 
