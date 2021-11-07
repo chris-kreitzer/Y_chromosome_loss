@@ -130,7 +130,7 @@ bins_summary = function(data){
 
 sample_summary = lapply(unique(Normal_coverage$sample), function(x) bins_summary(x))
 sample_summary = data.table::rbindlist(sample_summary)
-
+sample_summary = sample_summary[!is.na(sample_summary$corrected.CN), ]
 
 #' make a ploidy correction through population-wise determination of the observed (peak) to 
 #' expected ploidy level across chromosomes.
@@ -171,18 +171,18 @@ Germline_CN = ggplot(sample_summary, aes(x = target, y = corrected.CN)) +
        title = paste0('MSK-IMPACT (male)\nn=', length(unique(sample_summary$sample)), ' samples'))
 
 
-Germline_CN
+ggsave_golden(filename = 'Figures/IMPACT_GermlineCN.pdf', plot = Germline_CN, width = 8)
 
 
 #' assign Mosaic loss or not in sample:
-lower_Y_threshold = normConfInt(x = sample_summary$corrected.CN[which(sample_summary$target == 24)])
-length(sample_summary$sample[which(sample_summary$target == 24 & sample_summary$corrected.CN < 0.8189)])
-CI_z(x = sample_summary$corrected.CN[which(sample_summary$target == 24)])
+lower_Y_threshold = normConfInt(x = sample_summary$corrected.CN[which(sample_summary$target == 'Y')])
+length(sample_summary$sample[which(sample_summary$target == 'Y' & sample_summary$corrected.CN < lower_Y_threshold[1])])
+CI_z(x = sample_summary$corrected.CN[which(sample_summary$target == 'Y')])
 
-sample_summary$Mosaic = NA
-for(i in unique(sample_summary$sample)){
-  sample_summary$Mosaic[which(sample_summary$sample == i)] = ifelse(sample_summary$corrected.CN[which(sample_summary$target == 24 & sample_summary$sample == i)] <= lower_Y_threshold[1], 'mosaic', 'intakt')
-}
+
+
+
+
 
 
 
