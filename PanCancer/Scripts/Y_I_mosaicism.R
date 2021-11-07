@@ -132,6 +132,57 @@ sample_summary = lapply(unique(Normal_coverage$sample), function(x) bins_summary
 sample_summary = data.table::rbindlist(sample_summary)
 
 
+#' make a ploidy correction through population-wise determination of the observed (peak) to 
+#' expected ploidy level across chromosomes.
+sample_summary$target = as.integer(as.character(sample_summary$target))
+sample_summary$CN = sample_summary$ratio * 2
+sample_summary$corrected.CN = NA
+
+CN_correction = data.frame()
+for(i in unique(sample_summary$target)){
+  density.chromo = density(sample_summary$CN[which(sample_summary$target == i)], bw = 'SJ', na.rm = T)
+  density.max = density.chromo$x[which.max(density.chromo$y)]
+  corrected.CN = ifelse(i %in% seq(1, 22, 1), (density.max - 2), (density.max - 1))
+  correction_factor = data.frame(chromosome = i,
+                                 correction_factor = corrected.CN)
+  CN_correction = rbind(CN_correction, correction_factor)
+}
+
+#' correct the CN values by their density as calculated above;
+for(i in unique(CN_correction$chromosome)){
+  sample_summary$corrected.CN[which(sample_summary$target == i)] = sample_summary$CN[which(sample_summary$target == i)] - 
+    CN_correction$correction_factor[which(CN_correction$chromosome == i)]
+}
+
+
+#' Visualization:
+sample_summary$target[which(sample_summary$target == 23)] = 'X'
+sample_summary$target[which(sample_summary$target == 24)] = 'Y'
+
+sample_summary$target = factor(sample_summary$target, levels = c(seq(1, 22, 1), 'X', 'Y'))
+
+Germline_CN = ggplot(sample_summary, aes(x = target, y = corrected.CN)) + 
+  geom_boxplot() +
+  geom_hline(yintercept = seq(1, 3, 1), color = 'grey35', linetype = 'dashed', size = 0.35) +
+  scale_y_continuous(expand = c(0.01, 0.05),
+                     limits = c(0, 4)) +
+  theme_get() +
+  labs(x = 'Chromosome', y = 'corrected Germline\n copy number', 
+       title = paste0('MSK-IMPACT (male)\nn=', length(unique(sample_summary$sample)), ' samples'))
+
+
+Germline_CN
+
+
+#' assign Mosaic loss or not in sample:
+lower_Y_threshold = normConfInt(x = sample_summary$corrected.CN[which(sample_summary$target == 24)])
+length(sample_summary$sample[which(sample_summary$target == 24 & sample_summary$corrected.CN < 0.8189)])
+CI_z(x = sample_summary$corrected.CN[which(sample_summary$target == 24)])
+
+sample_summary$Mosaic = NA
+for(i in unique(sample_summary$sample)){
+  sample_summary$Mosaic[which(sample_summary$sample == i)] = ifelse(sample_summary$corrected.CN[which(sample_summary$target == 24 & sample_summary$sample == i)] <= lower_Y_threshold[1], 'mosaic', 'intakt')
+}
 
 
 
