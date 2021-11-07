@@ -17,6 +17,7 @@ require('data.table', '/juno/home/kreitzec/R/x86_64-pc-linux-gnu-library/4.0/')
 library(facetsSuite)
 library(dplyr)
 library(data.table)
+set.seed(99)
 
 # load FACETS countsfiles for Prostate WES samples
 IMPACT.samples = readRDS('/juno/home/kreitzec/Y_chromosome_loss/Data/cohort_data.rds')
@@ -171,7 +172,8 @@ Germline_CN = ggplot(sample_summary, aes(x = target, y = corrected.CN)) +
        title = paste0('MSK-IMPACT (male)\nn=', length(unique(sample_summary$sample)), ' samples'))
 
 
-ggsave_golden(filename = 'Figures/IMPACT_GermlineCN.pdf', plot = Germline_CN, width = 8)
+ggsave_golden(filename = 'Figures/IMPACT_GermlineCN.pdf', plot = Germline_CN, width = 8, 
+              dpi = 800, device = 'pdf')
 
 
 #' assign Mosaic loss or not in sample:
@@ -181,10 +183,53 @@ CI_z(x = sample_summary$corrected.CN[which(sample_summary$target == 'Y')])
 
 
 
+#' Mosaicism and AGE:
+IMPACT_cohort = readRDS('Data_out/cohort_data.rds')$IMPACT.cohort
+sample_summary$sample = substr(sample_summary$sample, start = 17, stop = 33)
+
+IMPACT_age = merge(sample_summary, IMPACT_cohort[, c('SAMPLE_ID', 'AGE_AT_SEQ_REPORTED_YEARS')], 
+                   by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
+
+IMPACT_age = IMPACT_age[!IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS %in% c('>90', '', '1', '2', '3', '4', '5', '6', '7'), ]
+IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS = as.integer(as.character(IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS))
+IMPACT_age = IMPACT_age[order(IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS, decreasing = F), ]
+
+#' modelling the association between age and Y chromsome copy number
+summary(lm(IMPACT_age$corrected.CN[which(IMPACT_age$target == 'Y')] ~ 
+             IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS[which(IMPACT_age$target == 'Y')]))
+
+#' X-chromosome visualization
+X_chromosome = ggplot(IMPACT_age[which(IMPACT_age$target == 'X'), ], 
+                      aes(x = AGE_AT_SEQ_REPORTED_YEARS, y = corrected.CN)) +
+  geom_jitter(size = 0.2) +
+  scale_y_continuous(limits = c(0, 1.5)) +
+  scale_x_continuous(expand = c(0.01, 0.05),
+                     breaks = seq(10, 90, 10)) +
+  geom_smooth(method = 'lm') +
+  annotate(geom = 'text',
+           x = 20,
+           y = 0.2,
+           label = 'y = 1.08 -0.0002 x',
+           size = 5.5) +
+  labs(x = 'Age', y = 'Chr. X copy number')
+  
+#' Y-chromosome visualization
+Y_chromosome = ggplot(IMPACT_age[which(IMPACT_age$target == 'Y'), ], 
+                      aes(x = AGE_AT_SEQ_REPORTED_YEARS, y = corrected.CN)) +
+  geom_jitter(size = 0.2) +
+  scale_y_continuous(limits = c(0, 1.5)) +
+  scale_x_continuous(expand = c(0.01, 0.05),
+                     breaks = seq(10, 90, 10)) +
+  geom_smooth(method = 'lm') +
+  annotate(geom = 'text',
+           x = 20,
+           y = 0.2,
+           label = 'y = 0.966 -0.00052 x\np < 2e-16',
+           size = 5.5) +
+  labs(x = 'Age', y = 'Chr. Y copy number')
 
 
-
-
-
+library(patchwork)
+ggsave_golden(filename = 'Figures/Mosaic_AGE_IMPACT.pdf', plot = (Y_chromosome / X_chromosome), width = 7.5)
 
 
