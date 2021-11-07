@@ -17,7 +17,41 @@ CI_z <- function (x, ci = 0.95){
   return(df_out)
 }
 
+normConfInt = function(x, alpha = 0.05){
+  mean(x) + qt(1 - alpha / 2, length(x) - 1) * sd(x) / sqrt(length(x)) * c(-1, 1)
+}
+
+
 
 ggsave_golden = function(filename, plot, width, ...){
   ggsave(filename = filename, plot = plot, device = cairo_pdf, width = width, height = width / 1.61803398875)
 }
+
+
+theme_Y = theme_bw() +
+  theme(
+    text = element_text(family = 'ArialMT', size = 14),
+    axis.text = element_text(family = 'ArialMT', size = 14, color = 'black'),
+    line = element_line(size = .95*(.95/1.6), lineend = 'round'),
+    plot.background = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line.x = element_line(color = 'black', size = .95*(.95/1.6), lineend = 'round'),
+    axis.line.y = element_line(color = 'black', size = .95*(.95/1.6), lineend = 'round'),
+    axis.ticks.length = unit(2, 'pt'),
+    axis.ticks.x = element_line(color = 'black', size = .95*(.95/1.6), lineend = 'round'),
+    axis.ticks.y = element_line(color = 'black', size = .95*(.95/1.6), lineend = 'round'),
+    legend.background = element_blank(),
+    legend.key = element_blank(),
+    legend.key.size = unit(.5, "cm"),
+    legend.title = element_blank(),
+    panel.background = element_blank(),
+    plot.margin = unit(c(0.25,0.5,0.25,0.25), 'lines'))
+
+  
+
+theme_set(theme_Y)
