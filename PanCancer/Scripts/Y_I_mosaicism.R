@@ -193,6 +193,8 @@ IMPACT_age = merge(sample_summary, IMPACT_cohort[, c('SAMPLE_ID', 'AGE_AT_SEQ_RE
 IMPACT_age = IMPACT_age[!IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS %in% c('>90', '', '1', '2', '3', '4', '5', '6', '7'), ]
 IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS = as.integer(as.character(IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS))
 IMPACT_age = IMPACT_age[order(IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS, decreasing = F), ]
+IMPACT_age$Y_mosaicism = NA
+IMPACT_age$Y_mosaicism[which(IMPACT_age$target == 'Y')] = ifelse(IMPACT_age$corrected.CN[which(IMPACT_age$target == 'Y')] < lower_Y_threshold[1], 'yes', 'no')
 write.table(IMPACT_age, file = 'Data_out/IMPACT/GermlineCN.txt', sep = '\t', row.names = F, quote = F)
 
 
