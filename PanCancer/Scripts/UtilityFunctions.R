@@ -27,6 +27,8 @@ normConfInt = function(x, alpha = 0.05){
 #' calculate R^2 (how much variation in Y is explained with X (Y ~ X))
 rsq = function (x, y) cor(x, y) ^ 2
 
+
+#' ggsave_golden
 ggsave_golden = function(filename, plot, width, ...){
   ggsave(filename = filename, plot = plot, device = cairo_pdf, width = width, height = width / 1.61803398875)
 }

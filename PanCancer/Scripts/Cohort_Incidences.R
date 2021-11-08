@@ -9,6 +9,7 @@ set.seed(112)
 rm(list = ls())
 .rs.restartR()
 setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
+source('Scripts/UtilityFunctions.R')
 
 ## Libraries and Input
 library(RColorBrewer)
@@ -142,6 +143,26 @@ IMPACT_incidence_plot
 
 ggsave_golden(IMPACT_incidence_plot, filename = 'Figures/IMPACT_Y_Loss.pdf', width = 9)
 
+
+#' look at the overall distribution of Y-chromosome loss across tissue site
+IMPACT_incidence$Type = factor(IMPACT_incidence$Type, levels = c('Primary', 'Metastasis'))
+Incidence_site = ggplot(IMPACT_incidence, aes(x = Type, y = value, color = Type)) +
+  geom_boxplot(width = 0.4, size = 0.85) +
+  geom_jitter(width = 0.15) +
+  scale_color_manual(values = c('Primary' = color_selected[4],
+                                'Metastasis' = color_selected[2])) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(0, 0.8)) +
+  theme_Y + 
+  theme(legend.position = 'none',
+        aspect.ratio = 2.2,
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = '', y = 'Y-chromosome loss')
+
+ggsave_golden(filename = 'Figures/Y_loss_SITE.pdf', plot = Incidence_site, width = 6)
+
+#' statistics
+t.test(IMPACT_incidence$value ~ IMPACT_incidence$Type)
 
 ###############################################################################
 ###############################################################################
