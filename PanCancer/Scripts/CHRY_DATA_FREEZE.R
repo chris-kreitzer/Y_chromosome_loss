@@ -138,8 +138,13 @@ cohort$WES.cohort = MSK_WES
 saveRDS(cohort, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
 
 
+#' add IMPACT MOSAIC data to cohort
+cohort = append(cohort, list(IMPACT_age))
+names(cohort)[6] = 'IMPACT.mosaic'
 
 
-
-
+#' add IMPACT CLINICAL data to cohort
+cohort = append(cohort, list(clinical))
+names(cohort)[7] = 'IMPACT.clinical'
+saveRDS(cohort, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
 

@@ -17,11 +17,15 @@ CI_z <- function (x, ci = 0.95){
   return(df_out)
 }
 
+
+#' calculate the confidence Interval
 normConfInt = function(x, alpha = 0.05){
   mean(x) + qt(1 - alpha / 2, length(x) - 1) * sd(x) / sqrt(length(x)) * c(-1, 1)
 }
 
 
+#' calculate R^2 (how much variation in Y is explained with X (Y ~ X))
+rsq = function (x, y) cor(x, y) ^ 2
 
 ggsave_golden = function(filename, plot, width, ...){
   ggsave(filename = filename, plot = plot, device = cairo_pdf, width = width, height = width / 1.61803398875)
