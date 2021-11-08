@@ -8,8 +8,10 @@
 set.seed(112)
 rm(list = ls())
 .rs.restartR()
+setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
 
 ## Libraries and Input
+library(RColorBrewer)
 cohortData = readRDS('Data_out/cohort_data.rds')
 IMPACT_data = cohortData$IMPACT.cohort
 WES_data = cohortData$WES.cohort
@@ -110,19 +112,23 @@ IMPACT_incidence$mergedCancerType = paste0(IMPACT_incidence$CancerType, ' (n=', 
 write.table(IMPACT_incidence, file = 'Data_out/IMPACT/IMPACT_Y.loss_incidence.txt', sep = '\t', row.names = F, quote = F)
 
 #' make the visualization
+#' color code from Subhi:
+color_selected = brewer.pal(n = 6, name = 'Paired')
+color_selected = color_selected[c(5,6,1,2)]
+
 IMPACT_incidence_plot = ggplot(IMPACT_incidence, 
                                aes(x = reorder(mergedCancerType, median_cancerType), 
                                    y = value, 
                                    fill = Type)) + 
                                  
   geom_bar(stat = 'identity', position = position_dodge(0.82), width = 0.8) +
-  scale_fill_manual(values = c('Primary' = '#c31f21',
-                               'Metastasis' = '#4977b0'),
+  scale_fill_manual(values = c('Primary' = color_selected[4],
+                               'Metastasis' = color_selected[2]),
                     guide = guide_legend(direction = 'horizontal',
                                          title = 'Site',
-                                         label.theme = element_text(size = 12))) +
+                                         label.theme = element_text(size = 14))) +
   scale_y_continuous(expand = c(0.005, 0)) +
-  geom_hline(yintercept = seq(0, 0.6, 0.2), color = 'grey85', linetype = 'dashed', size = 0.2) +
+  geom_hline(yintercept = seq(0, 0.6, 0.2), color = 'grey35', linetype = 'dashed', size = 0.2) +
   theme(legend.position = 'top',
         panel.background = element_rect(fill = NA),
         axis.ticks.y = element_blank(),
