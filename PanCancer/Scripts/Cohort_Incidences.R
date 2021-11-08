@@ -164,6 +164,7 @@ ggsave_golden(filename = 'Figures/Y_loss_SITE.pdf', plot = Incidence_site, width
 #' statistics
 t.test(IMPACT_incidence$value ~ IMPACT_incidence$Type)
 
+
 ###############################################################################
 ###############################################################################
 #' look at the age distribution, and whether age may be associated with higher Y chromosome loss
@@ -205,34 +206,31 @@ ggsave_golden(plot = Age_distribution_IMPACT, filename = 'Figures/Age_Distributi
 
 
 #' look at the general trend between Y-chromosome loss and intact among age groups;
-i_without = IMPACT_data[!is.na(IMPACT_data$AGE_AT_SEQ_REPORTED_YEARS), ]
+i_without = IMPACT_data[!is.na(IMPACT_data$AGE_AT_SEQ_REPORTED_YEARS) & !is.na(IMPACT_data$Y_call), ]
+
 Age_cohort = ggplot(i_without) + 
-  geom_histogram(aes(x = AGE_AT_SEQ_REPORTED_YEARS, color = Y_call, fill = Y_call), bins = 35, binwidth = 0.999, na.rm = T) +
-  scale_y_continuous(expand = c(0, 0)) +
-  scale_x_continuous(expand = c(0, 0),
+  geom_histogram(aes(x = AGE_AT_SEQ_REPORTED_YEARS, 
+                     color = Y_call, 
+                     fill = Y_call), bins = 35, binwidth = 0.999, na.rm = T) +
+  scale_y_continuous(expand = c(0.01, 0.01)) +
+  scale_x_continuous(expand = c(0.01, 0.01),
                      limits = c(0, 90),
                      breaks = seq(0, 90, 30)) +
-  scale_fill_manual(values = c('Y_chrom_loss' = '#c31f21',
-                               'intact_Y_chrom' = '#4977b0'),
+  scale_fill_manual(values = c('Y_chrom_loss' = color_selected[2],
+                             'intact_Y_chrom' = color_selected[4]),
                     labels = c('Y loss', 'Intact Y chromosome'),
                     guide = guide_legend(direction = 'horizontal',
                                          title = '',
                                          label.theme = element_text(size = 12))) +
-  scale_color_manual(values = c('Y_chrom_loss' = '#c31f21',
-                               'intact_Y_chrom' = '#4977b0')) +
-  guides(color = FALSE) +
-                     
-  theme_minimal() +
+  scale_color_manual(values = c('Y_chrom_loss' = color_selected[2],
+                                'intact_Y_chrom' = color_selected[4]), guide = 'none') +
+  theme_Y +
   theme(axis.text.y = element_blank(),
-        axis.title.y = element_blank(),
-        axis.line.x = element_line(size = 0.4, color = 'black'),
-        panel.grid = element_blank(),
-        axis.text.x = element_text(size = 10, color = 'black'),
-        panel.border = element_rect(fill = NA, size = 0.6),
-        legend.position = c(0.1, 0.9)) +
-  labs(x = 'Age')
-  
-ggsave_golden(Age_cohort, filename = 'Figures/Age_Distribution_Y_loss.pdf', width = 9)
+        legend.position = 'top',
+        aspect.ratio = 1) +
+  labs(x = 'Age', y = 'Counts')
+        
+ggsave_golden(Age_cohort, filename = 'Figures/Age_Distribution_Y_loss.pdf', width = 7)
 
 
 #' out
