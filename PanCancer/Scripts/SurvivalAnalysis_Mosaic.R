@@ -114,3 +114,77 @@ b = a$plot + theme(panel.background = element_blank()) +
                        type = c('#414A8F', '#CD2703'))
 
 ggsave_golden(filename = 'Figures/OS_Mosaic_YLoss.pdf', plot = b, width = 9)
+
+
+
+
+###############################################################################
+#' Survival analysis for IMPACT cases
+#' modify input data first
+clinical = read.csv('Data_out/IMPACT/IMPACT_clinical.txt', sep = '\t')
+IMPACT_mosaic = read.csv('Data_out/IMPACT/GermlineCN.txt', sep = '\t')
+IMPACT_mosaic = IMPACT_mosaic[which(IMPACT_mosaic$target == 'Y'), ]
+
+OS_Impact = merge(IMPACT_mosaic, clinical[, c('SAMPLE_ID', 'FGA', 'OS_Months', 'OS_Status')], 
+                  by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
+
+
+#' OS analysis
+library(survminer)
+library(survival)
+
+OS_Impact = OS_Impact[!is.na(OS_Impact$Y_mosaicism), ]
+OS_Impact$Y_mosaicism = factor(OS_Impact$Y_mosaicism, levels = c('no', 'yes'))
+
+#' cox-p model
+coxph(Surv(OS_Months, OS_Status) ~ Y_mosaicism, data = OS_Impact) %>%
+  gtsummary::tbl_regression(exp = TRUE)
+
+model_impact = survfit(Surv(OS_Months, OS_Status) ~ Y_mosaicism, data = OS_Impact)
+
+#' make the plot
+a = ggsurvplot(model_impact,
+               size = 0.8,
+               censor.shape = '',
+               pval = T,
+               risk.table = F,
+               risk.table.height = 0.25,
+               break.time.by = 12,
+               ggtheme = theme_light(),
+               surv.median.line = 'v',
+               xlim = c(0, 84),
+               xlab = ('OS [months]'),
+               palette = 'aaas')
+
+b = a$plot + theme(panel.background = element_blank()) +
+  theme(aspect.ratio = 0.5,
+        panel.border = element_rect(size = 1.5, colour = 'black'),
+        axis.text = element_text(size = 14, color = 'black', face = 'bold'),
+        legend.position = 'top', 
+        legend.text = element_text(size = 14)) +
+  scale_y_continuous(expand = c(0.01, 0.05)) +
+  scale_x_continuous(expand = c(0.0, 0.0)) +
+  scale_color_discrete(name = "", labels = c("full Y-chromosome", "mosaic Y loss"), 
+                       type = c('#414A8F', '#CD2703'))
+
+ggsave_golden(filename = 'Figures/OS_Mosaic_IMPACT.pdf', plot = b, width = 9)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
