@@ -36,7 +36,7 @@ normal_fetch = function(data){
                        Position = data.in$Position,
                        NOR.DP = data.in$File1A + data.in$File1R,
                        NOR.RD = data.in$File1R,
-                       TUM.DP = data.in$File2A + data.in$File2R,
+                       TUM.DP = data.in$File2A + data.in$File2R, 
                        TUM.RD = data.in$File2R)
   data.pre = facetsY::preProcSample(rcmat = data.in,
                                     ndepth = 30,
