@@ -137,6 +137,7 @@ OS_Impact = OS_Impact[!is.na(OS_Impact$Y_mosaicism), ]
 OS_Impact$Y_mosaicism = factor(OS_Impact$Y_mosaicism, levels = c('no', 'yes'))
 
 #' cox-p model
+summary(coxph(Surv(OS_Months, OS_Status) ~ Y_mosaicism, data = OS_Impact))
 coxph(Surv(OS_Months, OS_Status) ~ Y_mosaicism, data = OS_Impact) %>%
   gtsummary::tbl_regression(exp = TRUE)
 
