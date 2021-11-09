@@ -9,8 +9,11 @@
 ## chris-kreitzer
 ##
 
+rm(list = ls())
+.rs.restartR()
 set.seed(12)
 setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer')
+source('Scripts/UtilityFunctions.R')
 
 ## Input
 WES_cnLR = read.csv('Data_out/WES/WES_cnLR_out.txt', sep = '\t')
@@ -96,26 +99,27 @@ Y_continious_loss = ggplot(Seq_merged,
   scale_x_continuous(expand = c(0.01, 0.01),
                      limits = c(-5, 2.5)) +
   annotate('text',
-           x = -4.5,
-           y = 2.2,
+           x = -3.5,
+           y = 1.5,
            label = paste0('r = ', round(cor.test(Seq_merged$mLRR_IMPACT, Seq_merged$mLRR_WES)[[4]][[1]], 3), 
                           '\np < 2.2e-16'),
            hjust = 0, 
            vjust = 0,
-           family = 'RobotoCondensed-Regular',
-           size = 4) +
+           family = 'ArialMT',
+           size = 6) +
   
-  theme_Y(base_size = 14) +
+  theme_Y +
+  
   theme(aspect.ratio = 1,
         legend.position = 'top') +
   
   labs(x = 'WES [median Copy Number Log Ratio]',
        y = 'IMPACT [median Copy Number Log Ratio]',
-       title = 'CnLR correlation of WES and IMPACT; n = 950')
+       title = 'Y-chromosome CnLR; n = 950')
 
 
 Y_continious_loss
-ggsave_golden(filename = 'Figures/Method_validation.pdf', plot = Y_continious_loss, width = 16)
+ggsave_golden(filename = 'Figures/Method_validation.pdf', plot = Y_continious_loss, width = 10)
 
 
 
@@ -160,15 +164,24 @@ match_out = match_out[which(match_out$WES.purity != 0 & match_out$IMPACT.purity 
 
 #' purity agreement plot
 purity.plot = ggplot(match_out, aes(x = WES.purity, y = IMPACT.purity)) +
-  geom_jitter() +
+  geom_jitter(size = 0.6) +
+  geom_abline(slope = 1, 
+              intercept = 0,
+              linetype = 'dashed',
+              size = 0.2,
+              color = 'grey35') +
   scale_y_continuous(expand = c(0,0),
                      limits = c(0, 1)) +
   scale_x_continuous(expand = c(0, 0),
                      limits = c(0, 1)) +
-  theme_bw() +
+  theme_Y +
   theme(aspect.ratio = 1) +
   labs(x = 'WES recapture', y = 'IMPACT targeted panel', 
-       title = paste0('Purity agreement plot\nn = 946, r = ', round(cor.test(match_out$WES.purity, match_out$IMPACT.purity)[[4]][1], 3)))
+       title = paste0('Purity; n = 946\n r = ', round(cor.test(match_out$WES.purity, match_out$IMPACT.purity)[[4]][1], 3)))
+
+
+ggsave_golden(filename = 'Figures/PurityValidation.pdf', plot = purity.plot, width = 8)
+
 
 #' ploidy agreement plot
 ploidy.plot = ggplot(match_out, aes(x = WES.ploidy, y = IMPACT.ploidy)) +
