@@ -105,14 +105,6 @@ data.out = counts$jointseg[which(counts$jointseg$gcpct >= 0.4 & counts$jointseg$
 
 
 
-
-
-
-
-
-
-
-
 #' samples where we have info on Y chromosome mosaicism
 mosaic = cohort$WES.cohort[!is.na(cohort$WES.cohort$Y_mosaic), ]
 mosaic$AGE_AT_SEQ_REPORTED_YEARS = as.numeric(as.character(mosaic$AGE_AT_SEQ_REPORTED_YEARS))
