@@ -7,7 +7,7 @@ library(ggplot2)
 library(sysfonts)
 library(patchwork)
 
-theme_Y = function(family = 'RobotoCondensed-Regular',
+theme_Y = function(family = 'ArialMT',
                    panel_border = T,
                    base_size = 12, 
                    base_line_size = base_size/22, 
