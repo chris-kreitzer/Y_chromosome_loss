@@ -10,9 +10,9 @@ library(patchwork)
 theme_Y = function(family = 'ArialMT',
                    panel_border = T,
                    base_size = 12, 
-                   base_line_size = base_size/22, 
-                   base_rect_size = base_size/22) {
-  if(panel_border){
+                   base_line_size = base_size / 22) {
+  
+  if(panel_border){ 
     theme_classic()  %+replace%
       theme(text = element_text(family = family,
                                 face = "plain", 
@@ -24,10 +24,10 @@ theme_Y = function(family = 'ArialMT',
                                 angle = 0, 
                                 margin = margin(), 
                                 debug = F),
-            line = element_line(colour = "black", 
-                                size = base_line_size, 
-                                linetype = 1, 
-                                lineend = "round"),
+            # line = element_line(colour = "black", 
+            #                     size = base_line_size, 
+            #                     linetype = 1, 
+            #                     lineend = "round"),
             axis.text = element_text(colour = "black", 
                                      family = family, 
                                      size = rel(0.8)),
@@ -36,13 +36,11 @@ theme_Y = function(family = 'ArialMT',
             panel.grid.major = element_blank(),
             panel.border = element_rect(fill = NA, size = base_line_size, colour = 'black'),
             panel.grid.minor = element_blank(),
-            axis.line = element_line(colour = "black",
-                                     size = rel(1)),
-            #legend.key = element_blank(),
+            # axis.line = element_line(colour = "black"),
+            #                          #size = rel(1)),
             strip.background = element_blank(),
             plot.title.position = 'plot',
             plot.caption.position = 'plot',
-            #legend.position = 'plot',
             plot.margin = margin(25, 25, 10, 25))
     
   } else {
