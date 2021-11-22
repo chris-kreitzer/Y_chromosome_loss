@@ -1,6 +1,9 @@
 ## B1) There is no unique segment/probe/locus (marker) specifically 
 ## enriched in the Y chromosome loss cases in solid tumor tissue.
 ## 
+## start: 11/18/21
+## extension: 11/22/21
+
 
 setup(working.path =  '~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
 clean()
@@ -9,8 +12,7 @@ source('Scripts/UtilityFunctions.R')
 ## Data input:
 data_cnlr = vroom::vroom('Data_out/IMPACT/Cnlr_out.txt')
 cohort = readRDS('Data_out/cohort_data.rds')
-
-
+CN_IMPACT = read.csv('Data_out/IMPACT/IMPACT_copynumber_out.txt', sep = '\t')
 
 
 
@@ -108,6 +110,9 @@ labels.x = paste0(round(labels.x / 1000000, 1), ' Mb')
 ggsave_golden(filename = 'Figures/Markers_LossSamples.pdf', plot = postions_loss_cohort, width = 12)
 
 
+
+## Look at any SCNA elements which are associated with Y chromosome loss
+## 
 
 
 
