@@ -109,12 +109,3 @@ labels.x = paste0(round(labels.x / 1000000, 1), ' Mb')
 
 ggsave_golden(filename = 'Figures/Markers_LossSamples.pdf', plot = postions_loss_cohort, width = 12)
 
-
-
-## Look at any SCNA elements which are associated with Y chromosome loss
-## 
-## 
-
-
-
-
