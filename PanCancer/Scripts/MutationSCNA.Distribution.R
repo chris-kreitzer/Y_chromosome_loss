@@ -15,7 +15,7 @@ Facets_Annotated = read.csv('~/Documents/MSKCC/05_IMPACT40K/Data/Signed_out/Face
 Gene_Facets = vroom::vroom('~/Documents/MSKCC/05_IMPACT40K/Data/msk_impact_facets_annotated.gene_level.txt')
 ArmLevel_Facets = vroom::vroom('~/Documents/MSKCC/05_IMPACT40K/Data/msk_impact_facets_annotated.arm_level.txt.gz')
 IMPACT468 = read.csv('~/Documents/MSKCC/05_IMPACT40K/Data/Signed_out/impact468_gene_panel.txt', sep = '\t', skip = 3)
-Mutations = read.csv('~/Documents/MSKCC/05_IMPACT40K/Data/data_mutations_extended.somatic.oncokb.vep.maf', sep = '\t')
+Mutations = vroom::vroom('~/Documents/MSKCC/05_IMPACT40K/Data/data_mutations_extended.somatic.oncokb.vep.maf')
 cohort = readRDS('Data_out/cohort_data.rds')
 
 
