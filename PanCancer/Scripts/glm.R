@@ -16,7 +16,15 @@ clinical_glm = clinical[, c('CANCER_TYPE', 'AGE_AT_SEQ_REPORTED_YEARS', 'SAMPLE_
 #' if we are modelling a glm model without any predictor variable; just an intercept
 summary(glm(Y_call ~ 1, data = clinical_glm, family = binomial(link = 'logit')))
 
-
+#' including one predictor variable: FGA
+summary(glm(Y_call ~ FGA, data = clinical_glm, family = binomial(link = 'logit')))
+#log(p/(1-p)) = logit(p) = -0.93740 + 1.05054*FGA
+-0.93740 + 1.05054*0
+f = -0.93740 + 1.05054*1
+s = -0.93740 + 1.05054*0.2
+t = -0.93740 + 1.05054*0.3
+exp(t - s)
+exp(-0.9374) / (1+exp(-0.9374))
 
 
 model1 = glm(Y_call ~ ., data = clinical_glm, family = binomial(link = 'logit'))
