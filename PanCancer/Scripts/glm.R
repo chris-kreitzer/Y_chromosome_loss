@@ -1,16 +1,23 @@
-# rm(list = ls())
-# .rs.restartR()
-# setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
+rm(list = ls())
+.rs.restartR()
+setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
 
 library(data.table)
 library(car)
 
-clinical = read.csv('Data_out/DF_CT_type.txt', sep = '\t')
+clinical = read.csv('Data_out/IMPACT/IMPACT_clinical.txt', sep = '\t')
 clinical$Y_call[which(clinical$Y_call == 'intact_Y_chrom')] = 0
 clinical$Y_call[which(clinical$Y_call == 'Y_chrom_loss')] = 1
 clinical$Y_call = as.integer(as.character(clinical$Y_call))
 clinical_glm = clinical[, c('CANCER_TYPE', 'AGE_AT_SEQ_REPORTED_YEARS', 'SAMPLE_TYPE',
                             'Y_call', 'ploidy', 'purity', 'FGA', 'TMB', 'MSI_Score', 'MSI_Type')]
+
+
+#' if we are modelling a glm model without any predictor variable; just an intercept
+summary(glm(Y_call ~ 1, data = clinical_glm, family = binomial(link = 'logit')))
+
+
+
 
 model1 = glm(Y_call ~ ., data = clinical_glm, family = binomial(link = 'logit'))
 model.vif = as.data.table(car::vif(model1))
