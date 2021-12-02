@@ -27,6 +27,12 @@ exp(t - s)
 exp(-0.9374) / (1+exp(-0.9374))
 
 
+#' holistic glm approach
+clinical_glm$AGE_AT_SEQ_REPORTED_YEARS = as.integer(as.character(clinical_glm$AGE_AT_SEQ_REPORTED_YEARS))
+clinical_glm$SAMPLE_TYPE = as.factor(as.character(clinical_glm$SAMPLE_TYPE))
+clinical_glm$MSI_Type = as.factor(as.character(clinical_glm$MSI_Type))
+
+
 model1 = glm(Y_call ~ ., data = clinical_glm, family = binomial(link = 'logit'))
 model.vif = as.data.table(car::vif(model1))
 model.vif[, Test := (`GVIF^(1/(2*Df))`) ^ 2]
