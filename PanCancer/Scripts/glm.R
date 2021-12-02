@@ -16,15 +16,19 @@ clinical_glm = clinical[, c('CANCER_TYPE', 'AGE_AT_SEQ_REPORTED_YEARS', 'SAMPLE_
 #' if we are modelling a glm model without any predictor variable; just an intercept
 model_intercept = glm(Y_call ~ 1, data = clinical_glm, family = binomial(link = 'logit'))
 summary(model_intercept)
+car::vif(model_intercept) #' not possible with only one variable;
+
 
 #' including one predictor variable: FGA
-summary(glm(Y_call ~ FGA, data = clinical_glm, family = binomial(link = 'logit')))
+model_1predictor = glm(Y_call ~ FGA, data = clinical_glm, family = binomial(link = 'logit'))
+summary(model_1predictor)
+car::vif(model_1predictor) #' also not possible due to only one predictor
+
 #log(p/(1-p)) = logit(p) = -0.93740 + 1.05054*FGA
--0.93740 + 1.05054*0
 f = -0.93740 + 1.05054*1
-s = -0.93740 + 1.05054*0.2
-t = -0.93740 + 1.05054*0.3
-exp(t - s)
+s = -0.93740 + 1.05054*0.1
+t = -0.93740 + 1.05054*0.2
+f = -0.93740 + 1.05054*0.3
 exp(-0.9374) / (1+exp(-0.9374))
 
 
@@ -32,12 +36,32 @@ exp(-0.9374) / (1+exp(-0.9374))
 clinical_glm$AGE_AT_SEQ_REPORTED_YEARS = as.integer(as.character(clinical_glm$AGE_AT_SEQ_REPORTED_YEARS))
 clinical_glm$SAMPLE_TYPE = as.factor(as.character(clinical_glm$SAMPLE_TYPE))
 clinical_glm$MSI_Type = as.factor(as.character(clinical_glm$MSI_Type))
+clinical_glm$MSI_Type = factor(clinical_glm$MSI_Type, levels = c('Stable', 'Instable', 'Indeterminate', 'Do not report'))
 glm_model = clinical_glm[, -which(names(clinical_glm) == "CANCER_TYPE")]
 
 model1 = glm(Y_call ~., data = glm_model, family = binomial(link = 'logit'))
+summary(model1)
+
+#' looking into MSI_Type; it seems like that MSI instable tumors show a tendency for retaining the 
+#' Y chromosome; 
+stable = glm_model[which(glm_model$MSI_Type == 'Stable'), ]
+stable.freq = table(stable$Y_call)[[2]] / sum(table(stable$Y_call))
+instable = glm_model[which(glm_model$MSI_Type == 'Instable'), ]
+instable.freq = table(instable$Y_call)[[2]] / sum(table(instable$Y_call))
+
+
+
+
+
+
 model.vif = as.data.table(car::vif(model1))
 model.vif[, Test := (`GVIF^(1/(2*Df))`) ^ 2]
 any(model.vif$Test > 10) # FALSE
+
+
+
+
+
 
 # Extract model variables
 model.vars = as.data.table(summary(model1)$coefficients, keep.rownames = T)
