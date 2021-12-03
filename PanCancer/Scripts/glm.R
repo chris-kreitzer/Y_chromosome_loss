@@ -14,6 +14,8 @@ source('Scripts/Plotting_theme.R')
 ## Libraries and input data
 library(data.table)
 library(car)
+install.packages('aod')
+library(aod)
 
 clinical = read.csv('Data_out/IMPACT/IMPACT_clinical.txt', sep = '\t')
 clinical$Y_call[which(clinical$Y_call == 'intact_Y_chrom')] = 0
@@ -22,7 +24,17 @@ clinical$Y_call = as.integer(as.character(clinical$Y_call))
 clinical_glm = clinical[, c('CANCER_TYPE', 'AGE_AT_SEQ_REPORTED_YEARS', 'SAMPLE_TYPE',
                             'Y_call', 'ploidy', 'purity', 'FGA', 'TMB', 'MSI_Score', 'MSI_Type')]
 
-CancerTypes_considered = 
+#' only work with cancer types whose frequency is > 1% in the whole cohort (n = 12,405)
+#' also modify the data frame columns, so that they are properly encoded
+CancerTypes_considered = names(which(table(clinical_glm$CANCER_TYPE) / sum(table(clinical_glm$CANCER_TYPE)) > 0.01))
+clinical_glm = clinical_glm[which(clinical_glm$CANCER_TYPE %in% CancerTypes_considered), ]
+
+clinical_glm$CANCER_TYPE = as.factor(as.character(clinical_glm$CANCER_TYPE))
+clinical_glm$AGE_AT_SEQ_REPORTED_YEARS = as.integer(as.character(clinical_glm$AGE_AT_SEQ_REPORTED_YEARS))
+clinical_glm$SAMPLE_TYPE = as.factor(as.character(clinical_glm$SAMPLE_TYPE))
+clinical_glm$MSI_Type = as.factor(as.character(clinical_glm$MSI_Type))
+clinical_glm$MSI_Type = factor(clinical_glm$MSI_Type, levels = c('Stable', 'Instable', 'Indeterminate', 'Do not report'))
+
 
 #' if we are modelling a glm model without any predictor variable; just an intercept
 model_intercept = glm(Y_call ~ 1, data = clinical_glm, family = binomial(link = 'logit'))
@@ -44,23 +56,18 @@ exp(-0.9374) / (1+exp(-0.9374))
 
 
 #' full glm approach (without CancerType included)
-clinical_glm$AGE_AT_SEQ_REPORTED_YEARS = as.integer(as.character(clinical_glm$AGE_AT_SEQ_REPORTED_YEARS))
-clinical_glm$SAMPLE_TYPE = as.factor(as.character(clinical_glm$SAMPLE_TYPE))
-clinical_glm$MSI_Type = as.factor(as.character(clinical_glm$MSI_Type))
-clinical_glm$MSI_Type = factor(clinical_glm$MSI_Type, levels = c('Stable', 'Instable', 'Indeterminate', 'Do not report'))
 glm_model = clinical_glm[, -which(names(clinical_glm) == "CANCER_TYPE")]
-
 model1 = glm(Y_call ~., data = glm_model, family = binomial(link = 'logit'))
 summary(model1)
 
 
-
 #' holistic glm approach (including CancerType and all other variables)
+model_full = glm(Y_call ~ ., data = clinical_glm, family = binomial(link = 'logit'))
+summary(model_full)
 
-head(clinical_glm)
-str(clinical_glm)
-unique(sort(clinical_glm$CANCER_TYPE))
-
+#' what about the overall effect of CANCER_TYPE?
+#' we are using a wald-test to assess the significance
+wald.test(b = coef(model_full), Sigma = vcov(model_full), Terms = 2:20)
 
 
 
