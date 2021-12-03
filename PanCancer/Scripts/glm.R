@@ -69,8 +69,8 @@ summary(model_full)
 #' we are using a wald-test to assess the significance
 wald.test(b = coef(model_full), Sigma = vcov(model_full), Terms = 2:20)
 
-
-
+library(rcompanion)
+rcompanion::compareGLM(model_full, model_intercept)
 
 
 
