@@ -1,7 +1,17 @@
-rm(list = ls())
-.rs.restartR()
-setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
+## Run a logistic regression model on the whole Impact cohort;
+## Look into which variables influence the Y-chromosome loss probability
+## 
+## start: 11/2021
+## revision: 12/2021
+## chris-kreitzer
 
+
+setup(working.path = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
+clean()
+source('Scripts/Plotting_theme.R')
+
+
+## Libraries and input data
 library(data.table)
 library(car)
 
@@ -12,6 +22,7 @@ clinical$Y_call = as.integer(as.character(clinical$Y_call))
 clinical_glm = clinical[, c('CANCER_TYPE', 'AGE_AT_SEQ_REPORTED_YEARS', 'SAMPLE_TYPE',
                             'Y_call', 'ploidy', 'purity', 'FGA', 'TMB', 'MSI_Score', 'MSI_Type')]
 
+CancerTypes_considered = 
 
 #' if we are modelling a glm model without any predictor variable; just an intercept
 model_intercept = glm(Y_call ~ 1, data = clinical_glm, family = binomial(link = 'logit'))
@@ -32,7 +43,7 @@ f = -0.93740 + 1.05054*0.3
 exp(-0.9374) / (1+exp(-0.9374))
 
 
-#' holistic glm approach
+#' full glm approach (without CancerType included)
 clinical_glm$AGE_AT_SEQ_REPORTED_YEARS = as.integer(as.character(clinical_glm$AGE_AT_SEQ_REPORTED_YEARS))
 clinical_glm$SAMPLE_TYPE = as.factor(as.character(clinical_glm$SAMPLE_TYPE))
 clinical_glm$MSI_Type = as.factor(as.character(clinical_glm$MSI_Type))
@@ -42,6 +53,20 @@ glm_model = clinical_glm[, -which(names(clinical_glm) == "CANCER_TYPE")]
 model1 = glm(Y_call ~., data = glm_model, family = binomial(link = 'logit'))
 summary(model1)
 
+
+
+#' holistic glm approach (including CancerType and all other variables)
+
+head(clinical_glm)
+str(clinical_glm)
+unique(sort(clinical_glm$CANCER_TYPE))
+
+
+
+
+
+
+
 #' looking into MSI_Type; it seems like that MSI instable tumors show a tendency for retaining the 
 #' Y chromosome; 
 stable = glm_model[which(glm_model$MSI_Type == 'Stable'), ]
@@ -49,15 +74,52 @@ stable.freq = table(stable$Y_call)[[2]] / sum(table(stable$Y_call))
 instable = glm_model[which(glm_model$MSI_Type == 'Instable'), ]
 instable.freq = table(instable$Y_call)[[2]] / sum(table(instable$Y_call))
 
+MSI_out = data.frame()
+for(i in unique(clinical_glm$CANCER_TYPE)){
+  try({
+    da = clinical_glm[which(clinical_glm$CANCER_TYPE == i), ]
+    Y.stable = table(da$Y_call[which(da$MSI_Type == 'Stable')])[[2]] / sum(table(da$Y_call[which(da$MSI_Type == 'Stable')]))
+    Y.instable = table(da$Y_call[which(da$MSI_Type == 'Instable')])[[2]] / sum(table(da$Y_call[which(da$MSI_Type == 'Instable')]))
+    show = ifelse(Y.stable > Y.instable, 'yes', 'no')
+    out = data.frame(CancerType = i,
+                     Type = c('Stable', 'Instable'),
+                     prop = c(Y.stable, Y.instable),
+                     n = c(nrow(da[which(da$MSI_Type == 'Stable'), ]),
+                           nrow(da[which(da$MSI_Type == 'Instable'), ])),
+                     show = rep(show, 2))
+    MSI_out = rbind(MSI_out, out)
+  })
+}
 
 
-
+#' Visualization
+MSI.plot = ggplot(MSI_out, aes(x = Type, y = prop, color = CancerType, size = n)) +
+  #geom_vline(xintercept = c(1, 2), size = 0.2, color = 'grey85') +
+  geom_hline(yintercept = seq(0.2, 0.6, 0.2), color = 'grey85', size = 0.2) +
+  geom_line(aes(group = CancerType), 
+            color = ifelse(MSI_out$show == 'yes', 'grey85', 'red'), size = 0.35) +
+  
+  geom_point() +
+  
+  scale_colour_viridis_d(direction = -1) +
+  scale_size_area(limits = c(1, 1500),
+                  breaks = c(100, 250, 500, 750, 1000, 1500)) +
+  theme_Y(base_size = 14) +
+  labs(x = 'MSI Type', y = 'Y-chromosome loss')
+  
+ggsave_golden(filename = 'Figures/MSI_Type_Y.loss.pdf', plot = MSI.plot, width = 8)
 
 
 model.vif = as.data.table(car::vif(model1))
 model.vif[, Test := (`GVIF^(1/(2*Df))`) ^ 2]
 any(model.vif$Test > 10) # FALSE
 
+
+
+
+model2 = glm(Y_call ~., data = clinical_glm, family = binomial(link = 'logit'))
+summary(model2)
+summary(model1)
 
 
 
