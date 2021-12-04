@@ -14,7 +14,7 @@ source('Scripts/Plotting_theme.R')
 ## Libraries and input data
 library(data.table)
 library(car)
-install.packages('aod')
+# install.packages('aod')
 library(aod)
 
 clinical = read.csv('Data_out/IMPACT/IMPACT_clinical.txt', sep = '\t')
@@ -71,6 +71,17 @@ wald.test(b = coef(model_full), Sigma = vcov(model_full), Terms = 2:20)
 
 library(rcompanion)
 rcompanion::compareGLM(model_full, model_intercept)
+
+
+#' check for multicollinearity with car::vif()
+model.vif = as.data.frame(car::vif(model_full))
+model.vif$Test = model.vif$`GVIF^(1/(2*Df))` ^ 2
+
+#' we will exclude the MSI_Score predictor variable as it shows a high VIF
+data_final = clinical_glm[,-which(names(clinical_glm) == 'MSI_Score')]
+model_final = glm(Y_call ~., data = data_final, family = binomial(link = 'logit'))
+car::vif(model_final)
+
 
 
 
