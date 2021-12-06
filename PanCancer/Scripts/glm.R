@@ -16,6 +16,8 @@ library(data.table)
 library(car)
 # install.packages('aod')
 library(aod)
+library(rcompanion)
+library(ggplot2)
 
 clinical = read.csv('Data_out/IMPACT/IMPACT_clinical.txt', sep = '\t')
 clinical$Y_call[which(clinical$Y_call == 'intact_Y_chrom')] = 0
@@ -69,7 +71,7 @@ summary(model_full)
 #' we are using a wald-test to assess the significance
 wald.test(b = coef(model_full), Sigma = vcov(model_full), Terms = 2:20)
 
-library(rcompanion)
+#' comparing two models with each other
 rcompanion::compareGLM(model_full, model_intercept)
 
 
@@ -90,12 +92,23 @@ LLR = -2*(as.numeric(A) - as.numeric(B))
 pchisq(LLR, 28, lower.tail = FALSE)
 
 
+# Extract model variables
+model.vars = as.data.table(summary(model1)$coefficients, keep.rownames = T)
+
+# Compute 95% confidence intervals for odds ratios
+model.vars[, OR := exp(Estimate)]
+model.vars[, OR_lower := exp(Estimate - 1.96 * `Std. Error`)]
+model.vars[, OR_upper := exp(Estimate + 1.96 * `Std. Error`)]
+model.vars = model.vars[order(`Pr(>|z|)`)]
+
+model.vars = model.vars[model.vars$`Pr(>|z|)` < 0.001, ]
+model.vars$adjusted = p.adjust(p = model.vars$`Pr(>|z|)`, method = 'BH')
+
+
+
+
 #' looking into MSI_Type; it seems like that MSI instable tumors show a tendency for retaining the 
 #' Y chromosome; 
-stable = glm_model[which(glm_model$MSI_Type == 'Stable'), ]
-stable.freq = table(stable$Y_call)[[2]] / sum(table(stable$Y_call))
-instable = glm_model[which(glm_model$MSI_Type == 'Instable'), ]
-instable.freq = table(instable$Y_call)[[2]] / sum(table(instable$Y_call))
 
 MSI_out = data.frame()
 for(i in unique(clinical_glm$CANCER_TYPE)){
@@ -116,8 +129,8 @@ for(i in unique(clinical_glm$CANCER_TYPE)){
 
 
 #' Visualization
-MSI.plot = ggplot(MSI_out, aes(x = Type, y = prop, color = CancerType, size = n)) +
-  #geom_vline(xintercept = c(1, 2), size = 0.2, color = 'grey85') +
+MSI.plot = ggplot(MSI_out, aes(x = Type, y = prop, color = CancerType, size = n, label = CancerType)) +
+  geom_text(aes(label = CancerType), hjust = 0) +
   geom_hline(yintercept = seq(0.2, 0.6, 0.2), color = 'grey85', size = 0.2) +
   geom_line(aes(group = CancerType), 
             color = ifelse(MSI_out$show == 'yes', 'grey85', 'red'), size = 0.35) +
@@ -130,35 +143,13 @@ MSI.plot = ggplot(MSI_out, aes(x = Type, y = prop, color = CancerType, size = n)
   theme_Y(base_size = 14) +
   labs(x = 'MSI Type', y = 'Y-chromosome loss')
   
-ggsave_golden(filename = 'Figures/MSI_Type_Y.loss.pdf', plot = MSI.plot, width = 8)
-
-
-model.vif = as.data.table(car::vif(model1))
-model.vif[, Test := (`GVIF^(1/(2*Df))`) ^ 2]
-any(model.vif$Test > 10) # FALSE
-
-
-
-
-model2 = glm(Y_call ~., data = clinical_glm, family = binomial(link = 'logit'))
-summary(model2)
-summary(model1)
+ggsave_golden(filename = 'Figures/MSI_Type_Y.loss.pdf', plot = MSI.plot, width = 11)
 
 
 
 
 
-# Extract model variables
-model.vars = as.data.table(summary(model1)$coefficients, keep.rownames = T)
 
-# Compute 95% confidence intervals for odds ratios
-model.vars[, OR := exp(Estimate)]
-model.vars[, OR_lower := exp(Estimate - 1.96 * `Std. Error`)]
-model.vars[, OR_upper := exp(Estimate + 1.96 * `Std. Error`)]
-model.vars = model.vars[order(`Pr(>|z|)`)]
-
-model.vars = model.vars[model.vars$`Pr(>|z|)` < 0.001, ]
-model.vars$adjusted = p.adjust(p = model.vars$`Pr(>|z|)`, method = 'BH')
 
 ## print:
 # model.print$n = NA
