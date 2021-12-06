@@ -82,7 +82,12 @@ data_final = clinical_glm[,-which(names(clinical_glm) == 'MSI_Score')]
 model_final = glm(Y_call ~., data = data_final, family = binomial(link = 'logit'))
 car::vif(model_final)
 
+#' log-likelihood ratio test whether model_final predicts better than null model
+A = logLik(model_intercept)
+B = logLik(model_final)
 
+LLR = -2*(as.numeric(A) - as.numeric(B))
+pchisq(LLR, 28, lower.tail = FALSE)
 
 
 #' looking into MSI_Type; it seems like that MSI instable tumors show a tendency for retaining the 
