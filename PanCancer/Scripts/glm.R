@@ -18,6 +18,8 @@ library(car)
 library(aod)
 library(rcompanion)
 library(ggplot2)
+library(cowplot)
+
 
 clinical = read.csv('Data_out/IMPACT/IMPACT_clinical.txt', sep = '\t')
 clinical$Y_call[which(clinical$Y_call == 'intact_Y_chrom')] = 0
@@ -105,6 +107,23 @@ model.vars = model.vars[model.vars$`Pr(>|z|)` < 0.001, ]
 model.vars$adjusted = p.adjust(p = model.vars$`Pr(>|z|)`, method = 'BH')
 
 
+#' Visualization
+ggplot(data = model.vars, aes(x = reorder(rn, Estimate), y = Estimate)) +
+  geom_point(size = 2) +
+  geom_pointrange(aes(ymin = Estimate - `Std. Error`,
+                      ymax = Estimate + `Std. Error`),
+                  size = 0.5) +
+  coord_flip() +
+  theme(panel.background = element_blank(),
+        panel.border = element_rect(fill = NA, size = 1),
+        aspect.ratio = 1,
+        axis.title.x.top = element_blank(),
+        axis.text = element_text(size = 10, face = 'bold', color = 'black')) +
+  geom_hline(yintercept = 0) +
+  scale_y_continuous(sec.axis = dup_axis()) +
+  labs(x = '', y = 'log(odds ratio)')
+
+
 
 
 #' looking into MSI_Type; it seems like that MSI instable tumors show a tendency for retaining the 
@@ -146,35 +165,116 @@ MSI.plot = ggplot(MSI_out, aes(x = Type, y = prop, color = CancerType, size = n,
 ggsave_golden(filename = 'Figures/MSI_Type_Y.loss.pdf', plot = MSI.plot, width = 11)
 
 
+## MSI_TYPE unstable show generally decreased FGA and hence, Y-chromosome loss can be
+## explained by FGA again; 
+
+#' A) Colorectal Cancer
+Colorectal = clinical_glm[which(clinical_glm$CANCER_TYPE == 'Colorectal Cancer'), ]
+Colorectal = droplevels(Colorectal[which(Colorectal$MSI_Type %in% c('Stable', 'Instable')),])
+
+
+boxplot(Colorectal$FGA ~ Colorectal$MSI_Type,
+        main = 'Colorectal Cancer',
+        xlab = 'MSI-Type',
+        ylab = 'FGA',
+        notch = T,
+        asp = 10)
+
+t.test(Colorectal$FGA ~ Colorectal$MSI_Type)
+
+
+#' B) Esophagogastric Cancer
+Esophagus = clinical_glm[which(clinical_glm$CANCER_TYPE == 'Esophagogastric Cancer'), ]
+Esophagus = droplevels(Esophagus[which(Esophagus$MSI_Type %in% c('Stable', 'Instable')),])
+boxplot(Esophagus$FGA ~ Esophagus$MSI_Type,
+        main = 'Esophagogastric Cancer',
+        xlab = 'MSI-Type',
+        ylab = 'FGA',
+        notch = T,
+        asp = 10)
+
+t.test(Esophagus$FGA ~ Esophagus$MSI_Type)
+
+#' C) Pancreatic Cancer:
+Pancreatic = clinical_glm[which(clinical_glm$CANCER_TYPE == 'Pancreatic Cancer'), ]
+Pancreatic = droplevels(Pancreatic[which(Pancreatic$MSI_Type %in% c('Stable', 'Instable')),])
+boxplot(Pancreatic$FGA ~ Pancreatic$MSI_Type,
+        main = 'Esophagogastric Cancer',
+        xlab = 'MSI-Type',
+        ylab = 'FGA',
+        notch = T,
+        asp = 10)
+
+t.test(Pancreatic$FGA ~ Pancreatic$MSI_Type)
 
 
 
+#' D) Prostate Cancer:
+Prostate = clinical_glm[which(clinical_glm$CANCER_TYPE == 'Prostate Cancer'), ]
+Prostate = droplevels(Prostate[which(Prostate$MSI_Type %in% c('Stable', 'Instable')),])
+boxplot(Prostate$FGA ~ Prostate$MSI_Type,
+        main = 'Esophagogastric Cancer',
+        xlab = 'MSI-Type',
+        ylab = 'FGA',
+        notch = T,
+        asp = 10)
+
+t.test(Prostate$FGA ~ Prostate$MSI_Type)
+dim(Prostate)
 
 
-## print:
-# model.print$n = NA
-# for(i in unique(keep2)){
-#   print(i)
-#   n = table(data.out[, i])[[2]][[1]]
-#   print(n)
-#   model.print$n[which(model.print$rn == i)] = n
-# }
+###############################################################################
+#' The lower the purity, the less likely we observe a Y-chromosome loss call. 
+library(dplyr)
 
+purity_out = data.frame()
+for(i in seq(0, 0.9, by = 0.1)){
+  da = clinical_glm[between(x = clinical_glm$purity, left = i, right = i+0.1), ]
+  frac = (table(da$Y_call)[[2]] / sum(table(da$Y_call))) *100
+  out = data.frame(group = i,
+                   n = nrow(da),
+                   frac = frac)
+  purity_out = rbind(purity_out, out)
+}
+
+purity_out$group = as.factor(as.numeric(purity_out$group))
 
 #' Visualization
-ggplot(data = model.vars, aes(x = reorder(rn, Estimate), y = Estimate)) +
-  geom_point(size = 2) +
-  geom_pointrange(aes(ymin = Estimate - `Std. Error`,
-                      ymax = Estimate + `Std. Error`),
-                  size = 0.5) +
-  coord_flip() +
-  theme(panel.background = element_blank(),
-        panel.border = element_rect(fill = NA, size = 1),
-        aspect.ratio = 1,
-        axis.title.x.top = element_blank(),
-        axis.text = element_text(size = 10, face = 'bold', color = 'black')) +
-  geom_hline(yintercept = 0) +
-  scale_y_continuous(sec.axis = dup_axis()) +
-  labs(x = '', y = 'log(odds ratio)')
+n.purity = ggplot(purity_out, aes(x = group, y = n)) +
+  geom_bar(stat = 'identity', width = 0.6) +
+  labs(x = '', y = 'cases (n)')
+frac.purity = ggplot(purity_out, aes(x = group, y = frac)) +
+  geom_bar(stat = 'identity', width = 0.6) +
+  labs(x = 'purity-group', y = 'Y-chromosome loss [%]')
+library(patchwork)
+n.purity / frac.purity
 
 
+
+#' relative contribution cancer types
+relCancer = data.frame()
+for(i in seq(0, 0.9, by = 0.1)){
+  da = clinical_glm[between(x = clinical_glm$purity, left = i, right = i+0.1), ]
+  freq = data.frame(table(da$CANCER_TYPE))
+  for(j in 1:nrow(freq)){
+    type = freq$Var1[j]
+    proc = freq$Freq[j] / sum(freq$Freq)
+    out = data.frame(group = factor(i),
+                     CancerType = type,
+                     frac = proc)
+    relCancer = rbind(relCancer, out)
+  }
+}
+  
+
+purity_Cancer = ggplot(relCancer[order(relCancer$frac, decreasing = T), ], 
+       aes(x = group, y = frac, fill = CancerType, label = CancerType)) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  scale_fill_viridis_d(begin = 0, option = 'B') +
+  geom_text(size = 2, position = position_stack(vjust = 0.5), color = 'white') +
+  labs(x = 'purity-group', y = 'Fraction') +
+  theme(legend.position = 'none')
+
+
+sum = plot_grid(n.purity, frac.purity, purity_Cancer, rel_heights = c(1,1,3), nrow = 3, align = 'h')
+ggsave_golden(filename = 'Figures/PurityCancer.pdf', plot = sum, width = 12)
