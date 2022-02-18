@@ -2,18 +2,17 @@
 ## tissue-specific gene expression and regulation: samples were collected
 ## from 54 non-diseased tissue sites across nearly 1000 individuals
 ##
-## I will use these data, to highlight which Y-chromosome genes are ubiquitinously expressed in the
-## body - in non-diseased tissue
+## I will use these data, to highlight which Y-chromosome genes are ubiquitously expressed
+## and which are testis specfic
 ## 
 ## Start analysis: 10/23/2020
 ## Start revision: 03/25/2021
-## 
+## Start revision: 02/16/2022
 
 
-rm(list = ls())
-.rs.restartR()
-setwd('~/Documents/MSKCC/04_Y_chromo_loss/Y_chromosome_loss/')
-
+clean()
+setup(working.path = '~/Documents/GitHub/Y_chromosome_loss/')
+dataStorage = '~/Documents/MSKCC/00_Data/'
 
 ## Libraries:
 library(vroom)
@@ -25,52 +24,59 @@ library(circlize)
 
 ## Input:
 #' TPM values for male specific tissue on Y-chromosome
-GTEX.TPM.raw_df = vroom::vroom(file = '~/Documents/MSKCC/00_Data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct', delim = '\t', skip = 2)
-GTEX.Sex.Annotation_df = vroom::vroom(file = '~/Documents/MSKCC/00_Data/GTEx_SexAnnotation.txt', delim = '\t')
-GTEX.annotation_df = vroom::vroom(file = '~/Documents/MSKCC/00_Data/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt', delim = '\t')
+#' Median gene-level TPM by tissue
+GTEX.TPM.raw_df = vroom::vroom(file = paste0(dataStorage, 'GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct'), 
+                               delim = '\t', 
+                               skip = 2)
+GTEX.Sex.Annotation_df = vroom::vroom(file = paste0(dataStorage, 'GTEx_SexAnnotation.txt'), 
+                                      delim = '\t')
+GTEX.annotation_df = vroom::vroom(file = paste0(dataStorage, 'GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt'), 
+                                  delim = '\t')
+NCBI = read.csv(file = 'NCBI_Y.chromosome.txt', sep = '\t')
 
 #' Gene data from BIOMART
-GenesY_df = read.csv(file = '~/Documents/MSKCC/00_Data/Gene.Model.Biomart.txt', sep = '\t')
+GenesY_df = read.csv(file = paste0(dataStorage, 'Gene.Model.Biomart.txt'), 
+                                   sep = '\t')
+GenesY_df = GenesY_df[which(GenesY_df$Chromosome.scaffold.name == 'Y'), ]
+GenesY_df = GenesY_df[!duplicated(GenesY_df$Gene.stable.ID.version), ]
 
-## Functions:
 
 
-## Processing:
-#' selcet only male samples: (1 = male)
-GTEX.TPM.annotation_df = GTEX.TPM.raw_df[, c(1, 2)]
+
+## Data Processing:
 male_samples = GTEX.Sex.Annotation_df[which(GTEX.Sex.Annotation_df$SEX == 1), 'SUBJID']
 male_samples = as.character(male_samples$SUBJID)
 
-#' grep male columns
+#' fetch male samples from expression table
 index_colnames = c()
 for(i in 1:length(male_samples)){
   ii = grep(pattern = male_samples[i], x = colnames(GTEX.TPM.raw_df))
   index_colnames = c(index_colnames, ii)
 }
 
-GTEX.TPM.raw_df = GTEX.TPM.raw_df[, index_colnames]
-GTEX.TPM.raw_df = cbind(GTEX.TPM.annotation_df, GTEX.TPM.raw_df)
+male_expression = GTEX.TPM.raw_df[, c(1, 2, index_colnames)]
+rm(GTEX.TPM.raw_df)
+gc()
 
-#' replace SampleIDs with tissue type from annotation file
+#' replace sample IDs with tissue type from annotation file
 #' column SMTS == Tissue Type, area from which the tissue sample was taken. Parent value to SMTSD
 #' column SMTSD == Tissue Type, more specific detail of tissue type
 
 #' in this case I will use the SMTS column (parent); ending up in 29 tissue sites
-for(i in 3:ncol(GTEX.TPM.raw_df)){
-  if(colnames(GTEX.TPM.raw_df)[i] %in% GTEX.annotation_df$SAMPID){
-    colnames(GTEX.TPM.raw_df)[i] = GTEX.annotation_df$SMTS[which(colnames(GTEX.TPM.raw_df)[i] == GTEX.annotation_df$SAMPID)]
+for(i in 3:ncol(male_expression)){
+  if(colnames(male_expression)[i] %in% GTEX.annotation_df$SAMPID){
+    colnames(male_expression)[i] = GTEX.annotation_df$SMTS[which(colnames(male_expression)[i] == GTEX.annotation_df$SAMPID)]
   }
 }
 
 
 #' Y-chromosome genes to keep
-#' Target gene list from Hanisha | Subhi (299) (under input section):
-GenesY_df = GenesY_df[GenesY_df$Chromosome.scaffold.name == 'Y', ]
-GenesY_df = GenesY_df[which(GenesY_df$Gene.type == 'protein_coding' | 
-                              GenesY_df$Gene.type == 'processed_pseudogene' | 
-                              GenesY_df$Gene.type == 'lncRNA' |
-                              GenesY_df$Gene.type == 'snRNA' | 
-                              GenesY_df$Gene.type == 'snoRNA'), ]
+GenesY_nonCoding = GenesY_df[which(GenesY_df$Gene.type == 'processed_pseudogene' | 
+                            GenesY_df$Gene.type == 'lncRNA' |
+                            GenesY_df$Gene.type == 'snRNA' | 
+                            GenesY_df$Gene.type == 'snoRNA'), ]
+GenesY_coding = GenesY_df[which(GenesY_df$Gene.type == 'protein_coding'), ]
+
 GenesY_df = GenesY_df[!duplicated(GenesY_df$Gene.stable.ID.version), ]
 GenesY_df = GenesY_df[!duplicated(GenesY_df$Gene.name),, drop = F]
 GenesY_df = GenesY_df[, c('Gene.name', 'Gene.start..bp.', 'Gene.end..bp.')]
