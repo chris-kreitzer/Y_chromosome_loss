@@ -13,7 +13,7 @@ The overall segmentation pattern was assessed visually via IGV as well as the ar
 Moreover, we called Y-chromosome losses in TCGA-PRAD samples (5.7%) and clearly saw, that some genes on the Y-chromosome show a significant reduction of expression compared to its Y-chromosome (wild-type) counterparts).
 
 
-
+### Concentrate on sequencing reads from the Y-chromsome (see Ed Rezniks paper)
 
 ### Sanity checks:
 A. FacetsY (default parameters) work fine on TCGA data (comparison with Affymetrix Chips)
