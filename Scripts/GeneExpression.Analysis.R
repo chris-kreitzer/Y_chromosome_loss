@@ -33,9 +33,9 @@ GTEX.Sex.Annotation_df = vroom::vroom(file = paste0(dataStorage, 'GTEx_SexAnnota
                                       delim = '\t')
 GTEX.annotation_df = vroom::vroom(file = paste0(dataStorage, 'GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt'), 
                                   delim = '\t')
-NCBI = read.csv(file = 'NCBI_Y.chromosome.txt', sep = '\t')
-NCBI = NCBI[!duplicated(NCBI$GeneID), ]
-write.table('~/Documents/MSKCC/10_MasterThesis/Data/NCBI_GeneTableY.txt', sep = '\t', row.names = F, quote = F)
+# NCBI = read.csv(file = 'NCBI_Y.chromosome.txt', sep = '\t')
+# NCBI = NCBI[!duplicated(NCBI$GeneID), ]
+# write.table('~/Documents/MSKCC/10_MasterThesis/Data/NCBI_GeneTableY.txt', sep = '\t', row.names = F, quote = F)
 
 
 #' Gene data from BIOMART
@@ -205,6 +205,7 @@ y_chromosome
 # save as 10 x 10
 
 
+###############################################################################
 ## Look at the expression of X-homologues
 X_homologues = c('SOX3',
                  'RPS4X',
@@ -215,8 +216,7 @@ X_homologues = c('SOX3',
                    'KDM6A',
                  'TMSB4X',
                  'NLGN4X',
-                   'EIF1AX',
-                 'RPS4X')
+                   'EIF1AX')
 
 GTEX_X_homologue = male_expression[which(male_expression$Description %in% X_homologues), ]
 GTEX_X = GTEX_X_homologue[, 3:ncol(GTEX_X_homologue)]
@@ -261,9 +261,10 @@ x_chromosome = ComplexHeatmap::Heatmap(matrix = GTEX_X.median.summary,
 x_chromosome
 
 
-###### X-Y expression differences
-install.packages('plotrix')
-library(plotrix)
+
+###############################################################################
+## X-Y expression differences: homologous genes in Prostate tissue
+## we are focusing on healthy individuals
 
 Y_protein_coding = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/proteinCodingY.txt', sep = '\t', skip = 2)
 XY_homologue = Y_protein_coding[which(Y_protein_coding$X.1 != ''), ]
@@ -303,17 +304,15 @@ plot_out$subject = c(seq(1,13, 1), seq(1, 13, 1))
 
 
 p = ggplot(plot_out, aes(x = group, y = value, group = subject)) +
-  geom_line(size = 0.4) +
+  geom_line(size = 0.45) +
   geom_point(aes(col = group)) +
-  geom_text(aes(label = name), size = 2, vjust = 0, hjust = 0) +
+  geom_text(aes(label = name), size = 3.5, vjust = 0, hjust = 0) +
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                 labels = trans_format("log10", math_format(10^.x))) +
   theme_bw() +
-  theme(aspect.ratio = 1)
+  theme(aspect.ratio = 1,
+        axis.text = element_text(color = 'black', size = 10))
 p + annotation_logticks(sides = 'l')
 
 
-
-
-library(scales)
-library(MASS)
+#' out
