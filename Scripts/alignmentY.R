@@ -112,7 +112,7 @@ bw_cov = get_coverage(bigwig_file = 'DE840153-T.all.bw', op = 'mean', annotation
 
 
 ## bamCoverage() example
+## works online on command line
 bamCoverage -b YB324274-N.bam -o Normal_PTEN.bw -of 'bigwig' -bs 1 -r 10:89623382:89731687 --minMappingQuality 30
 
-library()
-bamCoverage -b '~/Documents/MSKCC/10_MasterThesis/Data/P-0000140-T01-IM3/EM634900-T.bam' -o test.bw -of 'bigwig' -bs 1 -r Y:89623382:89731687 --minMappingQuality 30
+#' out
