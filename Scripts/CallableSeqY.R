@@ -129,33 +129,6 @@ for(patient in 1:nrow(cohort)){
 
 
 
-countsf = facets::readSnpMatrix(filename = 'P-0000140-T01-IM3/countsMerged____P-0000140-T01-IM3_P-0000140-N01-IM3.dat.gz')
-countsf = countsf[which(countsf$Chromosome == 'Y'), ]
-
-TGIF2LY = countsf[which(countsf$Position >= 4868267 & countsf$Position <= 5610265), ]
-PRKY = countsf[which(countsf$Position >= 7142013 & countsf$Position <= 7249589), ]
-hist(TGIF2LY$TUM.DP, nclass = 40)
-
-
-
-
-
-
-TGIF2LY
-
-
-7249589 - 7142013
-
-nrow(PRKY)
-3447108	3448082
-
-
-
-
-
-
-
-
 
 
 
@@ -186,39 +159,3 @@ for(i in unique(out$Gene_name)){
   all_out = rbind(all_out, out_f)
 }
 
-
-head(out)
-out_EM = out[which(out$file == 'EM634900-T.bam'), ]
-alig = read.csv('~/Desktop/AlignmentStatsY.txt', sep = '\t')
-View(alig)
-readcount = facets::readSnpMatrix(filename = '~/Documents/MSKCC/10_MasterThesis/Data/P-0000140-T01-IM3/countsMerged____P-0000140-T01-IM3_P-0000140-N01-IM3.dat.gz')
-readcountY = readcount[which(readcount$Chromosome == 'Y'), ]
-
-a = readcountY[which(readcountY$Position >= 6114264 & readcountY$Position <= 6117060), ]
-a
-mean(a$NOR.DP)
-sum(a$NOR.DP) / nrow(a)
-
-
-
-
-
-
-
-files = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/ProstateCohort_cbio.tsv', sep = '\t')
-files = files[, c('Patient.ID', 'Sample.ID')]
-files$array = NA
-for(i in 1:nrow(files)){
-  files$array[i] = strsplit(files$Sample.ID[i], split = '-')[[1]][4]
-}
-
-strsplit(files$Sample.ID[1], split = '-')[[1]][4]
-
-a = files[sample(nrow(files), size = 1000, replace = F), ]
-a
-any(duplicated(a$Sample.ID))
-
-
-probes = readxl::read_excel('~/Documents/MSKCC/dmp-2021/Genomics/HybridizationProbes_IMPACT341.xlsx', skip = 2)
-head(probes)
-View(probes)
