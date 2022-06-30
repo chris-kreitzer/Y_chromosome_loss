@@ -84,16 +84,47 @@ ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep)) +
 
 ###############################################################################
 #' per base coverage of kept genes; from countfiles (snp-pileup)
-
+library(facets)
 paths = read.csv('~/Documents/MSKCC/05_IMPACT40K/Data/Signed_out/Facets_annotated.cohort.txt', sep = '\t')
 cohort = read.csv('ProstateCohort_cbio.tsv', sep = '\t')
 cohort = cohort[,c('Patient.ID', 'Sample.ID')]
+cohort = cohort[sample(nrow(cohort), 1000, replace = F), ]
+Regions = readxl::read_excel(path = 'Y_gene_table.xlsx')
+Regions = as.data.frame(Regions)
 
-cohort = 
 
-
-head(cohort)
-
+all_out = data.frame()
+for(patient in 1:nrow(cohort)){
+  try({
+    path_count = grep(pattern = cohort$Sample.ID[patient], x = Facets_paths$counts_file, value = T)
+    file_in = facets::readSnpMatrix(filename = path_count)
+    file_in = file_in[which(file_in$Chromosome == 'Y'), ]
+    
+    for(gene in 1:nrow(Regions)){
+      gene_selected = file_in[which(file_in$Position >= Regions$Start_hg19[gene] & file_in$Position <= Regions$End_hg19[gene]), ]
+      gene_name = Regions$Gene_name[gene]
+      
+      if(any(gene_selected$TUM.DP > 30)){
+        n = length(gene_selected$TUM.DP[which(gene_selected$TUM.DP > 30)])
+        n_sum = sum(gene_selected$TUM.DP[which(gene_selected$TUM.DP > 30)])
+        out = data.frame(Gene = gene_name,
+                         Patient = cohort$Sample.ID[patient],
+                         mean_cov = n_sum / n,
+                         delta_5 = Regions$Start_hg19[gene] - min(gene_selected$Position[which(gene_selected$TUM.DP > 30)]),
+                         delta_3 = Regions$End_hg19[gene] - max(gene_selected$Position[which(gene_selected$TUM.DP > 30)]))
+      } else {
+        out = data.frame(Gene = gene_name,
+                         Patient = cohort$Sample.ID[patient],
+                         mean_cov = 'N/A',
+                         delta_5 = 'N/A',
+                         delta_3 = 'N/A')
+      }
+      all_out = rbind(all_out, out)
+    }
+    
+  })
+  
+}
 
 
 
