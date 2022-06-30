@@ -1,0 +1,193 @@
+#' Callable sequence; genes from the Y-chromosome
+#' Read coverage (unique sequencing) and per base coverage
+#' 
+#' start: 06/29/2022
+#' revsion: 06/30/2022
+#' chris-kreitzer
+
+
+clean()
+gc()
+.rs.restartR()
+
+setwd('~/Documents/MSKCC/10_MasterThesis/Data/')
+
+#' discard double file; cases
+Alignments = read.csv(file = 'AlignmentStatsY.txt', sep = '\t')
+Regions = readxl::read_excel(path = 'Y_gene_table.xlsx')
+Regions = as.data.frame(Regions)
+
+# files = names(which(table(Alignments$file) > 84))
+# nonredundancy = data.frame()
+# for(i in unique(Alignments$file)){
+#   if(nrow(Alignments[which(Alignments$file == i), ]) > 84){
+#     data_sub = Alignments[which(Alignments$file == i), ]
+#     data_sub = data_sub[1:84, ]
+#   } else {
+#     data_sub = Alignments[which(Alignments$file == i), ]
+#   }
+#   nonredundancy = rbind(nonredundancy, data_sub)
+# }
+# 
+# Alignments = nonredundancy
+
+
+#' merge regions with gene name
+Alignments = merge(Alignments, Regions[,c('Gene_name', 'Start_hg19')], 
+                              by.x = 'start',  by.y = 'Start_hg19', all.x = T)
+
+
+Alignment_summary = data.frame()
+for(i in unique(Alignments$Gene_name)){
+  gene_filtered = exp(mean(log(Alignments$records[which(Alignments$Gene_name == i & Alignments$tag == 'tumor_filtered')])))
+  gene_unfiltered = exp(mean(log(Alignments$records[which(Alignments$Gene_name == i & Alignments$tag == 'tumor_unfiltered')])))
+  out_f = data.frame(gene = i,
+                     filtered_geo = gene_filtered,
+                     filtered_median = median(Alignments$records[which(Alignments$Gene_name == i & Alignments$tag == 'tumor_filtered')]),
+                     unfiltered_geo = gene_unfiltered,
+                     unfiltered_median = median(Alignments$records[which(Alignments$Gene_name == i & Alignments$tag == 'tumor_unfiltered')]))
+  
+  Alignment_summary = rbind(Alignment_summary, out_f)
+}
+
+#' if more than 60% of the read drop; exclude gene from analysis
+Alignment_summary$keep = ifelse(Alignment_summary$filtered_median / Alignment_summary$unfiltered_median > 0.6, 'keep', 'discard')
+Alignment_summary$keep[is.na(Alignment_summary$keep)] = 'discard'
+
+#' Visualization:
+filter = Alignment_summary[,c('gene', 'filtered_median', 'keep')]
+colnames(filter) = c('gene', 'value', 'keep')
+filter$tag = 'filtered'
+unfilter = Alignment_summary[,c('gene', 'unfiltered_median', 'keep')]
+colnames(unfilter) = c('gene', 'value', 'keep')
+unfilter$tag = 'unfiltered'
+
+AlignmentsY = rbind(filter, unfilter)
+AlignmentsY$subject = rep(seq(1, 42, 1), 2)
+AlignmentsY$tag = factor(AlignmentsY$tag, levels = c('unfiltered', 'filtered'))
+
+ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep)) +
+  geom_line(size = 0.35) +
+  geom_text(aes(label = gene), size = 3, vjust = 0.5, hjust = 0.5) +
+  geom_point() +
+  scale_color_manual(values = c('discard' = 'red', 'keep' = 'black')) +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x)),
+                limits = c(1e0, 1e4)) +
+  theme_bw() +
+  theme(axis.text = element_text(size = 10, color = 'black'),
+        aspect.ratio = 1) +
+  labs(y = '# sequence reads [median]', x = '11/42', title = 'n = 1,756; before after filtering')
+  
+
+
+
+###############################################################################
+#' per base coverage of kept genes; from countfiles (snp-pileup)
+
+paths = read.csv('~/Documents/MSKCC/05_IMPACT40K/Data/Signed_out/Facets_annotated.cohort.txt', sep = '\t')
+cohort = read.csv('ProstateCohort_cbio.tsv', sep = '\t')
+cohort = cohort[,c('Patient.ID', 'Sample.ID')]
+
+cohort = 
+
+
+head(cohort)
+
+
+
+
+
+countsf = facets::readSnpMatrix(filename = 'P-0000140-T01-IM3/countsMerged____P-0000140-T01-IM3_P-0000140-N01-IM3.dat.gz')
+countsf = countsf[which(countsf$Chromosome == 'Y'), ]
+
+TGIF2LY = countsf[which(countsf$Position >= 4868267 & countsf$Position <= 5610265), ]
+PRKY = countsf[which(countsf$Position >= 7142013 & countsf$Position <= 7249589), ]
+hist(TGIF2LY$TUM.DP, nclass = 40)
+
+
+
+
+
+
+TGIF2LY
+
+
+7249589 - 7142013
+
+nrow(PRKY)
+3447108	3448082
+
+
+
+
+
+
+
+
+
+
+
+
+library("seqinr")
+
+y = read.fasta(file = '~/Desktop/TGIF2LY.fasta')
+y = y[[1]]
+x = read.fasta(file = '~/Desktop/TGIF2LX.fasta')
+x = x[[1]]
+dotPlot(y, x, wsize = 1, nmatch = T, wstep = 3)
+
+
+Regions = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/proteinCodingY.txt', sep = '\t', skip = 1)
+files = read.csv('~/Desktop/AlignmentStatsY.txt', sep = '\t')
+out = merge(files, Regions[, c('Gene_name', 'Start')], 
+            by.x = 'start', by.y = 'Start')
+
+
+
+all_out = data.frame()
+for(i in unique(out$Gene_name)){
+  gene_filtered = exp(mean(log(out$records[which(out$Gene_name == i & out$tag == 'tumor_filtered')])))
+  gene_unfiltered = exp(mean(log(out$records[which(out$Gene_name == i & out$tag == 'tumor_unfiltered')])))
+  out_f = data.frame(gene = i,
+                   filtered = gene_filtered,
+                   unfiltered = gene_unfiltered)
+  all_out = rbind(all_out, out_f)
+}
+
+
+head(out)
+out_EM = out[which(out$file == 'EM634900-T.bam'), ]
+alig = read.csv('~/Desktop/AlignmentStatsY.txt', sep = '\t')
+View(alig)
+readcount = facets::readSnpMatrix(filename = '~/Documents/MSKCC/10_MasterThesis/Data/P-0000140-T01-IM3/countsMerged____P-0000140-T01-IM3_P-0000140-N01-IM3.dat.gz')
+readcountY = readcount[which(readcount$Chromosome == 'Y'), ]
+
+a = readcountY[which(readcountY$Position >= 6114264 & readcountY$Position <= 6117060), ]
+a
+mean(a$NOR.DP)
+sum(a$NOR.DP) / nrow(a)
+
+
+
+
+
+
+
+files = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/ProstateCohort_cbio.tsv', sep = '\t')
+files = files[, c('Patient.ID', 'Sample.ID')]
+files$array = NA
+for(i in 1:nrow(files)){
+  files$array[i] = strsplit(files$Sample.ID[i], split = '-')[[1]][4]
+}
+
+strsplit(files$Sample.ID[1], split = '-')[[1]][4]
+
+a = files[sample(nrow(files), size = 1000, replace = F), ]
+a
+any(duplicated(a$Sample.ID))
+
+
+probes = readxl::read_excel('~/Documents/MSKCC/dmp-2021/Genomics/HybridizationProbes_IMPACT341.xlsx', skip = 2)
+head(probes)
+View(probes)
