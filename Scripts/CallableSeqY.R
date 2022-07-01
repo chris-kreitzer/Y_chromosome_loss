@@ -128,9 +128,28 @@ for(patient in 1:nrow(cohort)){
 
 
 
+##-----------------------------------------------------------------------------
+## Investigate the output:
+baseCoverage = read.csv('../Data/baseCoverage.txt', sep = '\t')
+baseCoverageGene = baseCoverage[baseCoverage$mean_cov != 'N/A', ]
+baseCoverageGene$mean_cov = as.numeric(as.character(baseCoverageGene$mean_cov))
+
+hist(baseCoverageGene$mean_cov[which(baseCoverageGene$Gene == 'NLGN4Y')])
+
+Regions = readxl::read_excel(path = 'Y_gene_table.xlsx')
+Regions = as.data.frame(Regions)
 
 
+for(i in unique(baseCoverage$Gene)){
+  
+}
 
+
+a = facets::readSnpMatrix(filename = '~/Desktop/mnt/ATMcountdata/countsMerged____P-0029087-T02-IM6_P-0029087-N01-IM6.dat.gz')
+a = a[which(a$Chromosome == 'Y'), ]
+a = a[which(a$Position >= 6778727 & a$Position <= 6970011), ]
+
+a
 
 
 library("seqinr")
