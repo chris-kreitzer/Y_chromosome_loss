@@ -41,16 +41,17 @@ for(i in unique(Alignments$hgnc_symbol)){
 }
 
 #' if more than 50% of the read drop; exclude gene from analysis
-Alignment_summary$keep = ifelse(Alignment_summary$filtered_geo / Alignment_summary$unfiltered_geo > 0.5, 'yes', 'no')
+Alignment_summary$keep = ifelse(Alignment_summary$filtered_median / Alignment_summary$unfiltered_median > 0.6 &
+                                  Alignment_summary$filtered_median > 20, 'yes', 'no')
 Alignment_summary$keep[is.na(Alignment_summary$keep)] = 'no'
 
 
 ##-----------------
 ## Visualization
-filter = Alignment_summary[,c('gene', 'filtered_geo', 'keep')]
+filter = Alignment_summary[,c('gene', 'filtered_median', 'keep')]
 colnames(filter) = c('gene', 'value', 'keep')
 filter$tag = 'filtered'
-unfilter = Alignment_summary[,c('gene', 'unfiltered_geo', 'keep')]
+unfilter = Alignment_summary[,c('gene', 'unfiltered_median', 'keep')]
 colnames(unfilter) = c('gene', 'value', 'keep')
 unfilter$tag = 'unfiltered'
 
@@ -60,18 +61,20 @@ AlignmentsY$tag = factor(AlignmentsY$tag, levels = c('unfiltered', 'filtered'))
 
 ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep, label = ifelse(value > 50, gene, ""))) +
   geom_line(size = 0.35) +
-  geom_text_repel() +
-  geom_point() +
-  geom_hline(yintercept = c(1, 10, 100, 1000, 10000), color = 'grey35', size = 0.35, linetype = 'dashed') +
-  scale_color_manual(values = c('no' = 'red', 'yes' = 'black')) +
+  geom_text_repel(size = 3.5) +
+  geom_point(size = 0.3) +
+  geom_hline(yintercept = c(1, 10, 100, 1000, 10000), color = 'grey30', size = 0.25, linetype = 'dashed') +
+  scale_color_manual(values = c('no' = 'red', 'yes' = 'black'), name = '') +
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                 labels = trans_format("log10", math_format(10^.x)),
                 limits = c(1e0, 1e4)) +
   theme_bw() +
-  theme(axis.text = element_text(size = 10, color = 'black'),
-        aspect.ratio = 1,
-        panel.grid = element_blank()) +
-  labs(y = '# sequence reads [geometric mean]', 
+  theme(axis.text = element_text(size = 12, color = 'black'),
+        aspect.ratio = 1.8,
+        panel.grid = element_blank(),
+        panel.border = element_rect(fill = NA, color = 'black', size = 2),
+        legend.position = 'none') +
+  labs(y = '# sequence reads [median]', 
        x = paste0(length(unique(AlignmentsY$gene[which(AlignmentsY$keep == 'yes')])),
                   '/', length(unique(AlignmentsY$gene))),
        title = paste0('n = ', length(unique(Alignments$SampleID)), '; before and after filtering'))
@@ -82,7 +85,8 @@ ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep, label
 ##-----------------
 ## Cross-Check
 
-#' Pass!
+#' Pass
+
 
 
 
