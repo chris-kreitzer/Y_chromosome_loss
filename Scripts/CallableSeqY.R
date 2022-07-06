@@ -1,84 +1,81 @@
-#' Callable sequence; genes from the Y-chromosome
-#' Read coverage (unique sequencing) and per base coverage
+#' Callable sequence; genes and features from the Y-chromosome
+#' Read coverage (filtered and raw mapping) and per base coverage;
 #' 
 #' start: 06/29/2022
-#' revsion: 06/30/2022
+#' revision: 06/30/2022
+#' revision: 07/06/2022
 #' chris-kreitzer
 
 
 clean()
 gc()
 .rs.restartR()
-
 setwd('~/Documents/MSKCC/10_MasterThesis/Data/')
+library(scales)
+library(ggrepel)
 
-#' discard double file; cases
-Alignments = read.csv(file = 'AlignmentStatsY.txt', sep = '\t')
-Regions = readxl::read_excel(path = 'Y_gene_table.xlsx')
+
+#' Import data
+Alignments = read.csv(file = 'AlignmentStats.txt', sep = '\t')
+Regions = read.csv(file = 'Y_features_all_hg38.txt', sep = '\t')
 Regions = as.data.frame(Regions)
 
-# files = names(which(table(Alignments$file) > 84))
-# nonredundancy = data.frame()
-# for(i in unique(Alignments$file)){
-#   if(nrow(Alignments[which(Alignments$file == i), ]) > 84){
-#     data_sub = Alignments[which(Alignments$file == i), ]
-#     data_sub = data_sub[1:84, ]
-#   } else {
-#     data_sub = Alignments[which(Alignments$file == i), ]
-#   }
-#   nonredundancy = rbind(nonredundancy, data_sub)
-# }
-# 
-# Alignments = nonredundancy
 
 
 #' merge regions with gene name
-Alignments = merge(Alignments, Regions[,c('Gene_name', 'Start_hg19')], 
+Alignments = merge(Alignments, Regions[,c('hgnc_symbol', 'Start_hg19')], 
                               by.x = 'start',  by.y = 'Start_hg19', all.x = T)
 
 
 Alignment_summary = data.frame()
-for(i in unique(Alignments$Gene_name)){
-  gene_filtered = exp(mean(log(Alignments$records[which(Alignments$Gene_name == i & Alignments$tag == 'tumor_filtered')])))
-  gene_unfiltered = exp(mean(log(Alignments$records[which(Alignments$Gene_name == i & Alignments$tag == 'tumor_unfiltered')])))
+for(i in unique(Alignments$hgnc_symbol)){
+  gene_filtered = exp(mean(log(Alignments$records[which(Alignments$hgnc_symbol == i & Alignments$tag == 'filtered')])))
+  gene_unfiltered = exp(mean(log(Alignments$records[which(Alignments$hgnc_symbol == i & Alignments$tag == 'unfiltered')])))
   out_f = data.frame(gene = i,
                      filtered_geo = gene_filtered,
-                     filtered_median = median(Alignments$records[which(Alignments$Gene_name == i & Alignments$tag == 'tumor_filtered')]),
+                     filtered_median = median(Alignments$records[which(Alignments$hgnc_symbol == i & Alignments$tag == 'filtered')]),
                      unfiltered_geo = gene_unfiltered,
-                     unfiltered_median = median(Alignments$records[which(Alignments$Gene_name == i & Alignments$tag == 'tumor_unfiltered')]))
+                     unfiltered_median = median(Alignments$records[which(Alignments$hgnc_symbol == i & Alignments$tag == 'unfiltered')]))
   
   Alignment_summary = rbind(Alignment_summary, out_f)
 }
 
-#' if more than 60% of the read drop; exclude gene from analysis
-Alignment_summary$keep = ifelse(Alignment_summary$filtered_median / Alignment_summary$unfiltered_median > 0.6, 'keep', 'discard')
-Alignment_summary$keep[is.na(Alignment_summary$keep)] = 'discard'
+#' if more than 50% of the read drop; exclude gene from analysis
+Alignment_summary$keep = ifelse(Alignment_summary$filtered_geo / Alignment_summary$unfiltered_geo > 0.5, 'yes', 'no')
+Alignment_summary$keep[is.na(Alignment_summary$keep)] = 'no'
 
-#' Visualization:
-filter = Alignment_summary[,c('gene', 'filtered_median', 'keep')]
+
+##-----------------
+## Visualization
+filter = Alignment_summary[,c('gene', 'filtered_geo', 'keep')]
 colnames(filter) = c('gene', 'value', 'keep')
 filter$tag = 'filtered'
-unfilter = Alignment_summary[,c('gene', 'unfiltered_median', 'keep')]
+unfilter = Alignment_summary[,c('gene', 'unfiltered_geo', 'keep')]
 colnames(unfilter) = c('gene', 'value', 'keep')
 unfilter$tag = 'unfiltered'
 
 AlignmentsY = rbind(filter, unfilter)
-AlignmentsY$subject = rep(seq(1, 42, 1), 2)
+AlignmentsY$subject = rep(seq(1, 430, 1), 2)
 AlignmentsY$tag = factor(AlignmentsY$tag, levels = c('unfiltered', 'filtered'))
 
-ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep)) +
+ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep, label = ifelse(value > 50, gene, ""))) +
   geom_line(size = 0.35) +
-  geom_text(aes(label = gene), size = 3, vjust = 0.5, hjust = 0.5) +
+  geom_text_repel() +
   geom_point() +
-  scale_color_manual(values = c('discard' = 'red', 'keep' = 'black')) +
+  geom_hline(yintercept = c(1, 10, 100, 1000, 10000), color = 'grey35', size = 0.35, linetype = 'dashed') +
+  scale_color_manual(values = c('no' = 'red', 'yes' = 'black')) +
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                 labels = trans_format("log10", math_format(10^.x)),
                 limits = c(1e0, 1e4)) +
   theme_bw() +
   theme(axis.text = element_text(size = 10, color = 'black'),
-        aspect.ratio = 1) +
-  labs(y = '# sequence reads [median]', x = '11/42', title = 'n = 1,756; before after filtering')
-  
+        aspect.ratio = 1,
+        panel.grid = element_blank()) +
+  labs(y = '# sequence reads [geometric mean]', 
+       x = paste0(length(unique(AlignmentsY$gene[which(AlignmentsY$keep == 'yes')])),
+                  '/', length(unique(AlignmentsY$gene))),
+       title = paste0('n = ', length(unique(Alignments$SampleID)), '; before and after filtering'))
+                                                             
 
 
 
