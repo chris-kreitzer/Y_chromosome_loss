@@ -90,17 +90,6 @@ ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep, label
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 ###############################################################################
 #' per base coverage of kept genes; from countfiles (snp-pileup)
 library(facets)
@@ -108,7 +97,7 @@ paths = read.csv('~/Documents/MSKCC/05_IMPACT40K/Data/Signed_out/Facets_annotate
 cohort = read.csv('ProstateCohort_cbio.tsv', sep = '\t')
 cohort = cohort[,c('Patient.ID', 'Sample.ID')]
 cohort = cohort[sample(nrow(cohort), 1000, replace = F), ]
-Regions = readxl::read_excel(path = 'Y_gene_table.xlsx')
+Regions = read.csv('Y_features_all_hg38.txt', sep = '\t')
 Regions = as.data.frame(Regions)
 
 
@@ -149,11 +138,11 @@ for(patient in 1:nrow(cohort)){
 
 ##-----------------------------------------------------------------------------
 ## Investigate the output:
-baseCoverage = read.csv('../Data/baseCoverage.txt', sep = '\t')
+baseCoverage = read.csv('baseCoverage.txt', sep = '\t')
 baseCoverageGene = baseCoverage[baseCoverage$mean_cov != 'N/A', ]
 baseCoverageGene$mean_cov = as.numeric(as.character(baseCoverageGene$mean_cov))
 
-hist(baseCoverageGene$mean_cov[which(baseCoverageGene$Gene == 'NLGN4Y')])
+hist(baseCoverageGene$mean_cov[which(baseCoverageGene$Gene == 'ZFY')], nclass = 50)
 
 Regions = readxl::read_excel(path = 'Y_gene_table.xlsx')
 Regions = as.data.frame(Regions)
