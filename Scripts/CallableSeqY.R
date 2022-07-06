@@ -79,6 +79,24 @@ ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep, label
 
 
 
+##-----------------
+## Cross-Check
+
+#' Pass!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ###############################################################################
 #' per base coverage of kept genes; from countfiles (snp-pileup)
 library(facets)
@@ -142,36 +160,4 @@ for(i in unique(baseCoverage$Gene)){
 }
 
 
-a = facets::readSnpMatrix(filename = '~/Desktop/mnt/ATMcountdata/countsMerged____P-0029087-T02-IM6_P-0029087-N01-IM6.dat.gz')
-a = a[which(a$Chromosome == 'Y'), ]
-a = a[which(a$Position >= 6778727 & a$Position <= 6970011), ]
-
-a
-
-
-library("seqinr")
-
-y = read.fasta(file = '~/Desktop/TGIF2LY.fasta')
-y = y[[1]]
-x = read.fasta(file = '~/Desktop/TGIF2LX.fasta')
-x = x[[1]]
-dotPlot(y, x, wsize = 1, nmatch = T, wstep = 3)
-
-
-Regions = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/proteinCodingY.txt', sep = '\t', skip = 1)
-files = read.csv('~/Desktop/AlignmentStatsY.txt', sep = '\t')
-out = merge(files, Regions[, c('Gene_name', 'Start')], 
-            by.x = 'start', by.y = 'Start')
-
-
-
-all_out = data.frame()
-for(i in unique(out$Gene_name)){
-  gene_filtered = exp(mean(log(out$records[which(out$Gene_name == i & out$tag == 'tumor_filtered')])))
-  gene_unfiltered = exp(mean(log(out$records[which(out$Gene_name == i & out$tag == 'tumor_unfiltered')])))
-  out_f = data.frame(gene = i,
-                   filtered = gene_filtered,
-                   unfiltered = gene_unfiltered)
-  all_out = rbind(all_out, out_f)
-}
 
