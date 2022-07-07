@@ -143,14 +143,3 @@ baseCoverageGene = baseCoverage[baseCoverage$mean_cov != 'N/A', ]
 baseCoverageGene$mean_cov = as.numeric(as.character(baseCoverageGene$mean_cov))
 
 hist(baseCoverageGene$mean_cov[which(baseCoverageGene$Gene == 'ZFY')], nclass = 50)
-
-Regions = readxl::read_excel(path = 'Y_gene_table.xlsx')
-Regions = as.data.frame(Regions)
-
-
-for(i in unique(baseCoverage$Gene)){
-  
-}
-
-
-
