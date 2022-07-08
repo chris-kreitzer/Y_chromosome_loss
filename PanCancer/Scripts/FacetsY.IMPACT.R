@@ -127,12 +127,14 @@ for(i in unique(IMPACT.samples)){
     purity = data.out$purity
     purity = ifelse(is.na(purity), 0, purity)
     
-    parameter.selected = paste0('cval_purity=', cval.purity, '/', cval.postprocess, '::snp.nbhd=', snp.nbhd)
+    parameter.selected = paste0('cval_purity=', cval.purity, '/', cval.postprocess, '::snp.nbhd=150|50')
     data.return = data.out$cncf
     data.return$ID = ID
     data.return$parameter = parameter.selected
     data.return$purity = purity
     data.return$ploidy = data.out$ploidy
+    data.return$XY_ratio = median(data.process_out$cnlr[which(data.process_out$chrom == 23)], na.rm = T) / 
+      median(data.process_out$cnlr[which(data.process_out$chrom == 24)], na.rm = T)
     
     #' run quality metric
     FacetsQuality = facetsSuite::run_facets(data.in,
