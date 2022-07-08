@@ -1,9 +1,10 @@
 ## FacetsY on IMPACT  samples;
-## This script is intened to be run on the juno cluster
+## This script is intended to be run on the juno
 ##
-## 04/16/2021
+## start: 04/16/2021
+## revision: 08/25/2021
+## revision: 07/08/2022
 ## chris kreitzer
-## modified: 08/25/2021
 
 
 ## install local FacetsY and pctGCdata
@@ -40,10 +41,9 @@ format_igv_seg = function(facets_output, sample_id, normalize = TRUE) {
 }
 
 
-cval.preprocess = 75
+
 cval.purity = 300
 cval.postprocess = 100
-snp.nbhd = 150
 
 
 CopyNumber_out = data.frame()
@@ -57,17 +57,62 @@ for(i in unique(IMPACT.samples)){
   try({
     print(i)
     data.in = facetsY::readSnpMatrix(i, err.thresh = 10, del.thresh = 10)
-    data.in = rbind(data.in[which(data.in$Chromosome != 'Y'), ], 
-                    data.in[which(data.in$Chromosome == 'Y' & data.in$Position < 30000000), ])
     
-    data.pre = facetsY::preProcSample(rcmat = data.in, 
-                                      ndepth = 35,
-                                      cval = cval.preprocess, 
-                                      gbuild = 'hg19', 
-                                      snp.nbhd = snp.nbhd)
+    #' split allosomes and autosomes
+    Y_chromosome = data.in[which(data.in$Chromosome == 'Y' & 
+                                   data.in$Position >= 2654550 & 
+                                   data.in$Position <= 28000000), ]
     
+    #' exclude PCDH11Y and centromeric region
+    Y_chromosome = Y_chromosome[with(Y_chromosome, !((Position %in% 4922131:5612269))), ]
+    Y_chromosome = Y_chromosome[with(Y_chromosome, !((Position %in% 10500000:14000000))), ]
+    
+    
+    #--------------
+    # Segmentation on Y:
+    set.seed(100)
+    Y_chromo_segmentation = facetsY::preProcSample(rcmat = Y_chromosome,
+                                                   ndepth = 20,
+                                                   snp.nbhd = 50,
+                                                   gbuild = 'hg19')
+    
+    pmat_Y = Y_chromo_segmentation$pmat
+    joint_Y = Y_chromo_segmentation$jointseg
+    seg_Y = Y_chromo_segmentation$seg.tree
+    
+    
+    ##-------------
+    ## autosomes:
+    autosomes = data.in[which(data.in$Chromosome %in% c(seq(1, 22, 1), 'X')), ]
+    set.seed(100)
+    auto.segmentation = facetsY::preProcSample(rcmat = autosomes,
+                                               ndepth = 35,
+                                               snp.nbhd = 150, 
+                                               gbuild = 'hg19')
+    
+    pmat_auto = auto.segmentation$pmat
+    joint_auto = auto.segmentation$jointseg
+    seg_auto = auto.segmentation$seg.tree
+    
+    
+    ##-------------
+    ## Merge and run together
+    pmat = rbind(pmat_Y, pmat_auto)
+    joint = rbind(joint_Y, joint_auto)
+    seg = c(seg_Y, seg_auto)
+    attr(x = seg, which = 'cval') = 25
+    
+    facets_pre = list(pmat = pmat,
+                      gbuild = 'hg19',
+                      nX = 23,
+                      seg.tree = seg,
+                      jointseg = joint,
+                      hscl = auto.segmentation$hscl,
+                      chromlevels = seq(1,24, 1))
+    
+
     #' first run FacetsY on wider cval (purity) to determine dipLogR
-    data.process = facetsY::procSample(data.pre, 
+    data.process = facetsY::procSample(x = facets_pre, 
                                        cval = cval.purity)
     data.out = facetsY::emcncf(data.process)
     
@@ -82,7 +127,7 @@ for(i in unique(IMPACT.samples)){
     purity = data.out$purity
     purity = ifelse(is.na(purity), 0, purity)
     
-    parameter.selected = paste0('cval=', cval.preprocess, '/', cval.purity, '/', cval.postprocess, '::snp.nbhd=', snp.nbhd)
+    parameter.selected = paste0('cval_purity=', cval.purity, '/', cval.postprocess, '::snp.nbhd=', snp.nbhd)
     data.return = data.out$cncf
     data.return$ID = ID
     data.return$parameter = parameter.selected
@@ -94,7 +139,8 @@ for(i in unique(IMPACT.samples)){
                                             genome = 'hg19',
                                             cval = cval.postprocess, 
                                             dipLogR = dipLogR.purity, 
-                                            snp_nbhd = snp.nbhd)
+                                            snp_nbhd = 150, 
+                                            seed = 100)
     
     Quality = facetsSuite::check_fit(FacetsQuality)
     fit.out = facets_fit_qc(facets_output = FacetsQuality)
