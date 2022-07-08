@@ -15,6 +15,8 @@ library(facetsSuite)
 library(dplyr)
 library(data.table)
 
+IMPACT.samples = c('/Users/chriskreitzer/Desktop/countsMerged____P-0000373-T02-IM5_P-0000373-N01-IM5.dat.gz',
+                   '/Users/chriskreitzer/Desktop/countsMerged____P-0000521-T01-IM3_P-0000521-N01-IM3.dat.gz')
 
 # load IMPACT samplepaths
 IMPACT.samples = readRDS('/juno/home/kreitzec/Y_chromosome_loss/Data/cohort_data.rds')
