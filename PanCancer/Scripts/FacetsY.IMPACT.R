@@ -76,6 +76,7 @@ for(i in unique(IMPACT.samples)){
     Y_chromo_segmentation = facetsY::preProcSample(rcmat = Y_chromosome,
                                                    ndepth = 20,
                                                    snp.nbhd = 50,
+                                                   cval = 25,
                                                    gbuild = 'hg19')
     
     pmat_Y = Y_chromo_segmentation$pmat
@@ -89,6 +90,7 @@ for(i in unique(IMPACT.samples)){
     set.seed(100)
     auto.segmentation = facetsY::preProcSample(rcmat = autosomes,
                                                ndepth = 35,
+                                               cval = 25,
                                                snp.nbhd = 150, 
                                                gbuild = 'hg19')
     
@@ -99,8 +101,8 @@ for(i in unique(IMPACT.samples)){
     
     ##-------------
     ## Merge and run together
-    pmat = rbind(pmat_Y, pmat_auto)
-    joint = rbind(joint_Y, joint_auto)
+    pmat = rbind(pmat_auto, pmat_Y)
+    joint = rbind(joint_auto, joint_Y)
     seg = c(seg_auto, seg_Y)
     attr(x = seg, which = 'cval') = 25
     
@@ -137,6 +139,7 @@ for(i in unique(IMPACT.samples)){
     data.return$ploidy = data.out$ploidy
     data.return$XY_ratio = median(data.process_out$jointseg$cnlr[which(data.process_out$jointseg$chrom == 23)], na.rm = T) / 
       median(data.process_out$jointseg$cnlr[which(data.process_out$jointseg$chrom == 24)], na.rm = T)
+    data.return$dipLogR = data.out$dipLogR
     
     #' run quality metric
     FacetsQuality = facetsSuite::run_facets(data.in,
