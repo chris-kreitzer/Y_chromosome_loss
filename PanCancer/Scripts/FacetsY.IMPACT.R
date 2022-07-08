@@ -99,7 +99,7 @@ for(i in unique(IMPACT.samples)){
     ## Merge and run together
     pmat = rbind(pmat_Y, pmat_auto)
     joint = rbind(joint_Y, joint_auto)
-    seg = c(seg_Y, seg_auto)
+    seg = c(seg_auto, seg_Y)
     attr(x = seg, which = 'cval') = 25
     
     facets_pre = list(pmat = pmat,
@@ -118,7 +118,7 @@ for(i in unique(IMPACT.samples)){
     
     #' run fine-tuning segmentation
     dipLogR.purity = data.out$dipLogR
-    data.process_out = facetsY::procSample(data.pre,
+    data.process_out = facetsY::procSample(facets_pre,
                                            cval = cval.postprocess,
                                            dipLogR = dipLogR.purity)
     data.out = facetsY::emcncf(data.process_out)
