@@ -133,8 +133,8 @@ for(i in unique(IMPACT.samples)){
     data.return$parameter = parameter.selected
     data.return$purity = purity
     data.return$ploidy = data.out$ploidy
-    data.return$XY_ratio = median(data.process_out$cnlr[which(data.process_out$chrom == 23)], na.rm = T) / 
-      median(data.process_out$cnlr[which(data.process_out$chrom == 24)], na.rm = T)
+    data.return$XY_ratio = median(data.process_out$jointseg$cnlr[which(data.process_out$jointseg$chrom == 23)], na.rm = T) / 
+      median(data.process_out$jointseg$cnlr[which(data.process_out$jointseg$chrom == 24)], na.rm = T)
     
     #' run quality metric
     FacetsQuality = facetsSuite::run_facets(data.in,
