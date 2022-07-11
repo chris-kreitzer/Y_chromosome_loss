@@ -1,14 +1,25 @@
-# Read in clinical data
-# This should be at the patient level 
-# Need to select one sample per patient
+## Data selection for Y-chromosome loss determination
+## 
+## Read in clinical data from cBioPortal: 07/11/2022
+## This should be at the patient level  
+## Need to select one sample per patient 
+# 
 # use_for_patient_level (T/F): column indicating which of the tumor samples to use for patient-level analyses. Relevant when a patient has multiple biopsies sequenced
 # use_for_sample_level (T/F): column indicating whether sample passed basic purity check.
+##
+## start: 07/11/2022
+## chris-kreitzer
 
-pat_df = read.delim("~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/IMPACT_clinical_annotation.tsv")
+clean()
+gc()
+setwd('~/Documents/MSKCC/10_MasterThesis/')
+
+library(dplyr)
+pat_df = read.delim('Data/mskimpact_clinical_data_07112022.tsv')
 pat_df = pat_df %>% 
   mutate_if(is.factor, as.character) 
-samp_df <- read.delim("~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/data_clinical_sample.oncokb.txt")
-samp_df <- samp_df %>% 
+samp_df = vroom::vroom("Data/data_clinical_sample.oncokb.txt.gz")
+samp_df = samp_df %>% 
   mutate_if(is.factor, as.character) %>%
   filter(use_for_patient_level == TRUE)
 samp_df 
