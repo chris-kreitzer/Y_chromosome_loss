@@ -15,9 +15,73 @@ gc()
 setwd('~/Documents/MSKCC/10_MasterThesis/')
 
 library(dplyr)
-pat_df = read.delim('Data/mskimpact_clinical_data_07112022.tsv')
-pat_df = pat_df %>% 
-  mutate_if(is.factor, as.character) 
+library(data.table)
+library(usefun)
+
+# load clinical and merge data_clinical_oncoKB with data_from the portal
+data_clinical = fread('Data/data_clinical_sample.oncokb.txt', header = T, stringsAsFactors = F, data.table = F)
+rownames(data_clinical) = data_clinical$SAMPLE_ID
+data_clinical$AGE_AT_SEQ_REPORTED_YEARS = as.numeric(data_clinical$AGE_AT_SEQ_REPORTED_YEARS)
+portal_data = fread('Data/mskimpact_clinical_data_07112022.tsv', stringsAsFactors = F, data.table = F)
+colnames(portal_data) = toupper(colnames(portal_data))
+colnames(portal_data) = gsub(pattern = ' ', replacement = '_', colnames(portal_data), fixed = T )
+rownames(portal_data) = portal_data$SAMPLE_ID
+
+# exclude heme patients
+portal_data = portal_data[!portal_data$GENE_PANEL %in% c("ACCESS129", "IMPACT-HEME-400", "IMPACT-HEME-468"), ]
+
+# exclude patients with MSI-I or TMB >= 20 #
+# portal_data = portal_data[!portal_data$MSI_TYPE %in% 'Instable', ]
+# portal_data = portal_data[which(portal_data$IMPACT_TMB_SCORE <= 20),]
+
+# concentrate on males:
+portal_data = portal_data[which(portal_data$SEX == 'Male'), ]
+
+# one sample per patient:
+portal_data$STUDY_ID = NULL
+portal_data$DIAGNOSIS_AGE = NULL
+
+
+
+
+
+
+
+
+
+# select top 25 cancer types 
+top25_cancer_type = names(table(portal_data_april12$CANCER_TYPE)[order(table(portal_data_april12$CANCER_TYPE), decreasing = T)][1:25])
+portal_data_april12 = portal_data_april12[portal_data_april12$CANCER_TYPE %in% top25_cancer_type,]
+
+# select one sample per patients
+one_pts_selected = MSK_one_sample_per_pts(data_clinical = portal_data_april12)
+portal_data_april12 = portal_data_april12[one_pts_selected,]
+write.table(portal_data_april12, file = paste0(outdir, 'PanCan_top25_sample_list.txt'), quote = F, sep = '\t', row.names = F)
+
+pts_smp <- load_prostate_redcap("~/Downloads/12245GUPIMPACTDataba_DATA_LABELS_2021-03-04_1342.csv") %>% 
+  check_prostate_redcap(recommended_only = TRUE)
+
+# (1) smp = Clinical data per sample
+smp <- pts_smp$smp %>%
+  inner_join(DATASET_WITH_TUMOR_LEVEL_IMPACT_DATA, by = "dmpid") %>%
+  # drops 3 samples that do not have a count of actionable alterations:
+  filter(!is.na(`#ACTIONABLE_MUTATIONS`)) %>%
+  # exclude low purity:
+  filter(!(`#ONCOGENIC_MUTATIONS` == 0 &
+             (CVR_TMB_SCORE < 1 | is.na(CVR_TMB_SCORE)) & 
+             (CNA_Fraction < 0.01 | is.na(CNA_Fraction)) &
+             (TUMOR_PURITY < 20))) %>%
+  inner_join(x = pts_smp$pts, y = ., by = "ptid") %>%
+  # patients without self-reported race: check race column name###
+  filter(!is.na(race3)) %>%
+  # first sample per patient only:
+  arrange(ptid, dmpid) %>%
+  distinct(ptid, .keep_all = TRUE)
+
+
+
+
+
 samp_df = vroom::vroom("Data/data_clinical_sample.oncokb.txt.gz")
 samp_df = samp_df %>% 
   mutate_if(is.factor, as.character) %>%
