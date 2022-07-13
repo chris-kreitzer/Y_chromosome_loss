@@ -20,8 +20,6 @@ Alignments = read.csv(file = 'AlignmentStats.txt', sep = '\t')
 Regions = read.csv(file = 'Y_features_all_hg38.txt', sep = '\t')
 Regions = as.data.frame(Regions)
 
-
-
 #' merge regions with gene name
 Alignments = merge(Alignments, Regions[,c('hgnc_symbol', 'Start_hg19')], 
                               by.x = 'start',  by.y = 'Start_hg19', all.x = T)
@@ -40,11 +38,12 @@ for(i in unique(Alignments$hgnc_symbol)){
   Alignment_summary = rbind(Alignment_summary, out_f)
 }
 
-#' if more than 50% of the read drop; exclude gene from analysis
-Alignment_summary$keep = ifelse(Alignment_summary$filtered_median / Alignment_summary$unfiltered_median > 0.6 &
-                                  Alignment_summary$filtered_median > 20, 'yes', 'no')
-Alignment_summary$keep[is.na(Alignment_summary$keep)] = 'no'
 
+#' if more than 50% of the read drop; exclude gene from analysis
+Alignment_summary$keep = ifelse(Alignment_summary$filtered_median > 19, 'yes', 'no')
+Alignment_summary$keep[is.na(Alignment_summary$keep)] = 'no'
+Alignment_summary = Alignment_summary[!is.na(Alignment_summary$gene), ]
+write.table(Alignment_summary, file = 'signedOut/Alignment_summary.txt', sep = '\t', row.names = F, quote = F)
 
 ##-----------------
 ## Visualization
@@ -56,13 +55,13 @@ colnames(unfilter) = c('gene', 'value', 'keep')
 unfilter$tag = 'unfiltered'
 
 AlignmentsY = rbind(filter, unfilter)
-AlignmentsY$subject = rep(seq(1, 430, 1), 2)
+AlignmentsY$subject = rep(seq(1, nrow(Alignment_summary), 1), 2)
 AlignmentsY$tag = factor(AlignmentsY$tag, levels = c('unfiltered', 'filtered'))
 
-ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep, label = ifelse(value > 50, gene, ""))) +
-  geom_line(size = 0.35) +
+ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep, label = ifelse(keep == 'yes', gene, ""))) +
+  geom_line(size = 0.65) +
   geom_text_repel(size = 3.5) +
-  geom_point(size = 0.3) +
+  #geom_point(size = 0.3) +
   geom_hline(yintercept = c(1, 10, 100, 1000, 10000), color = 'grey30', size = 0.25, linetype = 'dashed') +
   scale_color_manual(values = c('no' = 'red', 'yes' = 'black'), name = '') +
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
@@ -86,9 +85,6 @@ ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep, label
 ## Cross-Check
 
 #' Pass
-
-
-
 
 ###############################################################################
 #' per base coverage of kept genes; from countfiles (snp-pileup)
