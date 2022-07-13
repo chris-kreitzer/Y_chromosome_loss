@@ -19,17 +19,19 @@ library(data.table)
 library(usefun)
 
 # load clinical and merge data_clinical_oncoKB with data_from the portal
-data_clinical = fread('Data/data_clinical_sample.oncokb.txt', header = T, stringsAsFactors = F, data.table = F)
-rownames(data_clinical) = data_clinical$SAMPLE_ID
-data_clinical$AGE_AT_SEQ_REPORTED_YEARS = as.numeric(data_clinical$AGE_AT_SEQ_REPORTED_YEARS)
 portal_data = fread('Data/mskimpact_clinical_data_07112022.tsv', stringsAsFactors = F, data.table = F)
 colnames(portal_data) = toupper(colnames(portal_data))
 colnames(portal_data) = gsub(pattern = ' ', replacement = '_', colnames(portal_data), fixed = T )
 rownames(portal_data) = portal_data$SAMPLE_ID
+FacetsPaths = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/facets_annotated.cohort.txt.gz', sep = '\t')
+FacetsPaths = FacetsPaths[!duplicated(FacetsPaths$tumor_sample), ]
 
 # exclude heme patients
+portal_data$STUDY_ID = NULL
+portal_data$DIAGNOSIS_AGE = NULL
 portal_data = portal_data[!portal_data$GENE_PANEL %in% c("ACCESS129", "IMPACT-HEME-400", "IMPACT-HEME-468"), ]
-
+portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)` = as.character(as.numeric(portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)`))
+portal_data$TUMOR_PURITY = as.numeric(as.character(portal_data$TUMOR_PURITY))
 # exclude patients with MSI-I or TMB >= 20 #
 # portal_data = portal_data[!portal_data$MSI_TYPE %in% 'Instable', ]
 # portal_data = portal_data[which(portal_data$IMPACT_TMB_SCORE <= 20),]
@@ -37,9 +39,107 @@ portal_data = portal_data[!portal_data$GENE_PANEL %in% c("ACCESS129", "IMPACT-HE
 # concentrate on males:
 portal_data = portal_data[which(portal_data$SEX == 'Male'), ]
 
+##-----------------
 # one sample per patient:
-portal_data$STUDY_ID = NULL
-portal_data$DIAGNOSIS_AGE = NULL
+
+## function which selects ONE sample per patient
+## if just one sample per patient --> use it (regardless of primary or metastasis)
+## if multiple samples, priority is given to i) primaries, ii) tumor purity and iii) coverage
+
+sample_selection = function(data){
+  data.analysis = data.frame()
+  data.in = as.data.frame(data)
+  
+  for(i in unique(data.in$PATIENT_ID)){
+    try({
+      print(i)
+      # check how many samples per patient
+      data.sub = data.in[which(data.in$PATIENT_ID == i), ]
+      
+      # one sample; go for it
+      if(nrow(data.sub) == 1){ 
+        chosen.sample = data.sub$SAMPLE_ID
+        sample.type = data.sub$SAMPLE_TYPE
+        metastatic.site = data.sub$METASTATIC_SITE
+        panel = data.sub$GENE_PANEL[which(data.sub$SAMPLE_ID == chosen.sample)]
+        sample_number = nrow(data.sub)
+        
+        #' if multiple samples; chose highest purity otherwise highest coverage
+      } else {
+        sample_pool = data.sub[!is.na(data.sub$TUMOR_PURITY), ]
+        chosen.sample = ifelse(nrow(sample_pool) == 0,
+                               data.sub$SAMPLE_ID[which.max(data.sub$SAMPLE_COVERAGE)],
+                               ifelse(nrow(sample_pool) > 1 & length(unique(sample_pool$TUMOR_PURITY)) == 1,
+                                      sample_pool$SAMPLE_ID[1], sample_pool$SAMPLE_ID[which.max(sample_pool$TUMOR_PURITY)]))
+        
+        sample.type = data.sub$SAMPLE_TYPE[which(data.sub$SAMPLE_ID == chosen.sample)]
+        metastatic.site = data.sub$METASTATIC_SITE[which(data.sub$SAMPLE_ID == chosen.sample)]
+        panel = data.sub$GENE_PANEL[which(data.sub$SAMPLE_ID == chosen.sample)]
+        sample_number = nrow(data.sub)
+      }
+      
+      data.out = data.frame(PATIENT_ID = i,
+                            SAMPLE_ID = chosen.sample,
+                            PANEL = panel,
+                            SAMPLE_TYPE = sample.type,
+                            METASTATIC_SITE = metastatic.site,
+                            SAMPLE_NUMBER = sample_number)
+      
+      data.analysis = rbind(data.analysis, data.out)
+    })
+  }
+  
+  # clean up the mess
+  rm(data.sub)
+  rm(chosen.sample)
+  rm(data.out)
+  
+  return(data.analysis)
+}
+
+MSK_one_pts_sample = sample_selection(data = portal_data)
+
+
+##-----------------
+## Get countFiles
+MSK_one_pts_sample = merge(MSK_one_pts_sample, FacetsPaths[, c('tumor_sample', 'counts_file')],
+      by.x = 'SAMPLE_ID', by.y = 'tumor_sample', all.x = T)
+
+
+##-----------------
+## missing countfiles
+# missing_countfiles = MSK_one_pts_sample[is.na(MSK_one_pts_sample$counts_file), 'SAMPLE_ID']
+# write.table(missing_countfiles, file = 'Data/PanCancerMissingCountfiles.txt', row.names = F, quote = F, sep = '\t')
+# 
+# all_missing = data.frame()
+# for(i in unique(missing_countfiles)){
+#   try({
+#     common = '/juno/work/ccs/shared/resources/impact/facets/all/'
+#     path_high = list.files(path = paste0(common, substr(i, start = 1, stop = 7), '/'))
+#     path_lower = path_high[grep(pattern = i, path_high)]
+#     path_folder = list.files(path = paste0(common, substr(i, start = 1, stop = 7), '/', path_lower, '/'), full.names = T)
+#     path_counts = grep(pattern = 'countsMerged', path_folder, value = T)
+#     out = data.frame(SAMPLE_ID = i,
+#                      counts_file = path_counts)
+#     
+#     all_missing = rbind(all_missing, out)
+#   })
+# }
+# 
+# missing_paths = read.csv('Data/missing.txt', sep = '\t')
+# missing_paths = missing_paths[!duplicated(missing_paths$SAMPLE_ID), ]
+
+MSK_one_pts_sample = merge(MSK_one_pts_sample, missing_paths, by.x = 'SAMPLE_ID', by.y = 'SAMPLE_ID', all.x = T)
+MSK_IMPACT_cohort = MSK_one_pts_sample[!is.na(MSK_one_pts_sample$counts_file.x), ]
+MSK_IMPACT_cohort$counts_file.y = NULL
+colnames(MSK_IMPACT_cohort)[7] = 'counts_file'
+
+##-------------------------------------
+write.table(MSK_IMPACT_cohort, "Data/IMPACT_dataFreeze_07.13.22.txt", sep = "\t", row.names = F, quote = F)
+
+
+Cohort = list(IMPACT_cohort = MSK_IMPACT_cohort)
+saveRDS(Cohort, file = 'Data/signedOut/Cohort_07132022.rds')
 
 
 
@@ -49,52 +149,7 @@ portal_data$DIAGNOSIS_AGE = NULL
 
 
 
-# select top 25 cancer types 
-top25_cancer_type = names(table(portal_data_april12$CANCER_TYPE)[order(table(portal_data_april12$CANCER_TYPE), decreasing = T)][1:25])
-portal_data_april12 = portal_data_april12[portal_data_april12$CANCER_TYPE %in% top25_cancer_type,]
 
-# select one sample per patients
-one_pts_selected = MSK_one_sample_per_pts(data_clinical = portal_data_april12)
-portal_data_april12 = portal_data_april12[one_pts_selected,]
-write.table(portal_data_april12, file = paste0(outdir, 'PanCan_top25_sample_list.txt'), quote = F, sep = '\t', row.names = F)
-
-pts_smp <- load_prostate_redcap("~/Downloads/12245GUPIMPACTDataba_DATA_LABELS_2021-03-04_1342.csv") %>% 
-  check_prostate_redcap(recommended_only = TRUE)
-
-# (1) smp = Clinical data per sample
-smp <- pts_smp$smp %>%
-  inner_join(DATASET_WITH_TUMOR_LEVEL_IMPACT_DATA, by = "dmpid") %>%
-  # drops 3 samples that do not have a count of actionable alterations:
-  filter(!is.na(`#ACTIONABLE_MUTATIONS`)) %>%
-  # exclude low purity:
-  filter(!(`#ONCOGENIC_MUTATIONS` == 0 &
-             (CVR_TMB_SCORE < 1 | is.na(CVR_TMB_SCORE)) & 
-             (CNA_Fraction < 0.01 | is.na(CNA_Fraction)) &
-             (TUMOR_PURITY < 20))) %>%
-  inner_join(x = pts_smp$pts, y = ., by = "ptid") %>%
-  # patients without self-reported race: check race column name###
-  filter(!is.na(race3)) %>%
-  # first sample per patient only:
-  arrange(ptid, dmpid) %>%
-  distinct(ptid, .keep_all = TRUE)
-
-
-
-
-
-samp_df = vroom::vroom("Data/data_clinical_sample.oncokb.txt.gz")
-samp_df = samp_df %>% 
-  mutate_if(is.factor, as.character) %>%
-  filter(use_for_patient_level == TRUE)
-samp_df 
-
-data_freeze = samp_df %>% 
-  dplyr::select(PATIENT_ID, SAMPLE_ID, CANCER_TYPE, facets_qc, TUMOR_PURITY, 
-                SAMPLE_TYPE, AGE_AT_SEQ_REPORTED_YEARS, GENE_PANEL, SAMPLE_COVERAGE) %>%
-  left_join(select(pat_df, PATIENT_ID, Sex), by = "PATIENT_ID") %>%
-  filter(Sex != "", Sex != "Female", facets_qc == "TRUE" ) %>% distinct()
-
-write.table(data_freeze, "~/Downloads/data_freeze_cancer_type_082321.txt", sep = "\t", row.names = F, quote = F)
 
 
 
