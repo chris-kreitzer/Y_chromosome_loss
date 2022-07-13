@@ -4,6 +4,7 @@
 #' start: 06/29/2022
 #' revision: 06/30/2022
 #' revision: 07/06/2022
+#' revision: 07/13/2022
 #' chris-kreitzer
 
 
@@ -141,6 +142,7 @@ plot(Master$seq, Master$mean,
      xlab = '',
      ylab = '')
 axis(side = 2, at = seq(0, 600, 100), lwd = 2, las = 2, line = 0.3)
+axis(side = 1, at = seq(0, 2500, 200), las = 2)
 for(i in seq(3, ncol(Master)-2, 1)){
   lines(Master$seq, Master[, i], col = 'grey75')
 }
@@ -148,8 +150,6 @@ lines(Master$seq, Master$mean, lwd = 1.5, col = 'black', type = 'S', pch = 19)
 box(lwd = 2)
 mtext(text = 'Coverage', side = 2, line = 3, cex = 1.2)
 mtext(text = 'Y chromosome coordinates [2.7-27.8 Mb]', side = 1, line = 1, cex = 1.2)
-
-
 
 
 
