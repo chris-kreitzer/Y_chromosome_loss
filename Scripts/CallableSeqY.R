@@ -86,6 +86,73 @@ ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep, label
 
 #' Pass
 
+
+
+##-----------------
+## Seq. coverage across Y-chromosome; n=50
+files = list.files(path = '~/Desktop/mnt/ATMcountdata/', full.names = T)
+
+master = c()
+for(i in unique(files)){
+  print(i)
+  data.in = facetsY::readSnpMatrix(filename = i)
+  data.in = data.in[which(data.in$Chromosome == 'Y' & data.in$NOR.DP > 5), ]
+  master = c(master, unique(data.in$Position))
+}
+
+master = unique(master)
+
+##-------
+Master = data.frame(Chromosome = 'Y',
+                    loci = master)
+for(i in unique(files)){
+  print(i)
+  data.in = facetsY::readSnpMatrix(filename = i)
+  data.in = data.in[which(data.in$Chromosome == 'Y' & data.in$NOR.DP > 5), ]
+  Master = merge(Master, data.in[, c('Position', 'NOR.DP')], 
+                 by.x = 'loci', 
+                 by.y = 'Position', 
+                 all.x = T)
+  rm(data.in)
+}
+
+##-------
+Master$mean = rowSums(Master[,3:ncol(Master)], na.rm = TRUE) / rowSums(!is.na(Master[ ,3:ncol(Master)]))
+
+#' exclude PCDH11Y and centromeric region
+Master = Master[which(Master$loci >= 2654550 & 
+                        Master$loci <= 28000000), ]
+Master = Master[with(Master, !((loci %in% 4922131:5612269))), ]
+Master = Master[with(Master, !((loci %in% 10500000:14000000))), ]
+
+##-------
+Master = read.csv('Coverage_n50.txt', sep = '\t')
+Master$seq = seq(1, nrow(Master), 1)
+
+## Visualization
+plot(Master$seq, Master$mean, 
+     lwd = 1, 
+     col = 'black', 
+     type = 'S', 
+     pch = 19,
+     ylim = c(20, 600),
+     yaxt = 'n',
+     xaxt = 'n',
+     xlab = '',
+     ylab = '')
+axis(side = 2, at = seq(0, 600, 100), lwd = 2, las = 2, line = 0.3)
+for(i in seq(3, ncol(Master)-2, 1)){
+  lines(Master$seq, Master[, i], col = 'grey75')
+}
+lines(Master$seq, Master$mean, lwd = 1.5, col = 'black', type = 'S', pch = 19)
+box(lwd = 2)
+mtext(text = 'Coverage', side = 2, line = 3, cex = 1.2)
+mtext(text = 'Y chromosome coordinates [2.7-27.8 Mb]', side = 1, line = 1, cex = 1.2)
+
+
+
+
+
 ###############################################################################
 #' per base coverage of kept genes; from countfiles (snp-pileup)
 library(facets)
