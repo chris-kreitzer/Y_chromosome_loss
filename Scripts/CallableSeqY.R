@@ -88,7 +88,6 @@ ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep, label
 #' Pass
 
 
-
 ##-----------------
 ## Seq. coverage across Y-chromosome; n=50
 files = list.files(path = '~/Desktop/mnt/ATMcountdata/', full.names = T)
