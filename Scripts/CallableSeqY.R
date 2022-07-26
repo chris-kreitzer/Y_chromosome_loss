@@ -196,6 +196,18 @@ for(patient in 1:nrow(cohort)){
   
 }
 
+##-----------------
+## Aggregate length to be assessed with MSK-IMPACT sequencing
+pileup = facetsY::readSnpMatrix(filename = '~/Desktop/mnt/ATMcountdata/countsMerged____P-0036764-T01-IM6_P-0036764-N01-IM6.dat.gz')
+Y_chromosome = pileup[which(pileup$Chromosome == 'Y' & 
+                               pileup$Position >= 2654550 & 
+                               pileup$Position <= 28000000), ]
+
+#' exclude PCDH11Y and centromeric region
+Y_chromosome = Y_chromosome[with(Y_chromosome, !((Position %in% 4922131:5612269))), ]
+Y_chromosome = Y_chromosome[with(Y_chromosome, !((Position %in% 10500000:14000000))), ]
+Y_chromosome = Y_chromosome[which(Y_chromosome$NOR.DP > 20), ]
+(max(Y_chromosome$Position) - min(Y_chromosome$Position)) / 59373566
 
 
 ##-----------------------------------------------------------------------------
