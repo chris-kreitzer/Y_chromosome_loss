@@ -6,8 +6,9 @@
 ## Furthermore, we can expand the correlation analysis to include ploidy and purity estimates as well;
 ## 
 ## Start (revision): 08/30/2021
+## revision: 07/26/2022
 ## chris-kreitzer
-##
+
 
 rm(list = ls())
 .rs.restartR()
@@ -77,6 +78,35 @@ Seq_merged = Seq_merged[which(Seq_merged$mLRR_IMPACT != 0 & Seq_merged$mLRR_WES 
 
 
 ## Visualization:
+dev.off()
+par(mfrow = c(1, 3))
+plot(Seq_merged$mLRR_IMPACT, Seq_merged$mLRR_WES,
+     xaxt = 'n',
+     yaxt = 'n',
+     xlab = '',
+     ylab = '',
+     pch = 19)
+axis(side = 1, at = c(-5, -4, -3, -2, -1, 0, 1, 2, 3), 
+     cex = 1.3,
+     line = 0.3, 
+     lwd = 1.5, 
+     lwd.ticks = 1.5)
+axis(side = 2, at = c(-5, -4, -3, -2, -1, 0, 1, 2, 3), 
+     cex = 1.3, 
+     las = 2, 
+     line = 0.3, 
+     lwd = 1.5,
+     lwd.ticks = 1.5)
+abline(a = 0, b = 1, lty = 'dashed', col = 'grey35')
+box(lwd = 2)
+
+mtext(text = 'Whole Exome Sequencing [mLRR]', side = 1, line = 2.3)
+mtext(text = 'MSK-IMPACT Sequencing [mLRR]', side = 2, line = 2.3)
+text(x = -4.7, y = 1.7, labels = 'r = 97.5\n p < 2.2e-16')
+
+
+
+## ggplot solution
 Y_continious_loss = ggplot(Seq_merged, 
                            aes(x = mLRR_WES, 
                                y = mLRR_IMPACT)) +
@@ -108,8 +138,6 @@ Y_continious_loss = ggplot(Seq_merged,
            family = 'ArialMT',
            size = 6) +
   
-  theme_Y +
-  
   theme(aspect.ratio = 1,
         legend.position = 'top') +
   
@@ -119,6 +147,8 @@ Y_continious_loss = ggplot(Seq_merged,
 
 
 Y_continious_loss
+
+
 ggsave_golden(filename = 'Figures/Method_validation.pdf', plot = Y_continious_loss, width = 10)
 
 
@@ -163,6 +193,64 @@ for(i in 1:nrow(WES)){
 match_out = match_out[which(match_out$WES.purity != 0 & match_out$IMPACT.purity != 0), ]
 
 #' purity agreement plot
+plot(match_out$WES.purity, match_out$IMPACT.purity,
+     xaxt = 'n',
+     yaxt = 'n',
+     xlab = '',
+     ylab = '',
+     pch = 19,
+     xlim = c(0, 1),
+     ylim = c(0, 1))
+axis(side = 1, at = seq(0, 1, 0.2), 
+     cex = 1.3,
+     line = 0.3, 
+     lwd = 1.5, 
+     lwd.ticks = 1.5)
+axis(side = 2, at = seq(0, 1, 0.2), 
+     cex = 1.3, 
+     las = 2, 
+     line = 0.3, 
+     lwd = 1.5,
+     lwd.ticks = 1.5)
+abline(a = 0, b = 1, lty = 'dashed', col = 'grey35')
+box(lwd = 2)
+
+mtext(text = 'Purity Whole Exome Sequencing [%]', side = 1, line = 2.3)
+mtext(text = 'Purity MSK-IMPACT Sequencing [%]', side = 2, line = 2.3)
+text(x = 0.15, y = 0.85, labels = 'r = 90.0\n p < 2.2e-16')
+cor.test(match_out$WES.purity, match_out$IMPACT.purity)
+
+## ploidy
+plot(match_out$WES.ploidy, match_out$IMPACT.ploidy,
+     xaxt = 'n',
+     yaxt = 'n',
+     xlab = '',
+     ylab = '',
+     pch = 19,
+     xlim = c(0, 6),
+     ylim = c(0,6))
+axis(side = 1, at = seq(1, 6, 1), 
+     cex = 1.3,
+     line = 0.3, 
+     lwd = 1.5, 
+     lwd.ticks = 1.5)
+axis(side = 2, 
+     at = seq(1, 6, 1),
+     labels = seq(1, 6, 1),
+     cex = 1.3, 
+     las = 2, 
+     line = 0.3, 
+     lwd = 1.5,
+     lwd.ticks = 1.5)
+abline(a = 0, b = 1, lty = 'dashed', col = 'grey35')
+box(lwd = 2)
+
+mtext(text = 'Ploidy Whole Exome Sequencing', side = 1, line = 2.3)
+mtext(text = 'Ploidy MSK-IMPACT Sequencing', side = 2, line = 2.3)
+text(x = 1.1, y = 5.5, labels = 'r = 62.5\n p < 2.2e-16')
+cor.test(match_out$WES.ploidy, match_out$IMPACT.ploidy)
+
+
 purity.plot = ggplot(match_out, aes(x = WES.purity, y = IMPACT.purity)) +
   geom_jitter(size = 0.6) +
   geom_abline(slope = 1, 
