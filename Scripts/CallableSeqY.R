@@ -23,7 +23,8 @@ Regions = as.data.frame(Regions)
 
 #' merge regions with gene name
 Alignments = merge(Alignments, Regions[,c('hgnc_symbol', 'Start_hg19')], 
-                              by.x = 'start',  by.y = 'Start_hg19', all.x = T)
+                              by.x = 'start',  by.y = 'Start_hg19', 
+                   all.x = T)
 
 
 Alignment_summary = data.frame()
