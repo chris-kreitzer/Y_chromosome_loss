@@ -58,5 +58,5 @@ A. Transform binary call (50% rule tcn.em == 0) into continious scale. Plot WES 
 
 ### Mosaicism in IMPACT & WES (correspondence with Peter Priestly)
 #### new chapter on the way!   
-# 22,000 cases!
-# new chapter
+# 22,320 cases!
+# sliding window
