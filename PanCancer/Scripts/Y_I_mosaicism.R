@@ -114,11 +114,19 @@ write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/I
 
 
 
-###############################################################################
+#######################
 #' Downstream analysis:
-#' bin autosomes and allosomes and calculate the read-depth ratio
-data = read.csv('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Mosaicism/IMPACT_coverage_bins.txt', sep = '\t')
-Normal_coverage = data
+#' 
+#' start: 08/16/2022
+#' chris-kreitzer
+#' bin autosomes and allosomes 
+#' and calculate the read-depth ratio
+
+data1 = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/Mosaicism/IMPACT_coverage_bins_first.txt', sep = '\t')
+data2 = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/Mosaicism/IMPACT_coverage_bins_second.txt', sep = '\t')
+mosaic = rbind(data1, data2)
+
+Normal_coverage = mosaic
 
 bins_summary = function(data){
   data = Normal_coverage[which(Normal_coverage$sample == data), ]
