@@ -149,7 +149,7 @@ bins_summary = function(data){
 
 sample_summary = lapply(unique(Normal_coverage$sample), function(x) bins_summary(x))
 sample_summary = data.table::rbindlist(sample_summary)
-#'sample_summary = sample_summary[!is.na(sample_summary$corrected.CN), ]
+
 
 #' make a ploidy correction through population-wise determination of the observed (peak) to
 #' expected ploidy level across chromosomes.
@@ -179,7 +179,6 @@ sample_summary$target[which(sample_summary$target == 23)] = 'X'
 sample_summary$target[which(sample_summary$target == 24)] = 'Y'
 
 sample_summary$target = factor(sample_summary$target, levels = c(seq(1, 22, 1), 'X', 'Y'))
-
 
 Germline_CN = ggplot(sample_summary, aes(x = target, y = corrected.CN)) +
   geom_boxplot() +
