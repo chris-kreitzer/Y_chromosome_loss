@@ -7,14 +7,17 @@
 ## 
 ## Start (revision): 08/30/2021
 ## revision: 07/26/2022
+## revision: 08/21/2022
+## 
 ## chris-kreitzer
 
-
-rm(list = ls())
+clean()
+gc()
 .rs.restartR()
-set.seed(12)
+set.seed(100)
 setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer')
 source('Scripts/UtilityFunctions.R')
+
 
 ## Input
 WES_cnLR = read.csv('Data_out/WES/WES_cnLR_out.txt', sep = '\t')
