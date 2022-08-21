@@ -55,6 +55,7 @@ for(i in unique(IMPACT_cnLR$ID)){
   }
 }
 
+
 #' merge the two data frames;
 Seq_merged = WES.IMPACT.ids_df[, c('DMP_Sample_ID', 'CMO_Sample_ID', 'Sex')]
 Seq_merged$mLRR_IMPACT = NA
@@ -78,9 +79,11 @@ for(i in 1:nrow(Seq_merged)){
 
 #' subset to only those samples where we have both, IMPACT and WES data
 Seq_merged = Seq_merged[which(Seq_merged$mLRR_IMPACT != 0 & Seq_merged$mLRR_WES != 0), ]
+write.table(Seq_merged, file = '~/Documents/MSKCC/10_MasterThesis/Data/02_Method_Validation/mLRR_IMPACT_WES_n950.txt', sep = '\t', quote = F, row.names = F)
 
-
-## Visualization:
+##-----------------
+## Visualization
+## 
 dev.off()
 par(mfrow = c(1, 3))
 plot(Seq_merged$mLRR_IMPACT, Seq_merged$mLRR_WES,
@@ -108,6 +111,12 @@ mtext(text = 'MSK-IMPACT Sequencing [mLRR]', side = 2, line = 2.3)
 text(x = -4.7, y = 1.7, labels = 'r = 97.5\n p < 2.2e-16')
 
 
+##-----------------
+## SAMPLE OUTLIER:
+##-----------------
+# P-0019114-T01-IM6
+# P-0037069-T01-IM6
+# P-0047344-T01-IM6
 
 ## ggplot solution
 Y_continious_loss = ggplot(Seq_merged, 
@@ -119,6 +128,7 @@ Y_continious_loss = ggplot(Seq_merged,
               linetype = 'dashed',
               size = 0.1,
               color = 'grey55') +
+
   geom_vline(xintercept = 0,
              color = 'grey55',
              size = 0.1,
