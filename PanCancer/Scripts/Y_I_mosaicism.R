@@ -231,75 +231,79 @@ LOY$LOY = ifelse(LOY$corrected.CN <= quantile(LOY$corrected.CN, probs = c(0.025)
 write.table(LOY, file = '~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_LOY.txt', sep = '\t', row.names = F)
 
 
+##-----------------
+## Association studies: Age
+##----------------- 
+LOY = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
+LOY = LOY$IMPACT_LOY
+LOY = LOY[!LOY$Age_Sequencing %in% c('0', '1', '2', '3', '4', '5', '6', '7'), ]
+LOY = LOY[!is.na(LOY$Age_Sequencing), ]
+LOY$Age_Sequencing = as.integer(as.character(LOY$Age_Sequencing))
+LOY$mLRR_Y = as.numeric(as.character(LOY$mLRR_Y))
+
+#' Visualization
+Y_chromosome = ggplot(LOY, aes(x = Age_Sequencing, y = mLRR_Y)) +
+  geom_jitter(size = 0.2) +
+  scale_y_continuous(limits = c(0.5, 1.5),
+                     breaks = c(0.5, 1, 1.5)) +
+  scale_x_continuous(expand = c(0.01, 0.05),
+                     breaks = seq(10, 90, 10)) +
+  geom_smooth(method = 'lm') +
+  theme(panel.background = element_blank(),
+        panel.border = element_rect(fill = NA, 
+                                    size = 2),
+        axis.text = element_text(size = 12, 
+                                 color = 'black')) +
+  annotate(geom = 'text',
+           x = 25,
+           y = 1.40,
+           label = 'y = 0.995-0.00024x\np < 2e-16',
+           size = 5.5) +
+  labs(x = 'Age [reported at sequencing]', y = 'mLRR-Y', title = 'MSK-IMPACT: mLRR-Y decrease with age')
+
+Y_chromosome
+
 
 ##-----------------
-## Association studies:
-## AGE
-Clinical_annotation = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/mskimpact_clinical_data_07112022.tsv', sep = '\t')
-Clinical_annotation = Clinical_annotation[,c('Sample.ID', 'Age.at.Which.Sequencing.was.Reported..Years.')]
-colnames(Clinical_annotation) = c('Sample.ID', 'Age')
+## Sanity check for X-chromosome
+##-----------------
+germline = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_mLRR-Y_summary.txt', sep = '\t')
+germlineX = germline[which(germline$target == 'X'), ]
+germlineX$sample.id = substr(germlineX$sample, start = 17, stop = 33)
+cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
+cohort = cohort$IMPACT_clinicalAnnotation
 
-LOY$sample.id = substr(LOY$sample, start = 17, stop = 33)
-LOY = merge(LOY, Clinical_annotation, by.x = 'sample.id', by.y = 'Sample.ID', all.x = T)
-LOY = LOY[!LOY$Age %in% c('0', '>90', '1', '2', '3', '4', '5', '6', '7'), ]
-LOY = LOY[!is.na(LOY$Age), ]
-LOY$Age = as.integer(as.character(LOY$Age))
-summary(lm(LOY$corrected.CN ~ LOY$Age))
+germlineX = merge(germlineX, cohort[, c('SAMPLE_ID', 'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)')],
+                  by.x = 'sample.id', by.y = 'SAMPLE_ID', all.x = T)
 
+germlineX = germlineX[!germlineX$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)` %in% c('0', '1', '2', '3', '4', '5', '6', '7'), ]
+germlineX = germlineX[!is.na(germlineX$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)`), ]
+germlineX$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)` = as.integer(as.character(germlineX$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)`))
+colnames(germlineX)[8] = 'Age_Sequencing'
 
-
-
-
-IMPACT_cohort = readRDS('Data_out/cohort_data.rds')$IMPACT.cohort
-sample_summary$sample = substr(sample_summary$sample, start = 17, stop = 33)
-
-IMPACT_age = merge(sample_summary, IMPACT_cohort[, c('SAMPLE_ID', 'AGE_AT_SEQ_REPORTED_YEARS')],
-                   by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
-
-IMPACT_age = IMPACT_age[!IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS %in% c('>90', '', '1', '2', '3', '4', '5', '6', '7'), ]
-IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS = as.integer(as.character(IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS))
-IMPACT_age = IMPACT_age[order(IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS, decreasing = F), ]
-IMPACT_age$Y_mosaicism = NA
-IMPACT_age$Y_mosaicism[which(IMPACT_age$target == 'Y')] = ifelse(IMPACT_age$corrected.CN[which(IMPACT_age$target == 'Y')] < lower_Y_threshold[1], 'yes', 'no')
-write.table(IMPACT_age, file = 'Data_out/IMPACT/GermlineCN.txt', sep = '\t', row.names = F, quote = F)
-
-
-#' modelling the association between age and Y chromsome copy number
-summary(lm(IMPACT_age$corrected.CN[which(IMPACT_age$target == 'Y')] ~
-             IMPACT_age$AGE_AT_SEQ_REPORTED_YEARS[which(IMPACT_age$target == 'Y')]))
-
-#' X-chromosome visualization
-X_chromosome = ggplot(IMPACT_age[which(IMPACT_age$target == 'X'), ],
-                      aes(x = AGE_AT_SEQ_REPORTED_YEARS, y = corrected.CN)) +
+X_chromosome = ggplot(germlineX, aes(x = Age_Sequencing, y = corrected.CN)) +
   geom_jitter(size = 0.2) +
-  scale_y_continuous(limits = c(0, 1.5)) +
+  scale_y_continuous(limits = c(0.5, 1.5),
+                     breaks = c(0.5, 1, 1.5)) +
   scale_x_continuous(expand = c(0.01, 0.05),
                      breaks = seq(10, 90, 10)) +
   geom_smooth(method = 'lm') +
+  theme(panel.background = element_blank(),
+        panel.border = element_rect(fill = NA, 
+                                    size = 2),
+        axis.text = element_text(size = 12, 
+                                 color = 'black')) +
   annotate(geom = 'text',
-           x = 20,
-           y = 0.2,
-           label = 'y = 1.08 -0.0002 x',
+           x = 25,
+           y = 1.40,
+           label = 'y = 1.017+0.0000327x\np = 0.06',
            size = 5.5) +
-  labs(x = 'Age', y = 'Chr. X copy number')
+  labs(x = 'Age [reported at sequencing]', y = 'mLRR-X', title = 'MSK-IMPACT: stable X chromosome')
 
-#' Y-chromosome visualization
-Y_chromosome = ggplot(IMPACT_age[which(IMPACT_age$target == 'Y'), ],
-                      aes(x = AGE_AT_SEQ_REPORTED_YEARS, y = corrected.CN)) +
-  geom_jitter(size = 0.2) +
-  scale_y_continuous(limits = c(0, 1.5)) +
-  scale_x_continuous(expand = c(0.01, 0.05),
-                     breaks = seq(10, 90, 10)) +
-  geom_smooth(method = 'lm') +
-  annotate(geom = 'text',
-           x = 20,
-           y = 0.2,
-           label = 'y = 0.966 -0.00052 x\np < 2e-16',
-           size = 5.5) +
-  labs(x = 'Age', y = 'Chr. Y copy number')
+X_chromosome  
 
 
 library(patchwork)
-ggsave_golden(filename = 'Figures/Mosaic_AGE_IMPACT.pdf', plot = (Y_chromosome / X_chromosome), width = 7.5)
+ggsave_golden(filename = 'Figures_original/Mosaic_AGE_IMPACT.pdf', plot = (Y_chromosome / X_chromosome), width = 7.5)
 
-
+#' out
