@@ -25,7 +25,7 @@ CI_z <- function (x, ci = 0.95){
 
 #' calculate the confidence Interval
 normConfInt = function(x, alpha = 0.05){
-  mean(x) + qt(1 - alpha / 2, length(x) - 1) * sd(x) / sqrt(length(x)) * c(-1, 1)
+  mean(x, na.rm = T) + qt(1 - alpha / 2, length(x) - 1) * sd(x, na.rm = T) / sqrt(length(x)) * c(-1, 1)
 }
 
 
