@@ -226,6 +226,11 @@ mtext(text = 'MSK-IMPACT observed mLRR-Y values', adj = 0, line = 0.5)
 mtext(text = 'Individuals', side = 2, line = 2)
 mtext(text = 'mLRR-Y', side = 1, line = 2)
 
+LOY$sample.id = substr(LOY$sample, start = 17, stop = 33)
+LOY$LOY = ifelse(LOY$corrected.CN <= quantile(LOY$corrected.CN, probs = c(0.025)), 'yes', 'no')
+write.table(LOY, file = '~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_LOY.txt', sep = '\t', row.names = F)
+
+
 
 ##-----------------
 ## Association studies:
