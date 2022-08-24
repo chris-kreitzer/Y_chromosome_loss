@@ -1,4 +1,19 @@
-## Survival Analysis mosaic-Y-loss
+## Survival Analysis LOY, and associated stuff
+## 
+## start: 08/16/2021
+## revision: 08/24/2022
+## 
+## chris-kreitzer
+
+clean()
+gc()
+.rs.restartR()
+setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
+
+
+Cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
+
+
 
 setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
 rm(list = ls())
