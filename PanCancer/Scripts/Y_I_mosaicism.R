@@ -122,13 +122,12 @@ write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/I
 #' bin autosomes and allosomes 
 #' and calculate the read-depth ratio
 
-data1 = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/Mosaicism/IMPACT_coverage_bins_first.txt', sep = '\t')
-data2 = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/Mosaicism/IMPACT_coverage_bins_second.txt', sep = '\t')
-mosaic = rbind(data1, data2)
-
+#' write.table(mosaic, file = '~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_coverage_N_22320.txt', sep = '\t', quote = F, row.names = F)
+mosaic = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_coverage_N_22320.txt', sep = '\t')
 Normal_coverage = mosaic
 
 bins_summary = function(data){
+  print(data)
   data = Normal_coverage[which(Normal_coverage$sample == data), ]
   summary_df_out = data.frame()
   if(length(unique(data$chrom)) == 24){
@@ -137,7 +136,8 @@ bins_summary = function(data){
       median_target = median(data$depth[which(data$chrom == chromo)])
       summary_df = data.frame(sample = unique(data$sample),
                               target = chromo,
-                              ratio = median_target / median_genome)
+                              ratio = median_target / median_genome,
+                              log_ratio = log(median_target) / log(median_genome))
       summary_df_out = rbind(summary_df_out, summary_df)
     }
 
@@ -154,7 +154,7 @@ sample_summary = data.table::rbindlist(sample_summary)
 #' make a ploidy correction through population-wise determination of the observed (peak) to
 #' expected ploidy level across chromosomes.
 sample_summary$target = as.integer(as.character(sample_summary$target))
-sample_summary$CN = sample_summary$ratio * 2
+sample_summary$CN = sample_summary$log_ratio * 2
 sample_summary$corrected.CN = NA
 
 CN_correction = data.frame()

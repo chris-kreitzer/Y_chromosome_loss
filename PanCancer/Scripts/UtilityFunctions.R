@@ -1,4 +1,9 @@
-## Utility functions
+## Utility functions for Y-chromosome Project
+## 
+## start: 08/11/2021
+## revision: 08/24/2022
+## 
+## chris-kreitzer
 
 
 CI_z <- function (x, ci = 0.95){
