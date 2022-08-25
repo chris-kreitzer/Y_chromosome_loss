@@ -53,23 +53,34 @@ coxph(Surv(OS_months, OS_Status) ~ LOY, data = IMPACT_survival) %>%
 
 #' survival analysis
 f1 = survfit(Surv(OS_months, OS_Status) ~ LOY, data = IMPACT_survival)
-a = ggsurvplot(f1,
+IMPACT_LOY_survival = ggsurvplot(f1,
                size = 0.8,
                censor.shape = '',
                pval = T,
-               risk.table = F,
+               font.x = c(12, 'bold'),
+               font.y = c(12, 'bold'),
+               font.caption = c(12, 'bold'),
+               risk.table = T,
                risk.table.height = 0.25,
+               font.tickslab = c(10, 'bold', 'black'),
                break.time.by = 12,
-               ggtheme = theme_light(),
-               surv.median.line = 'v',
+               ggtheme = theme_bw(),
+               censor = F,
                xlim = c(0, 90),
+               legend = 'top',
                xlab = ('OS [months]'),
                palette = 'aaas')
-a
+IMPACT_LOY_survival
+
+
+#' out
 
 
 
-#' 
+##-----------------
+## Old cohort: 2021
+##-----------------
+
 #' cohort = readRDS('Data_out/cohort_data.rds')
 #' MSK_WES = cohort$WES.cohort
 #' MSK_WES$AGE_AT_SEQ_REPORTED_YEARS = as.numeric(as.character(MSK_WES$AGE_AT_SEQ_REPORTED_YEARS))
@@ -124,133 +135,111 @@ a
 #'   labs(x = 'AGE groups', y = 'Percent mLOY')
 #'   
 #' ggsave_golden(filename = 'Figures/WES_Age_Mosaic.pdf', plot = age_mosaic, width = 12)
-
-
-
-#' look into overall survival associated with mosaic loss of Y-chromosome
-WES_mosaic = MSK_WES[!is.na(MSK_WES$Y_mosaic), ]
-
-
-
-#' survival analysis:
-MSK_WES = readRDS('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')$WES.cohort
-
-library(survminer)
-library(survival)
-
-WES_survival = MSK_WES[!is.na(MSK_WES$Y_mosaic) & !is.na(MSK_WES$OS_Status), ]
-WES_survival$OS_Status[which(WES_survival$OS_Status == '1:DECEASED')] = 2L
-WES_survival$OS_Status[which(WES_survival$OS_Status == '0:LIVING')] = 1L
-WES_survival$OS_Status = as.numeric(as.character(WES_survival$OS_Status))
-WES_survival$Y_mosaic = factor(WES_survival$Y_mosaic, levels = c('no', 'yes'))
-
-
-coxph(Surv(OS, OS_Status) ~ Y_mosaic, data = WES_survival) %>%
-  gtsummary::tbl_regression(exp = TRUE)
-
-#' survival analysis
-f1 = survfit(Surv(OS, OS_Status) ~ Y_mosaic, data = WES_survival)
-WES_survival$age = ifelse(WES_survival$AGE_AT_SEQ_REPORTED_YEARS < 50, 'group1', 
-                          ifelse(WES_survival$AGE_AT_SEQ_REPORTED_YEARS > 50 & WES_survival$AGE_AT_SEQ_REPORTED_YEARS < 70, 'group2', 'group3')) 
-                                 
-f2 = survfit(Surv(OS, OS_Status) ~ Y_mosaic + age, data = WES_survival)
-
-#' make the plot
-a = ggsurvplot(f1,
-           size = 0.8,
-           censor.shape = '',
-           pval = T,
-           risk.table = F,
-           risk.table.height = 0.25,
-           break.time.by = 12,
-           ggtheme = theme_light(),
-           surv.median.line = 'v',
-           xlim = c(0, 84),
-           xlab = ('OS [months]'),
-           palette = 'aaas')
-  
-b = a$plot + theme(panel.background = element_blank()) +
-  theme(aspect.ratio = 0.5,
-        panel.border = element_rect(size = 1.5, colour = 'black'),
-        axis.text = element_text(size = 14, color = 'black', face = 'bold'),
-        legend.position = 'top', 
-        legend.text = element_text(size = 14)) +
-  scale_color_discrete(name = "", labels = c("full Y-chromosome", "mosaic Y loss"), 
-                       type = c('#414A8F', '#CD2703'))
-
-ggsave_golden(filename = 'Figures/OS_Mosaic_YLoss.pdf', plot = b, width = 9)
-
-
-
-
-###############################################################################
-#' Survival analysis for IMPACT cases
-#' modify input data first
-clinical = read.csv('Data_out/IMPACT/IMPACT_clinical.txt', sep = '\t')
-IMPACT_mosaic = read.csv('Data_out/IMPACT/GermlineCN.txt', sep = '\t')
-IMPACT_mosaic = IMPACT_mosaic[which(IMPACT_mosaic$target == 'Y'), ]
-
-OS_Impact = merge(IMPACT_mosaic, clinical[, c('SAMPLE_ID', 'FGA', 'OS_Months', 'OS_Status')], 
-                  by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
-
-
-#' OS analysis
-library(survminer)
-library(survival)
-
-OS_Impact = OS_Impact[!is.na(OS_Impact$Y_mosaicism), ]
-OS_Impact$Y_mosaicism = factor(OS_Impact$Y_mosaicism, levels = c('no', 'yes'))
-
-#' cox-p model
-summary(coxph(Surv(OS_Months, OS_Status) ~ Y_mosaicism, data = OS_Impact))
-coxph(Surv(OS_Months, OS_Status) ~ Y_mosaicism, data = OS_Impact) %>%
-  gtsummary::tbl_regression(exp = TRUE)
-
-model_impact = survfit(Surv(OS_Months, OS_Status) ~ Y_mosaicism, data = OS_Impact)
-
-#' make the plot
-a = ggsurvplot(model_impact,
-               size = 0.8,
-               censor.shape = '',
-               pval = T,
-               risk.table = F,
-               risk.table.height = 0.25,
-               break.time.by = 12,
-               ggtheme = theme_light(),
-               surv.median.line = 'v',
-               xlim = c(0, 84),
-               xlab = ('OS [months]'),
-               palette = 'aaas')
-
-b = a$plot + theme(panel.background = element_blank()) +
-  theme(aspect.ratio = 0.5,
-        panel.border = element_rect(size = 1.5, colour = 'black'),
-        axis.text = element_text(size = 14, color = 'black', face = 'bold'),
-        legend.position = 'top', 
-        legend.text = element_text(size = 14)) +
-  scale_y_continuous(expand = c(0.01, 0.05)) +
-  scale_x_continuous(expand = c(0.0, 0.0)) +
-  scale_color_discrete(name = "", labels = c("full Y-chromosome", "mosaic Y loss"), 
-                       type = c('#414A8F', '#CD2703'))
-
-ggsave_golden(filename = 'Figures/OS_Mosaic_IMPACT.pdf', plot = b, width = 9)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#' 
+#' 
+#' 
+#' #' look into overall survival associated with mosaic loss of Y-chromosome
+#' WES_mosaic = MSK_WES[!is.na(MSK_WES$Y_mosaic), ]
+#' 
+#' #' survival analysis:
+#' MSK_WES = readRDS('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')$WES.cohort
+#' 
+#' library(survminer)
+#' library(survival)
+#' 
+#' WES_survival = MSK_WES[!is.na(MSK_WES$Y_mosaic) & !is.na(MSK_WES$OS_Status), ]
+#' WES_survival$OS_Status[which(WES_survival$OS_Status == '1:DECEASED')] = 2L
+#' WES_survival$OS_Status[which(WES_survival$OS_Status == '0:LIVING')] = 1L
+#' WES_survival$OS_Status = as.numeric(as.character(WES_survival$OS_Status))
+#' WES_survival$Y_mosaic = factor(WES_survival$Y_mosaic, levels = c('no', 'yes'))
+#' 
+#' 
+#' coxph(Surv(OS, OS_Status) ~ Y_mosaic, data = WES_survival) %>%
+#'   gtsummary::tbl_regression(exp = TRUE)
+#' 
+#' #' survival analysis
+#' f1 = survfit(Surv(OS, OS_Status) ~ Y_mosaic, data = WES_survival)
+#' WES_survival$age = ifelse(WES_survival$AGE_AT_SEQ_REPORTED_YEARS < 50, 'group1', 
+#'                           ifelse(WES_survival$AGE_AT_SEQ_REPORTED_YEARS > 50 & WES_survival$AGE_AT_SEQ_REPORTED_YEARS < 70, 'group2', 'group3')) 
+#'                                  
+#' f2 = survfit(Surv(OS, OS_Status) ~ Y_mosaic + age, data = WES_survival)
+#' 
+#' #' make the plot
+#' a = ggsurvplot(f1,
+#'            size = 0.8,
+#'            censor.shape = '',
+#'            pval = T,
+#'            risk.table = F,
+#'            risk.table.height = 0.25,
+#'            break.time.by = 12,
+#'            ggtheme = theme_light(),
+#'            surv.median.line = 'v',
+#'            xlim = c(0, 84),
+#'            xlab = ('OS [months]'),
+#'            palette = 'aaas')
+#'   
+#' b = a$plot + theme(panel.background = element_blank()) +
+#'   theme(aspect.ratio = 0.5,
+#'         panel.border = element_rect(size = 1.5, colour = 'black'),
+#'         axis.text = element_text(size = 14, color = 'black', face = 'bold'),
+#'         legend.position = 'top', 
+#'         legend.text = element_text(size = 14)) +
+#'   scale_color_discrete(name = "", labels = c("full Y-chromosome", "mosaic Y loss"), 
+#'                        type = c('#414A8F', '#CD2703'))
+#' 
+#' ggsave_golden(filename = 'Figures/OS_Mosaic_YLoss.pdf', plot = b, width = 9)
+#' 
+#' 
+#' 
+#' 
+#' ###############################################################################
+#' #' Survival analysis for IMPACT cases
+#' #' modify input data first
+#' clinical = read.csv('Data_out/IMPACT/IMPACT_clinical.txt', sep = '\t')
+#' IMPACT_mosaic = read.csv('Data_out/IMPACT/GermlineCN.txt', sep = '\t')
+#' IMPACT_mosaic = IMPACT_mosaic[which(IMPACT_mosaic$target == 'Y'), ]
+#' 
+#' OS_Impact = merge(IMPACT_mosaic, clinical[, c('SAMPLE_ID', 'FGA', 'OS_Months', 'OS_Status')], 
+#'                   by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
+#' 
+#' 
+#' #' OS analysis
+#' library(survminer)
+#' library(survival)
+#' 
+#' OS_Impact = OS_Impact[!is.na(OS_Impact$Y_mosaicism), ]
+#' OS_Impact$Y_mosaicism = factor(OS_Impact$Y_mosaicism, levels = c('no', 'yes'))
+#' 
+#' #' cox-p model
+#' summary(coxph(Surv(OS_Months, OS_Status) ~ Y_mosaicism, data = OS_Impact))
+#' coxph(Surv(OS_Months, OS_Status) ~ Y_mosaicism, data = OS_Impact) %>%
+#'   gtsummary::tbl_regression(exp = TRUE)
+#' 
+#' model_impact = survfit(Surv(OS_Months, OS_Status) ~ Y_mosaicism, data = OS_Impact)
+#' 
+#' #' make the plot
+#' a = ggsurvplot(model_impact,
+#'                size = 0.8,
+#'                censor.shape = '',
+#'                pval = T,
+#'                risk.table = F,
+#'                risk.table.height = 0.25,
+#'                break.time.by = 12,
+#'                ggtheme = theme_light(),
+#'                surv.median.line = 'v',
+#'                xlim = c(0, 84),
+#'                xlab = ('OS [months]'),
+#'                palette = 'aaas')
+#' 
+#' b = a$plot + theme(panel.background = element_blank()) +
+#'   theme(aspect.ratio = 0.5,
+#'         panel.border = element_rect(size = 1.5, colour = 'black'),
+#'         axis.text = element_text(size = 14, color = 'black', face = 'bold'),
+#'         legend.position = 'top', 
+#'         legend.text = element_text(size = 14)) +
+#'   scale_y_continuous(expand = c(0.01, 0.05)) +
+#'   scale_x_continuous(expand = c(0.0, 0.0)) +
+#'   scale_color_discrete(name = "", labels = c("full Y-chromosome", "mosaic Y loss"), 
+#'                        type = c('#414A8F', '#CD2703'))
+#' 
+#' ggsave_golden(filename = 'Figures/OS_Mosaic_IMPACT.pdf', plot = b, width = 9)
