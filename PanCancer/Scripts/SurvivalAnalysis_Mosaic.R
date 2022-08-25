@@ -14,6 +14,40 @@ setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
 Cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
 
 
+##-----------------
+## LOY:Age distribution
+##-----------------
+LOY = Cohort$IMPACT_LOY
+LOY$Age_Sequencing = as.integer(as.character(LOY$Age_Sequencing))
+
+mosaic_age = data.frame()
+for(i in seq(5, 90, 5)){
+  da = LOY[between(LOY$Age_Sequencing, i-4, i), ]
+  
+  if(length(table(da$LOY)) == 2){
+    ratio = (table(da$LOY)[2] / sum(table(da$LOY))) * 100
+    n = sum(table(da$LOY))
+    out = data.frame(group = i,
+                     ratio = ratio,
+                     n = n)
+    
+  } else if (length(table(da$LOY)) == 1) {
+    table.ratio = table(da$LOY)
+    ratio = ifelse(names(table.ratio) == 'no', 0, 100)
+    n = table.ratio[[1]]
+    out = data.frame(group = i,
+                     ratio = ratio,
+                     n = n)
+  } else {
+    ratio = NA
+    n = dim(da)[[1]]
+    out = data.frame(group = i,
+                     ratio = ratio, 
+                     n = n)
+  }
+  mosaic_age = rbind(mosaic_age, out)
+}
+
 
 setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
 rm(list = ls())
