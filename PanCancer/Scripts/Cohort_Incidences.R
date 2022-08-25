@@ -1,18 +1,68 @@
 ## Look into Y-chromosome incidences among different cancer types
 ## Make an overview graph; as Bastien initially did (back in 2019)
 ## 
-## 09/01/2021
-## chris-kreitzer
+## start: 09/01/2021
+## revision: 08/25/2022
 ## 
+## chris-kreitzer
 
-set.seed(112)
-rm(list = ls())
+clean()
+gc()
 .rs.restartR()
-setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
-source('Scripts/UtilityFunctions.R')
+setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
+
 
 ## Libraries and Input
 library(RColorBrewer)
+cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
+samples_loss = unique(as.character(cohort$IMPACT_cohort$SAMPLE_ID[which(cohort$IMPACT_cohort$LOY == 'no')]))
+
+##-----------------
+## Sample consideration
+##-----------------
+Binary = read.csv('Data/04_Loss/IMPACT.binaryLoss_out.txt', sep = '\t')
+Binary = Binary[which(Binary$sample.id %in% samples_loss), ]
+
+#' Just use the FACETS QC TRUE samples
+Facets_QC = read.csv('Data/04_Loss/QC_metrics.txt', sep = '\t')
+samples_pass = Facets_QC[which(Facets_QC$QC == 'TRUE'), ]
+Y_CNA = Binary[which(Binary$sample.id %in% samples_pass$ID), ]
+
+IMPACT = cohort$IMPACT_cohort
+IMPACT$Y_CNA = NA
+
+for(i in 1:nrow(IMPACT)){
+  if(IMPACT$SAMPLE_ID[i] %in% Y_CNA$sample.id){
+    IMPACT$Y_CNA[i] = TRUE
+  } else {
+    IMPACT$Y_CNA[i] = FALSE
+  }
+}
+
+cohort = list(IMPACT_cohort = IMPACT,
+              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
+              IMPACT_LOY = cohort$IMPACT_LOY,
+              IMPACT_binaryY_call = Y_CNA)
+
+saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
+
+
+##-----------------
+## Incidences
+##-----------------
+
+
+
+
+
+
+
+
+
+
+
+
+
 cohortData = readRDS('Data_out/cohort_data.rds')
 IMPACT_data = cohortData$IMPACT.cohort
 WES_data = cohortData$WES.cohort

@@ -47,12 +47,12 @@ IMPACT_survival$OS_Status = as.numeric(as.character(IMPACT_survival$OS_Status))
 IMPACT_survival$LOY = factor(IMPACT_survival$LOY, levels = c('no', 'yes'))
 
 
-coxph(Surv(OS_months, OS_Status) ~ LOY, data = IMPACT_survival) %>%
+coxph(Surv(OS_months, OS_Status) ~ LOY + Age_Sequencing, data = IMPACT_survival) %>%
   gtsummary::tbl_regression(exp = TRUE)
 
 
 #' survival analysis
-f1 = survfit(Surv(OS_months, OS_Status) ~ LOY, data = IMPACT_survival)
+f1 = survfit(Surv(OS_months, OS_Status) ~ LOY + Age_Sequencing, data = IMPACT_survival)
 IMPACT_LOY_survival = ggsurvplot(f1,
                size = 0.8,
                censor.shape = '',
@@ -68,7 +68,7 @@ IMPACT_LOY_survival = ggsurvplot(f1,
                censor = F,
                xlim = c(0, 90),
                legend = 'top',
-               xlab = ('OS [months]'),
+               xlab = ('OS [months]'))
                palette = 'aaas')
 IMPACT_LOY_survival
 
