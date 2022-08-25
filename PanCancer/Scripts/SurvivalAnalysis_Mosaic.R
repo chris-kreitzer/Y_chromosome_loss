@@ -20,94 +20,110 @@ Cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
 LOY = Cohort$IMPACT_LOY
 LOY$Age_Sequencing = as.integer(as.character(LOY$Age_Sequencing))
 
-mosaic_age = data.frame()
-for(i in seq(5, 90, 5)){
-  da = LOY[between(LOY$Age_Sequencing, i-4, i), ]
-  
-  if(length(table(da$LOY)) == 2){
-    ratio = (table(da$LOY)[2] / sum(table(da$LOY))) * 100
-    n = sum(table(da$LOY))
-    out = data.frame(group = i,
-                     ratio = ratio,
-                     n = n)
-    
-  } else if (length(table(da$LOY)) == 1) {
-    table.ratio = table(da$LOY)
-    ratio = ifelse(names(table.ratio) == 'no', 0, 100)
-    n = table.ratio[[1]]
-    out = data.frame(group = i,
-                     ratio = ratio,
-                     n = n)
-  } else {
-    ratio = NA
-    n = dim(da)[[1]]
-    out = data.frame(group = i,
-                     ratio = ratio, 
-                     n = n)
-  }
-  mosaic_age = rbind(mosaic_age, out)
-}
+hist(LOY$Age_Sequencing[which(LOY$LOY == 'yes')], nclass = 30,
+     xlim = c(20, 78),
+     col = 'white',
+     yaxt = 'n',
+     xlab = '',
+     ylab = '',
+     main = '')
+axis(side = 2, las = 2)
+box(lwd = 2)
+mtext(text = 'Frequency', side = 2, line = 2)
+mtext(text = 'Age-distribution LOY', side = 3, line = 1, adj = 0)
 
 
-setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
-rm(list = ls())
-source('Scripts/UtilityFunctions.R')
-library(dplyr)
+##-----------------
+## Survival analysis
+##-----------------
+library(survminer)
+library(survival)
 
-cohort = readRDS('Data_out/cohort_data.rds')
-MSK_WES = cohort$WES.cohort
-MSK_WES$AGE_AT_SEQ_REPORTED_YEARS = as.numeric(as.character(MSK_WES$AGE_AT_SEQ_REPORTED_YEARS))
-MSK_WES = MSK_WES[!is.na(MSK_WES$AGE_AT_SEQ_REPORTED_YEARS), ]
+IMPACT_survival = LOY[!is.na(LOY$LOY) & !is.na(LOY$OS_Status), ]
+IMPACT_survival = IMPACT_survival[!IMPACT_survival$LOY == 'N/A', ]
+IMPACT_survival$OS_Status[which(IMPACT_survival$OS_Status == '1:DECEASED')] = 2L
+IMPACT_survival$OS_Status[which(IMPACT_survival$OS_Status == '0:LIVING')] = 1L
+IMPACT_survival$OS_Status = as.numeric(as.character(IMPACT_survival$OS_Status))
+IMPACT_survival$LOY = factor(IMPACT_survival$LOY, levels = c('no', 'yes'))
 
 
-mosaic_age = data.frame()
-for(i in seq(5, 90, 5)){
-  da = MSK_WES[between(MSK_WES$AGE_AT_SEQ_REPORTED_YEARS, i-4, i), ]
-  
-  if(length(table(da$Y_mosaic)) == 2){
-    ratio = (table(da$Y_mosaic)[2] / sum(table(da$Y_mosaic))) * 100
-    n = sum(table(da$Y_mosaic))
-    out = data.frame(group = i,
-                     ratio = ratio,
-                     n = n)
-    
-  } else if (length(table(da$Y_mosaic)) == 1) {
-    table.ratio = table(da$Y_mosaic)
-    ratio = ifelse(names(table.ratio) == 'no', 0, 100)
-    n = table.ratio[[1]]
-    out = data.frame(group = i,
-                     ratio = ratio,
-                     n = n)
-  } else {
-    ratio = NA
-    n = dim(da)[[1]]
-    out = data.frame(group = i,
-                     ratio = ratio, 
-                     n = n)
-  }
-  mosaic_age = rbind(mosaic_age, out)
-}
-  
+coxph(Surv(OS_months, OS_Status) ~ LOY, data = IMPACT_survival) %>%
+  gtsummary::tbl_regression(exp = TRUE)
 
-#' make a visualization
-age_mosaic = ggplot(mosaic_age[!mosaic_age$group %in% c(5, 10, 15, 20), ], aes(x = group, y = ratio)) + 
-  geom_hline(yintercept = seq(0, 50, 25), linetype = 'dashed', size = 0.2, color = 'grey35') +
-  geom_bar(stat = 'identity') +
-  stat_smooth(method = 'gam', formula = y ~ s(x, k = 3), size = 2, se = F, color = 'red', alpha = 0.2) +
-  scale_x_continuous(expand = c(0, 0),
-                     breaks = seq(25, 90, 5),
-                     labels = paste0(mosaic_age[!mosaic_age$group %in% c(5, 10, 15, 20), 'group'], '\n',
-                                     ' n=',
-                                     mosaic_age[!mosaic_age$group %in% c(5, 10, 15, 20), 'n'])) +
-  scale_y_continuous(expand = c(0, 0),
-                     limits = c(0, 60),
-                     breaks = c(0, 50, 25)) +
-  
-  theme_bw(base_size = 22) +
-  theme(panel.grid = element_blank()) +
-  labs(x = 'AGE groups', y = 'Percent mLOY')
-  
-ggsave_golden(filename = 'Figures/WES_Age_Mosaic.pdf', plot = age_mosaic, width = 12)
+
+#' survival analysis
+f1 = survfit(Surv(OS_months, OS_Status) ~ LOY, data = IMPACT_survival)
+a = ggsurvplot(f1,
+               size = 0.8,
+               censor.shape = '',
+               pval = T,
+               risk.table = F,
+               risk.table.height = 0.25,
+               break.time.by = 12,
+               ggtheme = theme_light(),
+               surv.median.line = 'v',
+               xlim = c(0, 90),
+               xlab = ('OS [months]'),
+               palette = 'aaas')
+a
+
+
+
+#' 
+#' cohort = readRDS('Data_out/cohort_data.rds')
+#' MSK_WES = cohort$WES.cohort
+#' MSK_WES$AGE_AT_SEQ_REPORTED_YEARS = as.numeric(as.character(MSK_WES$AGE_AT_SEQ_REPORTED_YEARS))
+#' MSK_WES = MSK_WES[!is.na(MSK_WES$AGE_AT_SEQ_REPORTED_YEARS), ]
+#' 
+#' 
+#' mosaic_age = data.frame()
+#' for(i in seq(5, 90, 5)){
+#'   da = MSK_WES[between(MSK_WES$AGE_AT_SEQ_REPORTED_YEARS, i-4, i), ]
+#'   
+#'   if(length(table(da$Y_mosaic)) == 2){
+#'     ratio = (table(da$Y_mosaic)[2] / sum(table(da$Y_mosaic))) * 100
+#'     n = sum(table(da$Y_mosaic))
+#'     out = data.frame(group = i,
+#'                      ratio = ratio,
+#'                      n = n)
+#'     
+#'   } else if (length(table(da$Y_mosaic)) == 1) {
+#'     table.ratio = table(da$Y_mosaic)
+#'     ratio = ifelse(names(table.ratio) == 'no', 0, 100)
+#'     n = table.ratio[[1]]
+#'     out = data.frame(group = i,
+#'                      ratio = ratio,
+#'                      n = n)
+#'   } else {
+#'     ratio = NA
+#'     n = dim(da)[[1]]
+#'     out = data.frame(group = i,
+#'                      ratio = ratio, 
+#'                      n = n)
+#'   }
+#'   mosaic_age = rbind(mosaic_age, out)
+#' }
+#'   
+#' 
+#' #' make a visualization
+#' age_mosaic = ggplot(mosaic_age[!mosaic_age$group %in% c(5, 10, 15, 20), ], aes(x = group, y = ratio)) + 
+#'   geom_hline(yintercept = seq(0, 50, 25), linetype = 'dashed', size = 0.2, color = 'grey35') +
+#'   geom_bar(stat = 'identity') +
+#'   stat_smooth(method = 'gam', formula = y ~ s(x, k = 3), size = 2, se = F, color = 'red', alpha = 0.2) +
+#'   scale_x_continuous(expand = c(0, 0),
+#'                      breaks = seq(25, 90, 5),
+#'                      labels = paste0(mosaic_age[!mosaic_age$group %in% c(5, 10, 15, 20), 'group'], '\n',
+#'                                      ' n=',
+#'                                      mosaic_age[!mosaic_age$group %in% c(5, 10, 15, 20), 'n'])) +
+#'   scale_y_continuous(expand = c(0, 0),
+#'                      limits = c(0, 60),
+#'                      breaks = c(0, 50, 25)) +
+#'   
+#'   theme_bw(base_size = 22) +
+#'   theme(panel.grid = element_blank()) +
+#'   labs(x = 'AGE groups', y = 'Percent mLOY')
+#'   
+#' ggsave_golden(filename = 'Figures/WES_Age_Mosaic.pdf', plot = age_mosaic, width = 12)
 
 
 
@@ -117,7 +133,7 @@ WES_mosaic = MSK_WES[!is.na(MSK_WES$Y_mosaic), ]
 
 
 #' survival analysis:
-MSK_WES = readRDS('Data_out/cohort_data.rds')$WES.cohort
+MSK_WES = readRDS('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')$WES.cohort
 
 library(survminer)
 library(survival)
