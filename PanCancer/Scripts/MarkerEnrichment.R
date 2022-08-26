@@ -3,11 +3,17 @@
 ## 
 ## start: 11/18/21
 ## extension: 11/22/21
+## revision: 08/26/2022
+## 
+## chris-kreitzer
 
-
-setup(working.path =  '~/Documents/GitHub/Y_chromosome_loss/PanCancer/')
 clean()
+gc()
+.rs.restartR()
+setup(working.path =  '~/Documents/MSKCC/10_MasterThesis/')
 source('Scripts/UtilityFunctions.R')
+
+
 
 ## Data input:
 data_cnlr = vroom::vroom('Data_out/IMPACT/Cnlr_out.txt')
