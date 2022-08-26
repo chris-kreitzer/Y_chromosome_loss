@@ -10,7 +10,7 @@ clean()
 gc()
 .rs.restartR()
 setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
-
+source('Scripts/UtilityFunctions.R')
 
 ## Libraries and Input
 library(RColorBrewer)
@@ -50,6 +50,180 @@ saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_
 ##-----------------
 ## Incidences
 ##-----------------
+cohortData = readRDS('Data/signedOut/Cohort_07132022.rds')
+IMPACT_data = cohortData$IMPACT_cohort
+
+#' top 20 cancer types
+IMPACT_data = IMPACT_data[which(IMPACT_data$Y_CNA == TRUE), ]
+IMPACT_top_20 = table(IMPACT_data$CANCER_TYPE)
+IMPACT_top_20 = IMPACT_top_20[order(IMPACT_top_20, decreasing = T)]
+IMPACT_top_20 = IMPACT_top_20[1:20]
+
+IMPACT_incidence = data.frame()
+for(i in unique(names(IMPACT_top_20))){
+  n.all = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE %in% c('Primary', 'Metastasis') & IMPACT_data$CANCER_TYPE == i)])
+  n.primary = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE == i)])
+  n.metastasis = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE == i)])
+  
+  primary.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE == i)]) / n.primary
+  metastatic.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE == i)]) / n.metastasis
+  cancer_median = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$CANCER_TYPE == i)]) / n.all
+  cancer_summary = data.frame(CancerType = i,
+                              Type = c('Primary', 'Metastasis'),
+                              value = c(primary.frequency, metastatic.frequency),
+                              median_cancerType = cancer_median)
+  
+  IMPACT_incidence = rbind(IMPACT_incidence, cancer_summary)
+  rm(n.all, cancer_summary)
+  rm(primary.frequency)
+  rm(metastatic.frequency)
+  rm(cancer_median)
+}
+
+#' add sample amount
+IMPACT_incidence$mergedCancerType = NA
+for(i in unique(names(IMPACT_top_20))){
+  IMPACT_incidence$mergedCancerType[which(IMPACT_incidence$CancerType == i)] = IMPACT_top_20[which(names(IMPACT_top_20) == i)][[1]]
+}
+
+IMPACT_incidence$mergedCancerType = paste0(IMPACT_incidence$CancerType, ' (n=', IMPACT_incidence$mergedCancerType, ')')
+write.table(IMPACT_incidence, file = 'Data/04_Loss/IMPACT_Y_loss_incidences_top20.txt', sep = '\t', row.names = F, quote = F)
+
+
+##-----------------
+## Visualization
+##-----------------
+color_selected = brewer.pal(n = 6, name = 'Paired')
+color_selected = color_selected[c(5,6,1,2)]
+
+IMPACT_incidence_plot = ggplot(IMPACT_incidence, 
+                               aes(x = reorder(mergedCancerType, median_cancerType), 
+                                   y = (value * 100), 
+                                   fill = Type)) + 
+  
+  geom_bar(stat = 'identity', position = position_dodge(0.82), width = 0.8) +
+  scale_fill_manual(values = c('Primary' = color_selected[4],
+                               'Metastasis' = color_selected[2]),
+                    guide = guide_legend(direction = 'horizontal',
+                                         title = 'Site',
+                                         label.theme = element_text(size = 14))) +
+  scale_y_continuous(expand = c(0.005, 0)) +
+  geom_hline(yintercept = seq(0, 60, 20), color = 'grey35', linetype = 'dashed', size = 0.2) +
+  theme(legend.position = 'top',
+        panel.background = element_rect(fill = NA),
+        axis.ticks.y = element_blank(),
+        axis.ticks.x = element_line(size = 0.2),
+        axis.line.x = element_line(size = 0.4),
+        axis.text = element_text(size = 10, color = 'black')) +
+  coord_flip() +
+  labs(y = '% Y chromosome loss', x = '')
+
+IMPACT_incidence_plot  
+
+ggsave_golden(IMPACT_incidence_plot, filename = 'Figures_original/IMPACT_Y_Loss_top20.pdf', width = 9)
+
+
+##-----------------
+## Y-loss across SampleType
+##-----------------
+IMPACT_incidence$Type = factor(IMPACT_incidence$Type, levels = c('Primary', 'Metastasis'))
+Incidence_site = ggplot(IMPACT_incidence, aes(x = Type, y = (value*100), color = Type)) +
+  geom_boxplot(width = 0.4, size = 0.85) +
+  geom_jitter(width = 0.15) +
+  scale_color_manual(values = c('Primary' = color_selected[4],
+                                'Metastasis' = color_selected[2])) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(0, 80)) +
+  theme(legend.position = 'none',
+        #panel.background = element_rect(fill = NA),
+        axis.text = element_text(size = 12, color = 'black'),
+        aspect.ratio = 2.2,
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  
+  labs(x = '', y = 'Y-chromosome loss [%]')
+
+Incidence_site
+
+ggsave_golden(filename = 'Figures_original/Y_loss_SITE_top20.pdf', plot = Incidence_site, width = 6)
+
+
+##-----------------
+## Minority CancerTypes
+##-----------------
+IMPACT_data = IMPACT_data[which(IMPACT_data$Y_CNA == TRUE), ]
+IMPACT_minority = table(IMPACT_data$CANCER_TYPE)
+IMPACT_minority = IMPACT_minority[order(IMPACT_minority, decreasing = T)]
+IMPACT_minority = IMPACT_minority[21:36]
+
+IMPACT_minority_df = data.frame()
+for(i in unique(names(IMPACT_minority))){
+  n.all = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE %in% c('Primary', 'Metastasis') & IMPACT_data$CANCER_TYPE == i)])
+  n.primary = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE == i)])
+  n.metastasis = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE == i)])
+  
+  primary.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE == i)]) / n.primary
+  metastatic.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE == i)]) / n.metastasis
+  cancer_median = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$CANCER_TYPE == i)]) / n.all
+  cancer_summary = data.frame(CancerType = i,
+                              Type = c('Primary', 'Metastasis'),
+                              value = c(primary.frequency, metastatic.frequency),
+                              median_cancerType = cancer_median)
+  
+  IMPACT_minority_df = rbind(IMPACT_minority_df, cancer_summary)
+  rm(n.all, cancer_summary)
+  rm(primary.frequency)
+  rm(metastatic.frequency)
+  rm(cancer_median)
+}
+
+#' add sample amount
+IMPACT_minority_df$mergedCancerType = NA
+for(i in unique(names(IMPACT_minority))){
+  IMPACT_minority_df$mergedCancerType[which(IMPACT_minority_df$CancerType == i)] = IMPACT_minority[which(names(IMPACT_minority) == i)][[1]]
+}
+
+IMPACT_minority_df$mergedCancerType = paste0(IMPACT_minority_df$CancerType, ' (n=', IMPACT_minority_df$mergedCancerType, ')')
+
+
+##-----------------
+## Minority Plot
+##-----------------
+IMPACT_minority_plot = ggplot(IMPACT_minority_df, 
+                               aes(x = reorder(mergedCancerType, median_cancerType), 
+                                   y = (value * 100), 
+                                   fill = Type)) + 
+  
+  geom_bar(stat = 'identity', position = position_dodge(0.82), width = 0.8) +
+  scale_fill_manual(values = c('Primary' = color_selected[4],
+                               'Metastasis' = color_selected[2]),
+                    guide = guide_legend(direction = 'horizontal',
+                                         title = 'Site',
+                                         label.theme = element_text(size = 14))) +
+  scale_y_continuous(expand = c(0.005, 0)) +
+  geom_hline(yintercept = seq(0, 60, 20), color = 'grey35', linetype = 'dashed', size = 0.2) +
+  theme(legend.position = 'top',
+        panel.background = element_rect(fill = NA),
+        axis.ticks.y = element_blank(),
+        axis.ticks.x = element_line(size = 0.2),
+        axis.line.x = element_line(size = 0.4),
+        axis.text = element_text(size = 10, color = 'black')) +
+  coord_flip() +
+  labs(y = '% Y chromosome loss', x = '')
+
+IMPACT_minority_plot
+
+ggsave_golden(filename = 'Figures_original/Y_loss_SITE_minorities.pdf', plot = IMPACT_minority_plot, width = 6)
+
+
+
+##-----------------
+## Association with AGE
+##-----------------
+cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
+
+
+
+
 
 
 
