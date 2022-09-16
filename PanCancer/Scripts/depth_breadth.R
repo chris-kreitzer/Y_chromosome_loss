@@ -99,6 +99,7 @@ gene_coverage_final = gene_coverage[which(gene_coverage$fraction >= 74), ]
 gene_coverage_final = gene_coverage_final[order(gene_coverage_final$fraction, decreasing = T), ]
 gene_coverage_final$gene = factor(gene_coverage_final$gene, levels = gene_coverage_final$gene)
 source('~/Documents/MSKCC/10_MasterThesis/Scripts/plot_theme.R')
+write.table(x = gene_coverage_final, file = 'Data/01_Coverage_Depth/Gene_Coverage_Final.txt', sep = '\t', row.names = F)
 
 coverage_IMPACT = ggplot(gene_coverage_final, aes(x = gene, y = fraction)) +
   geom_bar(stat = 'identity') +
@@ -155,6 +156,8 @@ for(i in unique(coverage$gene)){
 gene_panel = gene_panel[which(gene_panel$gene %in% gene_coverage_final$gene), ]
 gene_panel$gene = factor(gene_panel$gene, levels = gene_coverage_final$gene)
 gene_panel$panel = factor(gene_panel$panel, levels = c('IM3', 'IM5', 'IM6', 'IM7'))
+write.table(x = gene_panel, file = 'Data/01_Coverage_Depth/Feature_coverage_PANEL.txt', sep = '\t', row.names = F)
+
 
 Feature_Panel = ggplot(gene_panel, aes(x = gene, y = fraction, fill = panel)) +
   geom_bar(stat = 'identity', position = 'dodge') +
@@ -172,13 +175,32 @@ ggsave(filename = '~/Documents/MSKCC/10_MasterThesis/Figures_original/Feature_Co
 
 
 
+##-----------------
+## Breadth of coverage
+##-----------------
+library(dplyr)
+library(ggrepel)
 
+coverage_final = coverage[which(coverage$gene %in% gene_coverage_final$gene), ]
+depth_breadth_summary = coverage_final %>%
+  group_by(gene) %>% 
+  summarize(mean_depth = mean(ave_depth),
+            mean_breadth = mean(breadth),
+            sd_depth = sd(ave_depth),
+            sd_breadth = sd(breadth))
 
+write.table(depth_breadth_summary, file = 'Data/01_Coverage_Depth/Depth_Breadth_summary.txt', sep = '\t', row.names = F)
 
-
-
-
-
-
+depth_plot = ggplot(depth_breadth_summary, aes(x = mean_breadth, y = mean_depth)) +
+  geom_jitter(size = 2) +
+  geom_pointrange(aes(ymin = mean_depth - sd_depth, ymax = mean_depth + sd_depth)) + 
+  geom_pointrange(aes(xmin = mean_breadth - sd_breadth, xmax = mean_breadth + sd_breadth)) +
+  geom_text_repel(aes(label = gene), hjust = 0, vjust = 1) +
+  scale_x_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1), labels = c(0, 25, 50, 75, 100)) +
+  theme_std(base_size = 14, base_line_size = 1) +
+  theme(aspect.ratio = 1) +
+  labs(x = 'Breadth of feature coverage [%]',
+       y = 'Depth of feature coverage')
+ggsave(filename = 'Figures_original/Depth_Breadth.pdf', plot = depth_plot, device = 'pdf', width = 8)
 
 
