@@ -8,6 +8,7 @@
 # use_for_sample_level (T/F): column indicating whether sample passed basic purity check.
 ##
 ## start: 07/11/2022
+## revision: 08/24/2022
 ## chris-kreitzer
 
 clean()
@@ -19,11 +20,11 @@ library(data.table)
 library(usefun)
 
 # load clinical and merge data_clinical_oncoKB with data_from the portal
-portal_data = fread('Data/mskimpact_clinical_data_07112022.tsv', stringsAsFactors = F, data.table = F)
+portal_data = fread('Data/signedOut/mskimpact_clinical_data_07112022.tsv', stringsAsFactors = F, data.table = F)
 colnames(portal_data) = toupper(colnames(portal_data))
 colnames(portal_data) = gsub(pattern = ' ', replacement = '_', colnames(portal_data), fixed = T )
 rownames(portal_data) = portal_data$SAMPLE_ID
-FacetsPaths = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/facets_annotated.cohort.txt.gz', sep = '\t')
+FacetsPaths = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/facets_annotated.cohort.txt.gz', sep = '\t')
 FacetsPaths = FacetsPaths[!duplicated(FacetsPaths$tumor_sample), ]
 
 # exclude heme patients
@@ -101,75 +102,128 @@ MSK_one_pts_sample = sample_selection(data = portal_data)
 
 
 ##-----------------
-## Get countFiles
-MSK_one_pts_sample = merge(MSK_one_pts_sample, FacetsPaths[, c('tumor_sample', 'counts_file')],
-      by.x = 'SAMPLE_ID', by.y = 'tumor_sample', all.x = T)
-
-
+## Get countFiles; paths
 ##-----------------
-## missing countfiles
-# missing_countfiles = MSK_one_pts_sample[is.na(MSK_one_pts_sample$counts_file), 'SAMPLE_ID']
-# write.table(missing_countfiles, file = 'Data/PanCancerMissingCountfiles.txt', row.names = F, quote = F, sep = '\t')
-# 
-# all_missing = data.frame()
-# for(i in unique(missing_countfiles)){
-#   try({
-#     common = '/juno/work/ccs/shared/resources/impact/facets/all/'
-#     path_high = list.files(path = paste0(common, substr(i, start = 1, stop = 7), '/'))
-#     path_lower = path_high[grep(pattern = i, path_high)]
-#     path_folder = list.files(path = paste0(common, substr(i, start = 1, stop = 7), '/', path_lower, '/'), full.names = T)
-#     path_counts = grep(pattern = 'countsMerged', path_folder, value = T)
-#     out = data.frame(SAMPLE_ID = i,
-#                      counts_file = path_counts)
-#     
-#     all_missing = rbind(all_missing, out)
-#   })
-# }
-# 
-# missing_paths = read.csv('Data/missing.txt', sep = '\t')
-# missing_paths = missing_paths[!duplicated(missing_paths$SAMPLE_ID), ]
+MSK_one_pts_sample = merge(MSK_one_pts_sample, 
+                           FacetsPaths[, c('tumor_sample', 'counts_file')],
+                           by.x = 'SAMPLE_ID', 
+                           by.y = 'tumor_sample', all.x = T)
 
-MSK_one_pts_sample = merge(MSK_one_pts_sample, missing_paths, by.x = 'SAMPLE_ID', by.y = 'SAMPLE_ID', all.x = T)
-MSK_IMPACT_cohort = MSK_one_pts_sample[!is.na(MSK_one_pts_sample$counts_file.x), ]
-MSK_IMPACT_cohort$counts_file.y = NULL
-colnames(MSK_IMPACT_cohort)[7] = 'counts_file'
-
+MSK_IMPACT_cohort = MSK_one_pts_sample[!is.na(MSK_one_pts_sample$counts_file), ]
 ##-------------------------------------
-write.table(MSK_IMPACT_cohort, "Data/IMPACT_dataFreeze_07.13.22.txt", sep = "\t", row.names = F, quote = F)
-
-
+write.table(MSK_IMPACT_cohort, "~/Documents/MSKCC/10_MasterThesis/Data/signedOut/IMPACT_dataFreeze_07.13.22.txt", sep = "\t", row.names = F, quote = F)
 Cohort = list(IMPACT_cohort = MSK_IMPACT_cohort)
 saveRDS(Cohort, file = 'Data/signedOut/Cohort_07132022.rds')
 
 
+##-------------------------------------
+## Clinical Annotation: 08/24/2022
+##-------------------------------------
+cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
+portal_data = portal_data
+
+#' fetch clinical variables:
+Clinical_annotation = portal_data[, c('SAMPLE_ID', 'CANCER_TYPE', 'PRIMARY_TUMOR_SITE', 'CANCER_TYPE_DETAILED',
+                                      'SAMPLE_COVERAGE', 'TUMOR_PURITY', 'MSI_TYPE', 'MSI_SCORE', 
+                                      'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)', 'IMPACT_TMB_SCORE', 
+                                      'MUTATION_COUNT', 'OVERALL_SURVIVAL_STATUS', 'OVERALL_SURVIVAL_(MONTHS)')]
+
+Clinical_annotation = Clinical_annotation[which(Clinical_annotation$SAMPLE_ID %in% MSK_IMPACT_cohort$SAMPLE_ID), ]
+
+#' add to cohort list:
+cohort = list(IMPACT_cohort = cohort$IMPACT_cohort,
+              IMPACT_clinicalAnnotation = Clinical_annotation)
+saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
 
 
+##-------------------------------------
+## Mosaic annotation: 08/24/2022
+##-------------------------------------
+cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
+clinical = cohort$IMPACT_clinicalAnnotation
+IMPACT_LOY = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_LOY.txt', sep = '\t')
+
+all_out = data.frame()
+for(i in 1:nrow(clinical)){
+  if(clinical$SAMPLE_ID[i] %in% IMPACT_LOY$sample.id){
+    sample = clinical$SAMPLE_ID[i]
+    mLRR_Y = IMPACT_LOY$corrected.CN[which(IMPACT_LOY$sample.id == clinical$SAMPLE_ID[i])]
+    LOY = IMPACT_LOY$LOY[which(IMPACT_LOY$sample.id == clinical$SAMPLE_ID[i])]
+  } else {
+    sample = clinical$SAMPLE_ID[i]
+    mLRR_Y = 'N/A'
+    LOY = 'N/A'
+  }
+  out = data.frame(sample = sample,
+                   mLRR_Y = mLRR_Y,
+                   LOY = LOY)
+  all_out = rbind(all_out, out)
+}
+
+all_out = all_out[!duplicated(all_out$sample), ]
+all_out = merge(all_out, clinical[,c('SAMPLE_ID', 'MSI_TYPE', 'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)',
+                                     'OVERALL_SURVIVAL_STATUS', 'OVERALL_SURVIVAL_(MONTHS)')],
+                by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
+colnames(all_out)[5] = 'Age_Sequencing'
+colnames(all_out)[6] = 'OS_Status'
+colnames(all_out)[7] = 'OS_months'
+
+#' fetch and save
+cohort = list(IMPACT_cohort = cohort$IMPACT_cohort,
+              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
+              IMPACT_LOY = all_out)
+saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
 
 
+##-----------------
+## Chromosome Y loss
+##-----------------
+cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
+IMPACT = cohort$IMPACT_cohort
+LOY = cohort$IMPACT_LOY
+IMPACT = merge(IMPACT, LOY[,c('sample', 'LOY')], by.x = 'SAMPLE_ID', by.y = 'sample', all.x = T)
+
+cohort = list(IMPACT_cohort = IMPACT,
+              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
+              IMPACT_LOY = cohort$IMPACT_LOY)
+saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
 
 
+##-----------------
+## data merge
+##-----------------
+cohort = readRDS(file = 'Data/signedOut/Cohort_07132022.rds')
+impact = cohort$IMPACT_cohort
+clinical = cohort$IMPACT_clinicalAnnotation
+
+impact = merge(impact, clinical[, c('SAMPLE_ID', 'CANCER_TYPE', 'CANCER_TYPE_DETAILED')], by = 'SAMPLE_ID', all.x = T)
+
+LOY = cohort$IMPACT_binaryY_call
+impact = merge(impact, LOY[,c('sample.id', 'Y_call')], by.x = 'SAMPLE_ID', by.y = 'sample.id', all.x = T)
+
+Cohort = list(IMPACT_cohort = impact,
+              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
+              IMPACT_LOY = cohort$IMPACT_LOY,
+              IMPACT_binaryY_call = cohort$IMPACT_binaryY_call)
+
+saveRDS(Cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
 
 
+##-----------------
+## precise Y-status classification
+##-----------------
+cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
+QC_true = cohort$IMPACT_binaryY_call$sample.id
+Y_CNA = read.csv('Data/04_Loss/Categorial_Classification_Y.txt', sep = '\t')
+Y_CNA = Y_CNA[which(Y_CNA$sample %in% QC_true), ]
 
+Cohort = list(IMPACT_cohort = cohort$IMPACT_cohort,
+              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
+              IMPACT_LOY = cohort$IMPACT_LOY,
+              IMPACT_binaryY_call = cohort$IMPACT_binaryY_call,
+              IMPACT_Y_classification_final = Y_CNA)
 
-
-#' make an automated data selection process
-data_freeze1 = read.csv('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/data_freeze_cancer_type_082321.txt', sep = '\t')
-data_WES = read.csv('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/WES_cBio_ID.match.txt', sep = '\t')
-Facets_annotation = read.csv('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_in/Facets_annotated.cohort.txt', sep = '\t')
-Facets_Countsfile = Facets_annotation[, c('tumor_sample', 'counts_file')]
-data_freeze1 = merge(data_freeze1, Facets_Countsfile, by.x = 'SAMPLE_ID', by.y = 'tumor_sample', all.x = T)
-data_freeze1 = data_freeze1[-which(duplicated(data_freeze1$SAMPLE_ID)), ]
-
-#' WES countsfile: working with n = 957
-WES_data = data_WES[which(data_WES$DMP_Sample_ID %in% data_freeze1$SAMPLE_ID), ]
-
-
-
-#' save output; for generell purpose
-Y_chromosome_cohort_data = list(IMPACT.cohort = data_freeze1,
-                                WES.cohort = WES_data)
-saveRDS(object = Y_chromosome_cohort_data, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
+saveRDS(Cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
 
 
 
