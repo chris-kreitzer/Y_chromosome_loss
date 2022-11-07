@@ -192,13 +192,3 @@ for(i in unique(prim_mets$CANCER_TYPE)){
   print(xtabs(~prim_mets$Y_call[which(prim_mets$CANCER_TYPE == i)] + prim_mets$SAMPLE_TYPE[which(prim_mets$CANCER_TYPE == i)]))
 }
 
-
-
-
-
-
-
-
-
-
-
