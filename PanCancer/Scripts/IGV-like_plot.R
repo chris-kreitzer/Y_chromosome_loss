@@ -1,3 +1,13 @@
+## Visualizatoin of segmentation data
+## 'IGV-like' plot; see Figure Figure 3A from PMID: 35705560
+##
+## start: 11/09/2022
+## chris-kreitzer
+##
+## bug report to: kreitzec@mskcc.org
+
+
+
 library(tidyverse)
 library(tidyr)
 library(dplyr)
@@ -93,7 +103,4 @@ plot_segmentation = function(segs,
   }
 }
 
-#' IGV-like plot:
-
-
-
+#' out
