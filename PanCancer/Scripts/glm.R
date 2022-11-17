@@ -229,7 +229,7 @@ library(dplyr)
 
 purity_out = data.frame()
 for(i in seq(0, 0.9, by = 0.1)){
-  da = clinical_glm[between(x = clinical_glm$purity, left = i, right = i+0.1), ]
+  da = clinical_glm[dplyr::between(x = clinical_glm$purity, left = i, right = i+0.1), ]
   frac = (table(da$Y_call)[[2]] / sum(table(da$Y_call))) *100
   out = data.frame(group = i,
                    n = nrow(da),
@@ -254,7 +254,7 @@ n.purity / frac.purity
 #' relative contribution cancer types
 relCancer = data.frame()
 for(i in seq(0, 0.9, by = 0.1)){
-  da = clinical_glm[between(x = clinical_glm$purity, left = i, right = i+0.1), ]
+  da = clinical_glm[dplyr::between(x = clinical_glm$purity, left = i, right = i+0.1), ]
   freq = data.frame(table(da$CANCER_TYPE))
   for(j in 1:nrow(freq)){
     type = freq$Var1[j]
