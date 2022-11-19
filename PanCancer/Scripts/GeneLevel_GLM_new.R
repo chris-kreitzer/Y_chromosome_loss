@@ -201,39 +201,10 @@ for(i in 1:length(log_results_df)){
 }
 
 log_results_df = log_results_df[-c(2156, 4484)]
-log_results_df <- do.call("rbind.fill", log_results_df)
-log_results_df$p_adj <- p.adjust(log_results_df$p_value, method = "fdr")
+log_results_df = do.call("rbind.fill", log_results_df)
+log_results_df$p_adj = p.adjust(log_results_df$p_value, method = "fdr")
 
-
-
-
-
-View(log_results_df)
-
-
-gam = load('~/Desktop/1.0.genomic_data_all.Rdata')
-
-
-gam
-head(data_MAF$mut)
-str(data_gam_onc$gene)
-aa = dimnames(data_gam_onc$gene)[1]
-length(unique(aa))
-aa = as.character(unlist(aa))
-
-
-length(intersect(cohort_samples, aa))
-
-gam
-
-
-head(data_samples)
-
-TeaTasting <-
-  matrix(c(3, 1, 1, 3),
-         nrow = 2,
-         dimnames = list(Guess = c("Milk", "Tea"),
-                         Truth = c("Milk", "Tea")))
+write.table(x = log_results_df, file = 'Data/05_Association/gene_level/gene_level_full_out.txt', sep = '\t')
 
 
 fisher.test(TeaTasting, alternative = "greater")
