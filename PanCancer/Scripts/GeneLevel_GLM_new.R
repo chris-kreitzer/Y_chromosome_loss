@@ -207,6 +207,5 @@ log_results_df$p_adj = p.adjust(log_results_df$p_value, method = "fdr")
 write.table(x = log_results_df, file = 'Data/05_Association/gene_level/gene_level_full_out.txt', sep = '\t')
 
 
-fisher.test(TeaTasting, alternative = "greater")
-fisher.test(matrix(c(100, 147, 1290, 2841), ncol = 2), alternative = 'greater')
-
+# fisher.test(TeaTasting, alternative = "greater")
+# fisher.test(matrix(c(100, 147, 1290, 2841), ncol = 2), alternative = 'greater')

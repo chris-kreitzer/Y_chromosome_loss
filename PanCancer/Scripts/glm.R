@@ -70,62 +70,47 @@ clinical_glm$WGD = as.factor(clinical_glm$WGD)
 model_intercept = glm(Y_call ~ 1, data = clinical_glm, family = binomial(link = 'logit'))
 summary(model_intercept)
 
-#' including one predictor variable: FGA
-model_1predictor = glm(Y_call ~ WGD, data = clinical_glm, family = binomial(link = 'logit'))
-summary(model_1predictor)
-
-
 #' full glm approach (without CancerType included)
 glm_model = clinical_glm[, -which(names(clinical_glm) == "CANCER_TYPE")]
-model1 = glm(Y_call ~., data = glm_model, family = binomial(link = 'logit'))
-summary(model1)
-
-
-#' holistic glm approach (including CancerType and all other variables)
-model_full = glm(Y_call ~ ., data = clinical_glm, family = binomial(link = 'logit'))
+model_full = glm(Y_call ~ ploidy+purity+MSI_TYPE+Age+TMB+Mut_Count+SAMPLE_TYPE+WGD+FGA, data = glm_model, family = binomial)
 summary(model_full)
-
-#' what about the overall effect of CANCER_TYPE?
-#' we are using a wald-test to assess the significance
-wald.test(b = coef(model_full), Sigma = vcov(model_full), Terms = 2:20)
-
-#' comparing two models with each other
-rcompanion::compareGLM(model_full, model_intercept)
-
 
 #' check for multicollinearity with car::vif()
 model.vif = as.data.frame(car::vif(model_full))
 model.vif$Test = model.vif$`GVIF^(1/(2*Df))` ^ 2
 
-#' we will exclude the MSI_Score predictor variable as it shows a high VIF
-data_final = clinical_glm[,-which(names(clinical_glm) == 'MSI_Score')]
-model_final = glm(Y_call ~., data = data_final, family = binomial(link = 'logit'))
+##----------------+
+## excluding:
+## TMB, Mut_Count, WGD as they show high VIF
+##----------------+
+glm_model = glm_model[,-which(names(glm_model) == 'TMB')]
+glm_model = glm_model[,-which(names(glm_model) == 'WGD')]
+glm_model = glm_model[,-which(names(glm_model) == 'Mut_Count')]
+glm_model = glm_model[,-which(names(glm_model) == 'MSI_SCORE')]
+glm_model = glm_model[,-which(names(glm_model) == 'sample')]
+
+model_final = glm(Y_call ~., data = glm_model, family = binomial(link = 'logit'))
 car::vif(model_final)
-
-#' log-likelihood ratio test whether model_final predicts better than null model
-A = logLik(model_intercept)
-B = logLik(model_final)
-
-LLR = -2*(as.numeric(A) - as.numeric(B))
-pchisq(LLR, 28, lower.tail = FALSE)
+# any model_final$test > 10 - variance inflation factor
+summary(model_final)
 
 
-# Extract model variables
-model.vars = as.data.table(summary(model1)$coefficients, keep.rownames = T)
-
-# Compute 95% confidence intervals for odds ratios
+##----------------+
+## Extract model variables
+## compute 95% CI
+##----------------+
+model.vars = as.data.table(summary(model_final)$coefficients, keep.rownames = T)
 model.vars[, OR := exp(Estimate)]
 model.vars[, OR_lower := exp(Estimate - 1.96 * `Std. Error`)]
 model.vars[, OR_upper := exp(Estimate + 1.96 * `Std. Error`)]
 model.vars = model.vars[order(`Pr(>|z|)`)]
-
-model.vars = model.vars[model.vars$`Pr(>|z|)` < 0.001, ]
+model.vars = model.vars[model.vars$`Pr(>|z|)` < 0.01, ]
 model.vars$adjusted = p.adjust(p = model.vars$`Pr(>|z|)`, method = 'BH')
 
 
 #' Visualization
 ggplot(data = model.vars, aes(x = reorder(rn, Estimate), y = Estimate)) +
-  geom_point(size = 2) +
+  geom_point(size = 1.5) +
   geom_pointrange(aes(ymin = Estimate - `Std. Error`,
                       ymax = Estimate + `Std. Error`),
                   size = 0.5) +
@@ -138,6 +123,85 @@ ggplot(data = model.vars, aes(x = reorder(rn, Estimate), y = Estimate)) +
   geom_hline(yintercept = 0) +
   scale_y_continuous(sec.axis = dup_axis()) +
   labs(x = '', y = 'log(odds ratio)')
+
+
+
+
+##----------------+
+## Investigate the purity
+## category; what there
+##----------------+
+
+## Hypothesis:
+#' The lower the purity, 
+#' the less likely we observe a Y-chromosome loss call. 
+library(dplyr)
+
+purity_out = data.frame()
+for(i in seq(0, 0.9, by = 0.1)){
+  da = clinical_glm[dplyr::between(x = clinical_glm$purity, left = i, right = i+0.1), ]
+  frac = (table(da$Y_call)[[2]] / sum(table(da$Y_call))) *100
+  out = data.frame(group = i,
+                   n = nrow(da),
+                   frac = frac,
+                   average_age = mean(da$Age, na.rm = T))
+  purity_out = rbind(purity_out, out)
+}
+
+purity_out$group = as.factor(as.numeric(purity_out$group))
+
+#' Visualization
+n.purity = ggplot(purity_out, aes(x = group, y = n)) +
+  geom_bar(stat = 'identity', width = 0.8) +
+  labs(x = '', y = 'cases (n)') + theme_std() +
+  theme(axis.text.x = element_blank())
+frac.purity = ggplot(purity_out, aes(x = group, y = frac)) +
+  geom_bar(stat = 'identity', width = 0.8) +
+  scale_x_discrete(labels = c('[0-0.1]', '[0.1-0.2]', '[0.2-0.3]', '[0.3-0.4]', '[0.4-0.5]',
+                              '[0.5-0.6]', '[0.6-0.7]', '[0.7-0.8]', '[0.8-0.9]', '[0.9-1]')) +
+  scale_y_continuous(limits = c(0, 50)) +
+  labs(x = 'purity-group', y = 'Y-chromosome loss [%]') +
+  theme_std() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+n.purity / frac.purity
+
+
+
+#' relative contribution cancer types
+relCancer = data.frame()
+for(i in seq(0, 0.9, by = 0.1)){
+  da = clinical_glm[dplyr::between(x = clinical_glm$purity, left = i, right = i+0.1), ]
+  freq = data.frame(table(da$CANCER_TYPE))
+  for(j in 1:nrow(freq)){
+    type = freq$Var1[j]
+    proc = freq$Freq[j] / sum(freq$Freq)
+    out = data.frame(group = factor(i),
+                     CancerType = type,
+                     frac = proc)
+    relCancer = rbind(relCancer, out)
+  }
+}
+
+
+purity_Cancer = ggplot(relCancer[order(relCancer$frac, decreasing = T), ], 
+                       aes(x = group, y = frac, fill = CancerType, label = CancerType)) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  scale_fill_viridis_d(begin = 0, option = 'B') +
+  geom_text(size = 2, position = position_stack(vjust = 0.5), color = 'white') +
+  labs(x = 'purity-group', y = 'Fraction') +
+  theme(legend.position = 'none')
+
+
+sum = plot_grid(n.purity, frac.purity, purity_Cancer, rel_heights = c(1,1,3), nrow = 3, align = 'h')
+
+
+
+
+
+
+
+
 
 
 
