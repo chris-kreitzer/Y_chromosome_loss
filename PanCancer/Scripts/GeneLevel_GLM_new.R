@@ -22,6 +22,7 @@ muts_keep = muts_keep[which(muts_keep$Freq > 0.03), ]
 muts_keep = rbind(muts_keep, data.frame(Var1 = 'VHL', Freq = 0.02))
 GOI = unique(as.character(muts_keep$Var1))
 GOI = c(GOI, 'EIF1AX', 'KDM5C', 'PHF6', 'ZRSR2')
+GOI = c(GOI, unique(colnames(gam_cna)[2:ncol(gam_cna)]))
 
 ##----------------+
 ## set-up mutation matrix
@@ -52,6 +53,8 @@ mutation_matrix[is.na(mutation_matrix)] = 0
 mutation_matrix$sample = row.names(mutation_matrix)
 row.names(mutation_matrix) = NULL
 mutation_matrix = as.data.frame.matrix(mutation_matrix)
+# write.table(mutation_matrix, file = 'Data/05_Association/gene_level/mutation_matrix.txt', sep = '\t')
+
 
 
 ##----------------+
@@ -86,7 +89,7 @@ colnames(clinical_glm) = c('sample', 'ploidy', 'Y_call', 'purity', 'CANCER_TYPE'
 
 clinical_glm$Mut_Count = NULL
 clinical_glm$TMB = NULL
-clinical_glm$MSI_TYPE = NULL
+# clinical_glm$MSI_TYPE = NULL
 clinical_glm$MSI_SCORE = NULL
 clinical_glm$WGD = NULL
 
@@ -102,6 +105,28 @@ log_input_df[,colnames(mutation_matrix)[1:ncol(mutation_matrix)-1]] = log_input_
   mutate_if(is.factor, as.character) %>%
   mutate_if(is.character, as.integer)
 
+# convert TP53 status as a fixed variable
+log_input_df$TP53_Status = ifelse(log_input_df$TP53 == 1, 1, 0)
+log_input_df$TP53 = NULL
+
+##----------------+
+## Adding CNA data
+##----------------+
+gam = load('~/Desktop/1.0.genomic_data_all.Rdata')
+gam_cna = as.data.frame(data_gam_onc$cna)
+gam_cna = spread(gam_cna, Var2, Freq)
+colnames(gam_cna)[1] = 'sample'
+row.names(gam_cna) = gam_cna$sample
+gam_cna$sample = NULL
+gam_cna[is.na(gam_cna)] = 0
+gam_cna$sample = row.names(gam_cna)
+row.names(gam_cna) = NULL
+
+
+log_input_df = log_input_df %>% 
+  left_join(gam_cna)
+
+
 ##----------------+
 ## run gene-wise glm
 ##----------------+
@@ -110,36 +135,39 @@ log_input_df[,colnames(mutation_matrix)[1:ncol(mutation_matrix)-1]] = log_input_
 ## 1. gene has at least 1 mutant and at least 1 wild type
 ## 2. gene has alteration frequency of >= 0.03
 logistic_reg_fun = function(data_frame, gene, cancer_type){
-  data_frame <- data_frame[is.na(data_frame[, gene]) == F &
-                             data_frame[,"CANCER_TYPE"] == cancer_type,]
-  if (length(which(data_frame[,gene] == 1)) == 0 | 
-      length(which(data_frame[,gene] == 0)) == 0){
-    log_results_df <- data.frame(variable = "Not Tested",
-                                 gene = gene, 
-                                 cancer_type = cancer_type, 
-                                 comments = "No Mutations in this gene") 
-  } else if (length(which(data_frame[,gene] == 1))/nrow(data_frame) < 0.03) {
-    log_results_df <- data.frame(variable = "Not Tested",
-                                 gene = gene, 
-                                 cancer_type = cancer_type, 
-                                 comments = "Mutation frequency <3%") 
-  } else { 
-    
-    formula <- as.formula(paste0(gene, "~ Y_call + SAMPLE_TYPE + FGA + purity"))
-    log_results <- glm(formula, data = data_frame, family = binomial)
-    log_results_df <- as.data.frame(summary(log_results)$coefficients)
-    log_results_df$variable <- row.names(log_results_df)
-    log_results_df$gene <- gene
-    log_results_df$cancer_type <- cancer_type
-    colnames(log_results_df)[1:4] <- c("estimate", "std_err", "z_value", "p_value")
-    conf_df <- as.data.frame(confint.default(log_results))
-    conf_df$variable <- row.names(conf_df)
-    log_results_df <- left_join(log_results_df, conf_df, by = "variable")
-    log_results_df <- log_results_df[c(5,7,6,1:4,8,9)]
-    print(gene)
-    print(cancer_type)
-    return(log_results_df)
-  }
+  try({
+    data_frame <- data_frame[is.na(data_frame[, gene]) == F &
+                               data_frame[,"CANCER_TYPE"] == cancer_type,]
+    if (length(which(data_frame[,gene] == 1)) == 0 | 
+        length(which(data_frame[,gene] == 0)) == 0){
+      log_results_df <- data.frame(variable = "Not Tested",
+                                   gene = gene, 
+                                   cancer_type = cancer_type, 
+                                   comments = "No Mutations in this gene") 
+    } else if (length(which(data_frame[,gene] == 1))/nrow(data_frame) < 0.03) {
+      log_results_df <- data.frame(variable = "Not Tested",
+                                   gene = gene, 
+                                   cancer_type = cancer_type, 
+                                   comments = "Mutation frequency <3%") 
+    } else { 
+      
+      formula <- as.formula(paste0(gene, "~ Y_call + SAMPLE_TYPE + FGA + purity + TP53_Status + MSI_TYPE"))
+      log_results <- glm(formula, data = data_frame, family = binomial)
+      log_results_df <- as.data.frame(summary(log_results)$coefficients)
+      log_results_df$variable <- row.names(log_results_df)
+      log_results_df$gene <- gene
+      log_results_df$cancer_type <- cancer_type
+      colnames(log_results_df)[1:4] <- c("estimate", "std_err", "z_value", "p_value")
+      conf_df <- as.data.frame(confint.default(log_results))
+      conf_df$variable <- row.names(conf_df)
+      log_results_df <- left_join(log_results_df, conf_df, by = "variable")
+      log_results_df <- log_results_df[c(5,7,6,1:4,8,9)]
+      print(gene)
+      print(cancer_type)
+      return(log_results_df)
+    }
+  })
+  
 }
 
 ##----------------+
@@ -148,13 +176,15 @@ logistic_reg_fun = function(data_frame, gene, cancer_type){
 ##----------------+
 colnames(log_input_df) = gsub("-", "_", colnames(log_input_df))
 gene_list = gsub("-", "_", colnames(mutation_matrix)[1:ncol(mutation_matrix)-1])
-
+gene_list = GOI
+gene_list = gene_list[!gene_list %in% c('TP53', "HLA-A_Deletion", "HLA-B_Deletion", "NKX2-1_Amplification", "NKX3-1_Deletion")]
 top20 = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/04_Loss/IMPACT_Y_loss_incidences_top20.txt', sep = '\t')
 cancer_type_list = unique(as.character(top20$CancerType))
 
+
 # Expand table for gene list and cancer list (get every combo)
 gene_cancer_df = expand.grid(gene_list, cancer_type_list)
-gene_cancer_df <-  gene_cancer_df %>%
+gene_cancer_df =  gene_cancer_df %>%
   mutate_if(is.factor, as.character)
 
 
@@ -164,6 +194,13 @@ log_results_df = mapply(logistic_reg_fun,
                          cancer_type = gene_cancer_df$Var2,
                          MoreArgs = list(data_frame = log_input_df),
                          SIMPLIFY = FALSE)
+for(i in 1:length(log_results_df)){
+  if(class(log_results_df[[i]]) != 'data.frame'){
+    print(i)
+  } else next
+}
+
+log_results_df = log_results_df[-c(2156, 4484)]
 log_results_df <- do.call("rbind.fill", log_results_df)
 log_results_df$p_adj <- p.adjust(log_results_df$p_value, method = "fdr")
 
