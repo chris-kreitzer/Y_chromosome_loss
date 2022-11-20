@@ -1,8 +1,15 @@
 ##----------------+
+## GLM model (gene-wise) and 
 ## Fisher's exact test
 ## for mutations in genes
 ## associated with LOY
 ##----------------+
+
+## start: 11/11/2022
+## revision: 11/20/2022
+## chris-kreitzer
+
+
 
 clean()
 gc()
@@ -379,6 +386,4 @@ PanCancer_plot = ggplot(all_Fisher[all_Fisher$cohort == 'PanCancer', ],
 geneLevel_all = PanCancer_plot/cancerTypes + plot_layout(heights = c(0.15, 1))
 
 
-
-
-
+#' out
