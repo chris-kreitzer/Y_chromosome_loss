@@ -7,6 +7,7 @@
 clean()
 gc()
 setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
+library(patchwork)
 
 cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
 cohort_samples = cohort$IMPACT_Y_classification_final$sample
@@ -207,5 +208,177 @@ log_results_df$p_adj = p.adjust(log_results_df$p_value, method = "fdr")
 write.table(x = log_results_df, file = 'Data/05_Association/gene_level/gene_level_full_out.txt', sep = '\t')
 
 
-# fisher.test(TeaTasting, alternative = "greater")
-# fisher.test(matrix(c(100, 147, 1290, 2841), ncol = 2), alternative = 'greater')
+
+
+
+##----------------+
+## Fishers exact test
+##----------------+
+top20 = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/04_Loss/IMPACT_Y_loss_incidences_top20.txt', sep = '\t')
+oncoKB = read.csv('Data/signedOut/data_mutations_extended.oncokb.txt', sep = '\t')
+cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
+
+cancer_type_list = unique(as.character(top20$CancerType))
+cohort_samples = cohort$IMPACT_Y_classification_final$sample
+onco_cohort = oncoKB[which(oncoKB$Tumor_Sample_Barcode %in% cohort_samples & 
+                             oncoKB$Mutation_Status == 'SOMATIC'), ]
+
+loy = merge(cohort$IMPACT_Y_classification_final, 
+            cohort$IMPACT_clinicalAnnotation[,c('SAMPLE_ID', 'CANCER_TYPE')], 
+            by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
+
+loy$Y_call[which(loy$classification %in% c('loss', 'relative_loss'))] = 'Y_chrom_loss'
+loy$Y_call[which(loy$classification %in% c('gain', 'gain_loss', 'wt'))] = 'intact_Y_chrom'
+loy$classification = NULL
+
+
+##----------------+
+## which genes to keep
+##----------------+
+muts_keep = as.data.frame(table(onco_cohort$Hugo_Symbol) / length(unique(onco_cohort$Tumor_Sample_Barcode)))
+muts_keep = muts_keep[which(muts_keep$Freq > 0.03), ]
+muts_keep = rbind(muts_keep, data.frame(Var1 = 'VHL', Freq = 0.02))
+GOI = unique(as.character(muts_keep$Var1))
+GOI = c(GOI, 'EIF1AX', 'KDM5C', 'PHF6', 'ZRSR2')
+
+##----------------+
+## populate alteration
+## matrix;
+##----------------+
+PanCancer = data.frame()
+for(i in unique(GOI)){
+  loss_n = 5011
+  wt_n = 9311
+  gene = i
+  cancer = 'PanCancer'
+  noMuts = onco_cohort[which(onco_cohort$Hugo_Symbol != i), ]
+  Muts = onco_cohort[which(onco_cohort$Hugo_Symbol == i), ]
+  
+  #' LOY with at least 1 mut
+  LOY_oneMut = length(intersect(loy$sample[which(loy$Y_call == 'Y_chrom_loss')],
+                                Muts$Tumor_Sample_Barcode))
+  #' LOY with no Mutation
+  LOY_wt = loss_n - LOY_oneMut
+  
+  #' WT tumor with at least 1 mutation
+  WT_oneMut = length(intersect(loy$sample[which(loy$Y_call == 'intact_Y_chrom')],
+                               Muts$Tumor_Sample_Barcode))
+  #' WT tumor with no Mutation
+  WT_noMut = wt_n - WT_oneMut
+  
+  out = data.frame(cohort = cancer,
+                   gene = gene,
+                   LOY_1Mut = LOY_oneMut,
+                   LOY_wt = LOY_wt,
+                   WT_oneMut = WT_oneMut,
+                   WT_wt = WT_noMut)
+  PanCancer = rbind(PanCancer, out)
+}
+
+write.table(PanCancer, file = 'Data/05_Association/gene_level/PanCancerFisher.txt', sep = '\t')
+
+
+##----------------+
+## individual cancer types
+## and genes;
+##----------------+
+loy_main = loy[which(loy$CANCER_TYPE %in% cancer_type_list), ]
+
+all_cancer_gene = data.frame()
+for(i in unique(loy_main$CANCER_TYPE)){
+  cancer = i
+  loss_n = table(loy_main$Y_call[which(loy_main$CANCER_TYPE == i)])[['Y_chrom_loss']]
+  wt_n = sum(table(loy_main$Y_call[which(loy_main$CANCER_TYPE == i)])) - loss_n
+  
+  for(j in unique(GOI)){
+    gene = j
+    Muts = onco_cohort[which(onco_cohort$Hugo_Symbol == j), ]
+    
+    #' LOY with at least 1 mut
+    LOY_oneMut = length(intersect(loy_main$sample[which(loy_main$Y_call == 'Y_chrom_loss' & loy_main$CANCER_TYPE == i)],
+                                  Muts$Tumor_Sample_Barcode))
+    #' LOY with no Mutation
+    LOY_wt = loss_n - LOY_oneMut
+    
+    #' WT tumor with at least 1 mutation
+    WT_oneMut = length(intersect(loy_main$sample[which(loy_main$Y_call == 'intact_Y_chrom' & loy_main$CANCER_TYPE == i)],
+                                 Muts$Tumor_Sample_Barcode))
+    #' WT tumor with no Mutation
+    WT_noMut = wt_n - WT_oneMut
+    
+    out = data.frame(cohort = cancer,
+                     gene = gene,
+                     LOY_1Mut = LOY_oneMut,
+                     LOY_wt = LOY_wt,
+                     WT_oneMut = WT_oneMut,
+                     WT_wt = WT_noMut)
+    all_cancer_gene = rbind(all_cancer_gene, out)
+  }
+}
+
+write.table(all_cancer_gene, file = 'Data/05_Association/gene_level/CancerType_Gene_Fisher.txt', sep = '\t')
+
+
+##----------------+
+## Fisher Test on gene and 
+## Cance type level
+##----------------+
+all_Fisher = rbind(PanCancer, all_cancer_gene)
+all_Fisher$one_sided_fisher_fisher_p.value = NA
+for(i in 1:nrow(all_Fisher)){
+  print(i)
+  all_Fisher$one_sided_fisher_fisher_p.value[i] = fisher.test(matrix(c(all_Fisher$LOY_1Mut[i], 
+                                                                    all_Fisher$WT_oneMut[i],
+                                                                    all_Fisher$LOY_wt[i],
+                                                                    all_Fisher$WT_wt[i]), ncol = 2), 
+                                                           alternative = 'greater')$p.value
+}
+
+all_Fisher$FDR = p.adjust(all_Fisher$one_sided_fisher_fisher_p.value, method = 'fdr')
+all_Fisher$log10p = -log10(all_Fisher$one_sided_fisher_fisher_p.value)
+all_Fisher$FDR_pass = ifelse(all_Fisher$FDR <0.1, 'plot', 'not')
+
+
+
+##----------------+
+## Plot the observations
+##----------------+
+cancerTypes = ggplot(all_Fisher[all_Fisher$cohort != 'PanCancer', ], aes(x = cohort, y = log10p, color = FDR_pass)) +
+  geom_jitter(width = 0.2) +
+  scale_color_manual(values = c('not' = 'grey55',
+                                'plot' = 'red'),
+                     name = '') +
+  geom_text_repel(aes(label = ifelse(FDR_pass == 'plot', gene, '')), color = 'black') +
+  coord_flip() +
+  geom_vline(xintercept = seq(1.5, 20, 1), linetype = 'dashed', color = 'grey35', size = 0.4) +
+  scale_y_continuous(position = 'right', expand = c(0.01, 0)) +
+  theme_std(base_size = 14) +
+  theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
+        legend.position = 'none') +
+  labs(x = '', y = '-log10(p-value)')
+
+#' PanCancer
+PanCancer_plot = ggplot(all_Fisher[all_Fisher$cohort == 'PanCancer', ], 
+                        aes(x = cohort, y = log10p, color = FDR_pass)) +
+  geom_jitter(width = 0.2) +
+  scale_color_manual(values = c('not' = 'grey55',
+                                'plot' = 'red'),
+                     name = '') +
+  geom_text_repel(aes(label = ifelse(FDR_pass == 'plot', gene, '')), 
+                  max.overlaps = 300, position = position_dodge(width = 0.2)) +
+  coord_flip() +
+  scale_y_continuous(position = 'right', expand = c(0.01, 0)) +
+  theme_std(base_size = 14) +
+  theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
+        legend.position = 'none',
+        axis.text.y = element_text(angle = 90, size = 16, hjust = 0.5),
+        axis.ticks.y = element_blank()) +
+  labs(x = '', y = '-log10(p-value)')
+
+
+geneLevel_all = PanCancer_plot/cancerTypes + plot_layout(heights = c(0.15, 1))
+
+
+
+
+
