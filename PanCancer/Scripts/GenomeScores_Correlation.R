@@ -1,3 +1,7 @@
+##----------------+
+## Genome Scores with 
+## Y-chrom loss correlation
+##----------------+
 
 clean()
 gc()
@@ -79,7 +83,9 @@ for(i in unique(segs_pass$ID)){
 
 
 ##----------------+
-## Correlation analysis
+## Correlation analysis;
+## FGA, arm-losses VS 
+## Fraction LOY; purity all
 ##----------------+
 clean()
 gc()
@@ -124,6 +130,58 @@ for(i in unique(arm_changes$CANCER_TYPE)){
 genome_scores = genome_scores[!is.na(genome_scores$CancerType), ]
 genome_scores = genome_scores[which(genome_scores$CancerType %in% unique(top20$CancerType)), ]
 
+
+
+##----------------+
+## Exclude low purity 
+## samples;
+##----------------+
+cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
+top20 = read.csv('Data/04_Loss/IMPACT_Y_loss_incidences_top20.txt', sep = '\t')
+Y_calls = cohort$IMPACT_Y_classification_final
+arm_changes = cohort$IMPACT_ARM_level_changes
+arm_changes = merge(arm_changes, cohort$IMPACT_clinicalAnnotation[,c('SAMPLE_ID', 'CANCER_TYPE', 'MUTATION_COUNT')],
+                    by.x = 'id', by.y = 'SAMPLE_ID', all.x = T)
+arm_changes = merge(arm_changes, Y_calls[,c('sample', 'classification')],
+                    by.x = 'id', by.y = 'sample', all.x = T)
+
+#' only work with tumors that are purity > 0.3
+arm_changes_purity = arm_changes[which(arm_changes$purity > 0.3), ]
+arm_changes_purity = arm_changes_purity[which(arm_changes_purity$CANCER_TYPE %in% top20$CancerType), ]
+
+genome_scores_purity = data.frame()
+for(i in unique(arm_changes_purity$CANCER_TYPE)){
+  type = i
+  median_AS = median(x = arm_changes_purity$AS_score[which(arm_changes_purity$CANCER_TYPE == i)], na.rm = T)
+  mean_AS = mean(x = arm_changes_purity$AS_score[which(arm_changes_purity$CANCER_TYPE == i)], na.rm = T)
+  median_loss = median(x = arm_changes_purity$losses_n[which(arm_changes_purity$CANCER_TYPE == i)], na.rm = T)
+  mean_loss = mean(x = arm_changes_purity$losses_n[which(arm_changes_purity$CANCER_TYPE == i)], na.rm = T)
+  median_mutation = median(x = arm_changes_purity$MUTATION_COUNT[which(arm_changes_purity$CANCER_TYPE == i)], na.rm = T)
+  mean_mutation = mean(x = arm_changes_purity$MUTATION_COUNT[which(arm_changes_purity$CANCER_TYPE == i)], na.rm = T)
+  median_AS = median(x = arm_changes_purity$AS_score[which(arm_changes_purity$CANCER_TYPE == i)], na.rm = T)
+  mean_AS = mean(x = arm_changes_purity$AS_score[which(arm_changes_purity$CANCER_TYPE == i)], na.rm = T)
+  median_fga = median(x = arm_changes_purity$fraction_cna[which(arm_changes_purity$CANCER_TYPE == i)], na.rm = T)
+  mean_fga = mean(x = arm_changes_purity$fraction_cna[which(arm_changes_purity$CANCER_TYPE == i)], na.rm = T)
+  n_loy = length(arm_changes_purity$id[which(arm_changes_purity$CANCER_TYPE == i & arm_changes_purity$classification %in% c('loss', 'relative_loss'))])
+  fraction_LOY = n_loy / length(arm_changes_purity$id[which(arm_changes_purity$CANCER_TYPE == i)])
+  out = data.frame(CancerType = type,
+                   median_AS = median_AS,
+                   mean_AS = mean_AS,
+                   median_loss = median_loss,
+                   mean_loss = mean_loss,
+                   median_mutation = median_mutation,
+                   mean_mutation = mean_mutation,
+                   median_fga = median_fga,
+                   mean_fga = mean_fga,
+                   fraction_LOY = fraction_LOY)
+  genome_scores_purity = rbind(genome_scores_purity, out)
+}
+
+genome_scores = genome_scores[!is.na(genome_scores$CancerType), ]
+genome_scores = genome_scores[which(genome_scores$CancerType %in% unique(top20$CancerType)), ]
+
+
+
 ##----------------+
 ## Visualization
 ##----------------+
@@ -138,6 +196,19 @@ anouploidy_general = ggplot(genome_scores, aes(x = fraction_LOY, y = mean_AS)) +
   theme(aspect.ratio = 1) +
   geom_text(x = 0.12, y = 33, label = 'spearman: 0.6', hjust = 0, size = 6) +
   labs(y = 'Average # of chrom. arms altered')
+
+anouploidy_purity_corrected = ggplot(genome_scores_purity, aes(x = fraction_LOY, y = mean_AS)) +
+  geom_point(shape = 20) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(10, 35)) +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  geom_text_repel(aes(label = CancerType), size = 2) +
+  stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
+  theme_std(base_size = 14, base_line_size = 1) + 
+  theme(aspect.ratio = 1) +
+  geom_text(x = 0.12, y = 33, label = 'spearman: 0.58', hjust = 0, size = 6) +
+  labs(y = 'Average # of chrom. arms altered')
+
   
 loss_general = ggplot(genome_scores, aes(x = fraction_LOY, y = mean_loss)) +
   geom_point(shape = 20) +
@@ -151,6 +222,20 @@ loss_general = ggplot(genome_scores, aes(x = fraction_LOY, y = mean_loss)) +
   geom_text(x = 0.12, y = 33, label = 'spearman: 0.59', hjust = 0, size = 6) +
   labs(y = 'Average # of chrom. arms lost')
 
+
+loss_purity_corrected = ggplot(genome_scores_purity, aes(x = fraction_LOY, y = mean_loss)) +
+  geom_point(shape = 20) +
+  stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(7, 35)) +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  geom_text_repel(aes(label = CancerType), size = 2) +
+  theme_std(base_size = 14, base_line_size = 1) + 
+  theme(aspect.ratio = 1) +
+  geom_text(x = 0.12, y = 33, label = 'spearman: 0.59', hjust = 0, size = 6) +
+  labs(y = 'Average # of chrom. arms lost')
+
+
 FGA_general = ggplot(genome_scores, aes(x = fraction_LOY, y = mean_fga)) +
   geom_point(shape = 20) +
   stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
@@ -163,17 +248,20 @@ FGA_general = ggplot(genome_scores, aes(x = fraction_LOY, y = mean_fga)) +
   geom_text(x = 0.12, y = 0.94, label = 'spearman: 0.53', hjust = 0, size = 6) +
   labs(y = 'Average FGA')
 
-# Mutation_general = ggplot(genome_scores, aes(x = fraction_LOY, y = mean_mutation)) +
-#   geom_point(shape = 20) +
-#   stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
-#   scale_y_continuous(expand = c(0, 0),
-#                      limits = c(0, 35)) +
-#   scale_x_continuous(expand = c(0.01, 0)) +
-#   geom_text_repel(aes(label = CancerType), size = 2) +
-#   theme_std(base_size = 14, base_line_size = 1) + 
-#   theme(aspect.ratio = 1) +
-#   geom_text(x = 0.12, y = 33, label = 'spearman: 0.35', hjust = 0, size = 6) +
-#   labs(y = 'Average # of mutations')
+
+FGA_purity_corrected = ggplot(genome_scores_purity, aes(x = fraction_LOY, y = mean_fga)) +
+  geom_point(shape = 20) +
+  stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(0.25 , 1)) +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  geom_text_repel(aes(label = CancerType), size = 2) +
+  theme_std(base_size = 14, base_line_size = 1) + 
+  theme(aspect.ratio = 1) +
+  geom_text(x = 0.12, y = 0.94, label = 'spearman: 0.53', hjust = 0, size = 6) +
+  labs(y = 'Average FGA')
+
+
 
 
 plot_grid(anouploidy_general, loss_general, FGA_general, ncol = 3)
