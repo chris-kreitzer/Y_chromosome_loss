@@ -1,12 +1,13 @@
 ##----------------+
 ## Run a logistic regression model 
-## on the whole Impact cohort;
+## on the whole Impact (male) cohort;
 ## Look into which variables influence 
 ## the Y-chromosome loss probability
 ##----------------+
 ## start: 11/2021
 ## revision: 12/2021
 ## revision: 11/18/2022
+## revision: 11/21/2022
 ## chris-kreitzer
 
 
@@ -66,13 +67,13 @@ clinical_glm$WGD[which(clinical_glm$WGD == TRUE)] = 1
 clinical_glm$WGD[which(clinical_glm$WGD == FALSE)] = 0
 clinical_glm$WGD = as.factor(clinical_glm$WGD)
 
-#' if we are modelling a glm model without any predictor variable; just an intercept
-model_intercept = glm(Y_call ~ 1, data = clinical_glm, family = binomial(link = 'logit'))
-summary(model_intercept)
 
-#' full glm approach (without CancerType included)
+##----------------+
+## full glm approach 
+## without CancerType included
+##----------------+
 glm_model = clinical_glm[, -which(names(clinical_glm) == "CANCER_TYPE")]
-model_full = glm(Y_call ~ ploidy+purity+MSI_TYPE+Age+TMB+Mut_Count+SAMPLE_TYPE+WGD+FGA, data = glm_model, family = binomial)
+model_full = glm(Y_call ~ ploidy+purity+MSI_TYPE+Age+TMB+SAMPLE_TYPE+WGD+FGA, data = glm_model, family = binomial)
 summary(model_full)
 
 #' check for multicollinearity with car::vif()
@@ -80,8 +81,10 @@ model.vif = as.data.frame(car::vif(model_full))
 model.vif$Test = model.vif$`GVIF^(1/(2*Df))` ^ 2
 
 ##----------------+
-## excluding:
-## TMB, Mut_Count, WGD as they show high VIF
+## excluding variables:
+## TMB, 
+## Mut_Count, 
+## WGD as they show high VIF
 ##----------------+
 glm_model = glm_model[,-which(names(glm_model) == 'TMB')]
 glm_model = glm_model[,-which(names(glm_model) == 'WGD')]
@@ -104,9 +107,12 @@ model.vars[, OR := exp(Estimate)]
 model.vars[, OR_lower := exp(Estimate - 1.96 * `Std. Error`)]
 model.vars[, OR_upper := exp(Estimate + 1.96 * `Std. Error`)]
 model.vars = model.vars[order(`Pr(>|z|)`)]
-model.vars = model.vars[model.vars$`Pr(>|z|)` < 0.01, ]
-model.vars$adjusted = p.adjust(p = model.vars$`Pr(>|z|)`, method = 'BH')
+model.vars$adjusted = p.adjust(p = model.vars$`Pr(>|z|)`, method = 'fdr')
+model.vars = model.vars[model.vars$adjusted < 0.05, ]
 
+#' exclude intercept and MSI type in plotting
+model.vars = model.vars[which(model.vars$rn != '(Intercept)'), ]
+model.vars = model.vars[which(model.vars$rn != 'MSI_TYPEIndeterminate'), ]
 
 #' Visualization
 ggplot(data = model.vars, aes(x = reorder(rn, Estimate), y = Estimate)) +
@@ -134,7 +140,8 @@ ggplot(data = model.vars, aes(x = reorder(rn, Estimate), y = Estimate)) +
 
 ## Hypothesis:
 #' The lower the purity, 
-#' the less likely we observe a Y-chromosome loss call. 
+#' the less likely we observe 
+#' a Y-chromosome loss call. 
 library(dplyr)
 
 purity_out = data.frame()
@@ -166,48 +173,39 @@ frac.purity = ggplot(purity_out, aes(x = group, y = frac)) +
 
 n.purity / frac.purity
 
+#' #' relative contribution cancer types
+#' relCancer = data.frame()
+#' for(i in seq(0, 0.9, by = 0.1)){
+#'   da = clinical_glm[dplyr::between(x = clinical_glm$purity, left = i, right = i+0.1), ]
+#'   freq = data.frame(table(da$CANCER_TYPE))
+#'   for(j in 1:nrow(freq)){
+#'     type = freq$Var1[j]
+#'     proc = freq$Freq[j] / sum(freq$Freq)
+#'     out = data.frame(group = factor(i),
+#'                      CancerType = type,
+#'                      frac = proc)
+#'     relCancer = rbind(relCancer, out)
+#'   }
+#' }
+#' 
+# purity_Cancer = ggplot(relCancer[order(relCancer$frac, decreasing = T), ], 
+#                        aes(x = group, y = frac, fill = CancerType, label = CancerType)) +
+#   geom_bar(stat = 'identity', position = 'stack') +
+#   scale_fill_viridis_d(begin = 0, option = 'B') +
+#   geom_text(size = 2, position = position_stack(vjust = 0.5), color = 'white') +
+#   labs(x = 'purity-group', y = 'Fraction') +
+#   theme(legend.position = 'none')
+# 
+# 
+# sum = plot_grid(n.purity, frac.purity, purity_Cancer, rel_heights = c(1,1,3), nrow = 3, align = 'h')
 
 
-#' relative contribution cancer types
-relCancer = data.frame()
-for(i in seq(0, 0.9, by = 0.1)){
-  da = clinical_glm[dplyr::between(x = clinical_glm$purity, left = i, right = i+0.1), ]
-  freq = data.frame(table(da$CANCER_TYPE))
-  for(j in 1:nrow(freq)){
-    type = freq$Var1[j]
-    proc = freq$Freq[j] / sum(freq$Freq)
-    out = data.frame(group = factor(i),
-                     CancerType = type,
-                     frac = proc)
-    relCancer = rbind(relCancer, out)
-  }
-}
-
-
-purity_Cancer = ggplot(relCancer[order(relCancer$frac, decreasing = T), ], 
-                       aes(x = group, y = frac, fill = CancerType, label = CancerType)) +
-  geom_bar(stat = 'identity', position = 'stack') +
-  scale_fill_viridis_d(begin = 0, option = 'B') +
-  geom_text(size = 2, position = position_stack(vjust = 0.5), color = 'white') +
-  labs(x = 'purity-group', y = 'Fraction') +
-  theme(legend.position = 'none')
-
-
-sum = plot_grid(n.purity, frac.purity, purity_Cancer, rel_heights = c(1,1,3), nrow = 3, align = 'h')
-
-
-
-
-
-
-
-
-
-
-
-
-#' looking into MSI_Type; it seems like that MSI instable tumors show a tendency for retaining the 
-#' Y chromosome; 
+##----------------+
+## MSI_Type; 
+## it seems like that MSI instable 
+## tumors show a tendency for 
+## retaining the Y chromosome
+##----------------+ 
 
 MSI_out = data.frame()
 for(i in unique(clinical_glm$CANCER_TYPE)){
