@@ -129,7 +129,7 @@ for(i in unique(arm_changes$CANCER_TYPE)){
 
 genome_scores = genome_scores[!is.na(genome_scores$CancerType), ]
 genome_scores = genome_scores[which(genome_scores$CancerType %in% unique(top20$CancerType)), ]
-
+write.table(genome_scores, file = 'Data/05_Association/gene_level/GenomeScores.txt', sep = '\t', row.names = F)
 
 
 ##----------------+
@@ -177,20 +177,20 @@ for(i in unique(arm_changes_purity$CANCER_TYPE)){
   genome_scores_purity = rbind(genome_scores_purity, out)
 }
 
-genome_scores = genome_scores[!is.na(genome_scores$CancerType), ]
-genome_scores = genome_scores[which(genome_scores$CancerType %in% unique(top20$CancerType)), ]
-
+genome_scores_purity = genome_scores_purity[!is.na(genome_scores_purity$CancerType), ]
+genome_scores_purity = genome_scores_purity[which(genome_scores_purity$CancerType %in% unique(top20$CancerType)), ]
+write.table(genome_scores_purity, file = 'Data/05_Association/gene_level/GenomeScores_purityCorrected.txt', sep = '\t')
 
 
 ##----------------+
 ## Visualization
 ##----------------+
 anouploidy_general = ggplot(genome_scores, aes(x = fraction_LOY, y = mean_AS)) +
-  geom_point(shape = 20) +
+  geom_point(shape = 20, size = 4) +
   scale_y_continuous(expand = c(0, 0),
                      limits = c(10, 35)) +
   scale_x_continuous(expand = c(0.01, 0)) +
-  geom_text_repel(aes(label = CancerType), size = 2) +
+  geom_text_repel(aes(label = CancerType), size = 3) +
   stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
   theme_std(base_size = 14, base_line_size = 1) + 
   theme(aspect.ratio = 1) +
@@ -198,11 +198,11 @@ anouploidy_general = ggplot(genome_scores, aes(x = fraction_LOY, y = mean_AS)) +
   labs(y = 'Average # of chrom. arms altered')
 
 anouploidy_purity_corrected = ggplot(genome_scores_purity, aes(x = fraction_LOY, y = mean_AS)) +
-  geom_point(shape = 20) +
+  geom_point(shape = 20, size = 4) +
   scale_y_continuous(expand = c(0, 0),
                      limits = c(10, 35)) +
   scale_x_continuous(expand = c(0.01, 0)) +
-  geom_text_repel(aes(label = CancerType), size = 2) +
+  geom_text_repel(aes(label = CancerType), size = 3) +
   stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
   theme_std(base_size = 14, base_line_size = 1) + 
   theme(aspect.ratio = 1) +
