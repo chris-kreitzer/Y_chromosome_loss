@@ -89,6 +89,7 @@ RenoCancer[which(RenoCancer$sample == 'P-0012516-T01-IM5'), 'VHL'] = 1
 RenoCancer$CANCER_TYPE = NULL
 RenoCancer$Y_call[which(RenoCancer$Y_call == 'Y_chrom_loss')] = 1
 RenoCancer$Y_call[which(RenoCancer$Y_call == 'intact_Y_chrom')] = 0
+write.table(RenoCancer, file = 'Data/05_Association/KDM5C_muts_RenalCancers.txt', sep = '\t')
 
 #RenoCancer = gather(RenoCancer, gene, value, Y_call:MTOR, factor_key = T)
 #RenoCancer = RenoCancer[which(RenoCancer$sample %in% RenoLoss), ]
