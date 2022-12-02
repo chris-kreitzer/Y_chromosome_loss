@@ -162,5 +162,3 @@ ggplot(RenoCancer, aes(x = sample, y = gene, fill = value)) +
   scale_fill_manual(values = c('1' = 'red',
                                 '0' = 'grey85'))
   
-  
-
