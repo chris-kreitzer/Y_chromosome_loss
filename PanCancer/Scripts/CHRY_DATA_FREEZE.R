@@ -1,15 +1,17 @@
-## Data selection for Y-chromosome loss determination
-## 
+##----------------+
+## Data selection for 
+## Y-chromosome loss determination
+##----------------+
+##
 ## Read in clinical data from cBioPortal: 07/11/2022
 ## This should be at the patient level  
 ## Need to select one sample per patient 
-# 
-# use_for_patient_level (T/F): column indicating which of the tumor samples to use for patient-level analyses. Relevant when a patient has multiple biopsies sequenced
-# use_for_sample_level (T/F): column indicating whether sample passed basic purity check.
-##
+## 
 ## start: 07/11/2022
 ## revision: 08/24/2022
+## revision: 12/02/2022
 ## chris-kreitzer
+
 
 clean()
 gc()
@@ -19,7 +21,11 @@ library(dplyr)
 library(data.table)
 library(usefun)
 
-# load clinical and merge data_clinical_oncoKB with data_from the portal
+
+##----------------+
+## load clinical data and 
+## merge data_clinical_oncoKB with data_from the portal
+##----------------+
 portal_data = fread('Data/signedOut/mskimpact_clinical_data_07112022.tsv', stringsAsFactors = F, data.table = F)
 colnames(portal_data) = toupper(colnames(portal_data))
 colnames(portal_data) = gsub(pattern = ' ', replacement = '_', colnames(portal_data), fixed = T )
@@ -27,23 +33,23 @@ rownames(portal_data) = portal_data$SAMPLE_ID
 FacetsPaths = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/facets_annotated.cohort.txt.gz', sep = '\t')
 FacetsPaths = FacetsPaths[!duplicated(FacetsPaths$tumor_sample), ]
 
-# exclude heme patients
+#' exclude heme patients
 portal_data$STUDY_ID = NULL
 portal_data$DIAGNOSIS_AGE = NULL
 portal_data = portal_data[!portal_data$GENE_PANEL %in% c("ACCESS129", "IMPACT-HEME-400", "IMPACT-HEME-468"), ]
 portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)` = as.character(as.numeric(portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)`))
 portal_data$TUMOR_PURITY = as.numeric(as.character(portal_data$TUMOR_PURITY))
-# exclude patients with MSI-I or TMB >= 20 #
-# portal_data = portal_data[!portal_data$MSI_TYPE %in% 'Instable', ]
-# portal_data = portal_data[which(portal_data$IMPACT_TMB_SCORE <= 20),]
 
-# concentrate on males:
+
+##----------------+
+## only male samples;
+##----------------+
 portal_data = portal_data[which(portal_data$SEX == 'Male'), ]
 
-##-----------------
-# one sample per patient:
 
-## function which selects ONE sample per patient
+##----------------+
+## one sample per patient;
+##----------------+
 ## if just one sample per patient --> use it (regardless of primary or metastasis)
 ## if multiple samples, priority is given to i) primaries, ii) tumor purity and iii) coverage
 
@@ -90,11 +96,10 @@ sample_selection = function(data){
     })
   }
   
-  # clean up the mess
+  # clean up
   rm(data.sub)
   rm(chosen.sample)
   rm(data.out)
-  
   return(data.analysis)
 }
 
@@ -102,38 +107,47 @@ MSK_one_pts_sample = sample_selection(data = portal_data)
 
 
 ##-----------------
-## Get countFiles; paths
+## Get count-matrices
 ##-----------------
 MSK_one_pts_sample = merge(MSK_one_pts_sample, 
                            FacetsPaths[, c('tumor_sample', 'counts_file')],
                            by.x = 'SAMPLE_ID', 
                            by.y = 'tumor_sample', all.x = T)
 
-MSK_IMPACT_cohort = MSK_one_pts_sample[!is.na(MSK_one_pts_sample$counts_file), ]
-##-------------------------------------
-write.table(MSK_IMPACT_cohort, "~/Documents/MSKCC/10_MasterThesis/Data/signedOut/IMPACT_dataFreeze_07.13.22.txt", sep = "\t", row.names = F, quote = F)
-Cohort = list(IMPACT_cohort = MSK_IMPACT_cohort)
-saveRDS(Cohort, file = 'Data/signedOut/Cohort_07132022.rds')
+sh = MSK_one_pts_sample[is.na(MSK_one_pts_sample$counts_file), ]
+mi = read.csv('Data/00_CohortData/Countmatrices_Facets.txt', sep = '\t')
+sh_mi = merge(sh, mi, by.x = 'SAMPLE_ID', by.y = 'id', all.x = T)
+sh_mi$counts_file = NULL
+colnames(sh_mi)[ncol(sh_mi)] = 'counts_file'
 
+MSK_f = MSK_one_pts_sample[!MSK_one_pts_sample$SAMPLE_ID %in% sh$SAMPLE_ID, ]
+MSK_out = rbind(MSK_f, sh_mi)
+MSK_out = MSK_out[!is.na(MSK_out$counts_file), ]
 
-##-------------------------------------
-## Clinical Annotation: 08/24/2022
-##-------------------------------------
-cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
-portal_data = portal_data
-
-#' fetch clinical variables:
-Clinical_annotation = portal_data[, c('SAMPLE_ID', 'CANCER_TYPE', 'PRIMARY_TUMOR_SITE', 'CANCER_TYPE_DETAILED',
+##----------------+
+## Clinical variables
+##----------------+
+Clinical_annotation = portal_data[, c('SAMPLE_ID', 'CANCER_TYPE', 'CANCER_TYPE_DETAILED', 'GENE_PANEL',
+                                      'PRIMARY_TUMOR_SITE', 'SAMPLE_TYPE', 'METASTATIC_SITE', 
                                       'SAMPLE_COVERAGE', 'TUMOR_PURITY', 'MSI_TYPE', 'MSI_SCORE', 
-                                      'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)', 'IMPACT_TMB_SCORE', 
-                                      'MUTATION_COUNT', 'OVERALL_SURVIVAL_STATUS', 'OVERALL_SURVIVAL_(MONTHS)')]
+                                      'FRACTION_GENOME_ALTERED', 'IMPACT_TMB_SCORE', 'MUTATION_COUNT',
+                                      'ETHNICITY_CATEGORY', 'RACE_CATEGORY', 'SEX', 'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)',
+                                      'OVERALL_SURVIVAL_STATUS', 'OVERALL_SURVIVAL_(MONTHS)')]
 
-Clinical_annotation = Clinical_annotation[which(Clinical_annotation$SAMPLE_ID %in% MSK_IMPACT_cohort$SAMPLE_ID), ]
+##' oncotree codes
+oncotree_codes = read.csv('Data/00_CohortData/Oncotree_Code.txt', sep = '\t')
+Clinical_annotation = merge(Clinical_annotation, oncotree_codes[,c('Sample.ID', 'Oncotree.Code')],
+                            by.x = 'SAMPLE_ID', by.y = 'Sample.ID', all.x = T)
 
-#' add to cohort list:
-cohort = list(IMPACT_cohort = cohort$IMPACT_cohort,
-              IMPACT_clinicalAnnotation = Clinical_annotation)
-saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
+MSK_out$PANEL = NULL
+MSK_out$SAMPLE_TYPE = NULL
+MSK_out = merge(MSK_out, Clinical_annotation, by.x = 'SAMPLE_ID', by.y = 'SAMPLE_ID', all.x = T)
+write.table(MSK_out, 
+            "~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/IMPACT_dataFreeze_07.13.22.txt", 
+            sep = "\t", row.names = F, quote = F)
+
+Cohort071322 = list(MSK_IMPACT_cohort = MSK_out)
+saveRDS(Cohort071322, file = 'Data/00_CohortData/Cohort_071322.rds')
 
 
 ##-------------------------------------
@@ -222,6 +236,20 @@ Cohort = list(IMPACT_cohort = cohort$IMPACT_cohort,
               IMPACT_LOY = cohort$IMPACT_LOY,
               IMPACT_binaryY_call = cohort$IMPACT_binaryY_call,
               IMPACT_Y_classification_final = Y_CNA)
+
+saveRDS(Cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
+
+
+##----------------+
+## Genome-alteration annotation
+##----------------+
+cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
+Cohort = list(IMPACT_cohort = cohort$IMPACT_cohort,
+              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
+              IMPACT_LOY = cohort$IMPACT_LOY,
+              IMPACT_binaryY_call = cohort$IMPACT_binaryY_call,
+              IMPACT_Y_classification_final = cohort$IMPACT_Y_classification_final,
+              IMPACT_ARM_level_changes = arm_changes_full_cohort)
 
 saveRDS(Cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
 
