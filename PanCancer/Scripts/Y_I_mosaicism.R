@@ -1,14 +1,19 @@
-## Investigate Y-chromosome mosaicism: Here I am looking into IMPACT samples
-## This should help to distinguish whether Y-chromosome loss happened
-## as a physiological cause (e.g., age) or truly because of the cancer.
-## 
+##----------------+
+## mosaic loss of the Y chromosome
+## Taking MSK-IMPACT normal samples;
+## Asking whether chromosome Y loss
+## is due to mosaic loss of Y or truly
+## due to cancer
+##----------------+
+
 ## start data: 08/20/2021
 ## modified: 09/06/2021
 ## revision: 07/27/2022
+## revision: 12/03/2022
 ## chris kreitzer
 
+
 ## Firstly fetch the information from the cluster
-## install local FacetsY and pctGCdata
 require('pctGCdata', '/juno/home/kreitzec/R/x86_64-pc-linux-gnu-library/4.0/')
 require('facetsY', '/juno/home/kreitzec/R/x86_64-pc-linux-gnu-library/4.0/')
 require('data.table', '/juno/home/kreitzec/R/x86_64-pc-linux-gnu-library/4.0/')
@@ -17,14 +22,14 @@ library(dplyr)
 library(data.table)
 set.seed(99)
 
+
 # load FACETS countsfiles for Prostate WES samples
 IMPACT.samples = read.csv('/juno/home/kreitzec/Master/Data/cohort_data.rds')
 IMPACT.samples = as.character(IMPACT.samples$IMPACT.cohort$counts_file)
 
-#' mappability issues and GC content are already considered in Facets pipeline
-#' I will only include regions with GC content between 40 and 60%; equal distribution across the genome.
+#' Facets accounts for mappability and GC content bias;
+#' Only regions with GC content between 40 and 60% are considered;
 
-#' start processing the normal samples
 snp.nbhd = 0
 normal_fetch = function(data){
   data.in = suppressMessages(data.table::fread(data))
@@ -35,7 +40,7 @@ normal_fetch = function(data){
                        TUM.DP = data.in$File2A + data.in$File2R, 
                        TUM.RD = data.in$File2R)
   
-  #' consider only postions where we have unique sequence alignments
+  #' only positions with unique alignments are considered
   Y_chromosome = data.in[which(data.in$Chromosome == 'Y' & 
                                  data.in$Position >= 2654550 & 
                                  data.in$Position <= 28000000), ]
@@ -64,7 +69,10 @@ message('rbindlist')
 Normal_out = data.table::rbindlist(Normal_out)
 
 
-## SlidingWindow approach
+
+##----------------+
+## Sliding-Window approach
+##----------------+
 SlidingWindow = function(FUN, data, window, step) {
   total = length(data)
   spots = seq(from = 1, to = (total - window), by = step)
@@ -83,7 +91,7 @@ determine_depth = function(data){
   data.selected = Normal_out[which(Normal_out$sample == data), ]
   print(basename(data))
   
-  #' for loop work over chromosomes
+  #' for loop over chromosomes
   out_all = data.frame()
   for(j in unique(data.selected$chrom)){
     if(length(data.selected$rCountN[which(data.selected$chrom == j)]) > 500){
@@ -108,23 +116,23 @@ determine_depth = function(data){
 
 depth_out = lapply(unique(Normal_out$sample), function(x) determine_depth(x))
 depth_out = data.table::rbindlist(depth_out)
+write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/IMPACT_coverage_bins.txt', 
+            row.names = F, sep = '\t')
 
 
-write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/IMPACT_coverage_bins.txt', row.names = F, sep = '\t')
 
+##----------------+
+## Downstream analysis;
+##----------------+
 
+## start: 08/16/2022
+## revision: 12/03/2022
+## chris-kreitzer
 
-#######################
-#' Downstream analysis:
-#' 
-#' start: 08/16/2022
-#' chris-kreitzer
 #' bin autosomes and allosomes 
 #' and calculate the read-depth ratio
+Normal_coverage = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_coverage_N_22320.txt', sep = '\t')
 
-#' write.table(mosaic, file = '~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_coverage_N_22320.txt', sep = '\t', quote = F, row.names = F)
-mosaic = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_coverage_N_22320.txt', sep = '\t')
-Normal_coverage = mosaic
 
 bins_summary = function(data){
   print(data)
