@@ -133,7 +133,6 @@ write.table(depth_out, file = '/juno/home/kreitzec/Y_chromosome_loss/Mosaicism/I
 #' and calculate the read-depth ratio
 Normal_coverage = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_coverage_N_22320.txt', sep = '\t')
 
-
 bins_summary = function(data){
   print(data)
   data = Normal_coverage[which(Normal_coverage$sample == data), ]
