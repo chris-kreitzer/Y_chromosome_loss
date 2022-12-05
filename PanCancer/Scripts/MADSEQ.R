@@ -39,37 +39,4 @@ target_gr_deAQP = removeAQP(target_gr_deHLA,genome_assembly)
 target_gr_final = target_gr_deAQP
 target_gr_final
 
-
-
-
-# prepareCoverageGC = function(target_bed, bam, genome_assembly = "hg19"){
-#   ## prepare coverage
-#   target_gr = getCoverage(bam=bam, target_bed=target_bed, 
-#                           genome_assembly = genome_assembly)
-#   
-#   ## calculate GC
-#   gc = calculateGC(range=target_gr, genome_assembly=genome_assembly)
-#   
-#   ## check that length of gc equals to length of target
-#   if(length(gc) == length(target_gr)){
-#     mcols(target_gr)$GC = gc
-#   }
-#   else stop(paste("with", length(target_gr), "target regions, only", 
-#                   length(gc), 
-#                   "GC content calculated.Please check your input.",
-#                   sep=" "))
-#   
-#   ## filter out regions around gaps
-#   target_gr_deGAP = removeGap(target_gr,genome_assembly) 
-#   
-#   ## filter out HLA regions
-#   target_gr_deHLA = removeHLA(target_gr_deGAP,genome_assembly)
-#   
-#   ## filter out other highly polymorphic regions
-#   target_gr_deAQP = removeAQP(target_gr_deHLA,genome_assembly)
-#   
-#   ## filter out regions overlap with repeats
-#   #target_gr_final = removeRE(target_gr_deAQP,genome_assembly)
-#   target_gr_final = target_gr_deAQP
-#   target_gr_final
-# }
+normalizeCoverage(object = target_gr_final, control = NULL, writeToFile = TRUE, destination = '.', plot = FALSE)

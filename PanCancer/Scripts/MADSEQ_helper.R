@@ -8,6 +8,7 @@ library(Rsamtools)
 library(rtracklayer)
 library(BSgenome)
 library(diffloop)
+library(BSgenome.Hsapiens.UCSC.hg19)
 
 
 ## given a GRange object and bam file, 
@@ -237,9 +238,7 @@ correctGCBias = function(
 ## function to calculate mean coverage for each chromosome after normalization
 ## and could plot out the coverage before and after normalization
 ## input: a GRangesList object
-calculateNormedCoverage = function(
-    object,
-    plot=F){
+calculateNormedCoverage = function(object, plot = FALSE){
   if(nchar(seqlevels(object)[1])>3){
     chr_name=c("chr1","chr2","chr3","chr4","chr5",
                "chr6","chr7","chr8","chr9","chr10",
@@ -389,3 +388,119 @@ removeAQP = function(gr,genome){
     res_deAQP7 = gr[-queryHits(ov)]
   res_deAQP7
 }
+
+
+
+
+normalizeCoverage = function(
+    object,...,control=NULL,
+    writeToFile=TRUE,
+    destination=NULL,
+    plot=FALSE){
+  if(is.null(control)) {
+    cat("no control provided")
+    data = GRangesList(object, ...)
+    control_name = NULL
+    sample_name = as.character(substitute(list(object,...)))[-1]
+  }
+  else {
+    data = GRangesList(control,object,...)
+    control_name = as.character(substitute(control))
+    cat(paste("control:",control_name))
+    sample_name=c(control_name,
+                  as.character(substitute(list(object,...)))[-1])
+  }
+  nSample = length(data)
+  names(data) = sample_name
+  message(paste("there are",nSample,"samples"))
+  
+  ## check if all the samples have the same number of targeted region
+  if (length(unique(sapply(data,length)))>1){
+    cat(elementNROWS(data))
+    stop("the number of targeted region is different in your samples, 
+            please check your input")
+  }
+  
+  ## check if there is >1 samples
+  if (nSample > 1) {
+    if(plot == TRUE) par(mfrow=c(2,2))
+    ## 1. quantile normalize data if there are more than one samples
+    quantiled_data = coverageQuantile(data)
+    ## 2. correct GC bias for each sample
+    corrected = NULL
+    for (i in 1:nSample){
+      message(paste("correct GC bias in sample'",sample_name[i],"'...",
+                    sep=" "))
+      sub_corrected = correctGCBias(quantiled_data[[i]],plot=plot)
+      if(is.null(corrected)) corrected = GRangesList(sub_corrected)
+      else corrected = c(corrected,GRangesList(sub_corrected))
+    }
+  }
+  else if(nSample==1){
+    if(plot == TRUE) par(mfrow=c(1,2))
+    ## only correct coverage by GC bias
+    message(paste("correct GC bias in sample '",sample_name[1],"' ...",
+                  sep=""))
+    corrected = GRangesList(correctGCBias(data[[1]],plot=plot))
+  }
+  names(corrected) = sample_name
+  
+  ## use normed coverage to generate reference coverage
+  after_chr = calculateNormedCoverage(corrected,plot=plot)
+  ## check how many sample
+  if(nSample>1){
+    ## check if normal control is provided
+    if(is.null(control_name)){
+      ## if there are more than 1 sample and there is no control
+      ## take median of normed average coverage for each chromosome as 
+      ## reference
+      ref_cov = apply(after_chr,2,function(x)median(x,na.rm = TRUE))
+    }
+    ## if control is provided, 
+    ## take average coverage for control as reference
+    else ref_cov = after_chr[control_name,]
+    res = NULL
+    for (i in 1:nSample){
+      sub_res = corrected[[i]]
+      chr_length = sapply(colnames(after_chr),
+                          function(x)length(sub_res[seqnames(sub_res)==x]))
+      mcols(sub_res)$ref_depth = rep(ref_cov,chr_length)
+      if(is.null(res)) res = GRangesList(sub_res)
+      else res = c(res,GRangesList(sub_res))
+    }
+    names(res) = sample_name
+  }
+  ## if there is only one sample, take the median coverage for chromosome as
+  ## reference
+  else if(nSample==1){
+    res = corrected[[1]]
+    mcols(res)$ref_depth = rep(median(after_chr),length(res))
+    res = GRangesList(res)
+    names(res) = sample_name
+  }
+  
+  ## if write to file requested, then write the normalized coverage table 
+  ## file, otherwise return it as a GRangesList 
+  if(writeToFile == TRUE){
+    ## check if path to write file is provided,
+    ## if not write to current working directory
+    if(is.null(destination)) path = "."
+    else path = destination
+    for (i in 1:length(res)){
+      tmp_data = as.data.frame(res[[i]])
+      write.table(tmp_data,
+                  file=paste(path, "/" , sample_name[i],
+                             "_normed_depth.txt", sep=""),
+                  quote=FALSE, row.names=FALSE, col.names=TRUE,sep="\t")
+      message(paste("normalized depth for sample ",sample_name[i],
+                    " is written to ",path, "/" , sample_name[i],
+                    "_normed_depth.txt",sep=""))
+    }
+  }
+  else res
+}
+
+
+
+
+
