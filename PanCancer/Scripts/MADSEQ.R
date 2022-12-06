@@ -1,4 +1,16 @@
 ##----------------+
+## Get autosomal coverage
+## and chromosome Y coverage
+## calculate the ratio;
+## hints for mosaic loss of Y
+##----------------+
+
+## start: 12/04/2022
+## chris-kreitzer
+
+
+
+##----------------+
 ## MADSEQ masterfile
 ##----------------+
 
@@ -48,39 +60,4 @@ mLOY = function(bams){
 
 sapply(1:nrow(Masterfile), function(x) mLOY(bams = x))
 
-
-#' normal_bam = Masterfile$Normal_bam[2]
-#' target = ifelse(Masterfile$GENE_PANEL[2] == 'IMPACT341',
-#'                 '~/MADSEQ/IMPACT341_b37_baits.bed', '~/MADSEQ/IMPACT410_b37_baits.bed')
-#' genome_assembly = 'hg19'
-#' 
-#' 
-#' #' get coverage
-#' 
-#' 
-#' 
-#' te = function(bams){
-#'   ta = ifelse(df$a[bams] == 'a', 'tru', 'false')
-#'   print(ta)
-#' }
-#' 
-#' sapply(1:nrow(df), function(x)  te(bams = x))
-#' 
-#' 
-#' 
-#' ## filter out regions around gaps
-#' target_gr_deGAP = removeGap(target_gr,genome_assembly) 
-#' 
-#' ## filter out HLA regions
-#' target_gr_deHLA = removeHLA(target_gr_deGAP,genome_assembly)
-#' 
-#' ## filter out other highly polymorphic regions
-#' target_gr_deAQP = removeAQP(target_gr_deHLA,genome_assembly)
-#' 
-#' ## filter out regions overlap with repeats
-#' #target_gr_final = removeRE(target_gr_deAQP,genome_assembly)
-#' target_gr_final = target_gr_deAQP
-#' target_gr_final
-#' 
-#' normalizeCoverage(object = target_gr_final, control = NULL, 
-#'                   writeToFile = TRUE, destination = '.', plot = FALSE)
+#' out
