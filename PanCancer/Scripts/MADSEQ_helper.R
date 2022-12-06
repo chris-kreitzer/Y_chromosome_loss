@@ -89,7 +89,7 @@ getCoverage = function(bam, target_bed, genome_assembly="hg19"){
 calculateGC = function(
     range,
     genome_assembly="hg19"){
-  genome = BSgenome::getBS(genome_assembly)
+  genome = BSgenome::getBSgenome(genome_assembly)
   ## use alphabetFrequency function in biostring to calculate GC percent
   message("calculating GC content...")
   base_frequency = alphabetFrequency(BSgenomeViews(genome,range),
@@ -392,16 +392,14 @@ removeAQP = function(gr,genome){
 
 
 
-normalizeCoverage = function(
-    object,...,control=NULL,
-    writeToFile=TRUE,
-    destination=NULL,
-    plot=FALSE){
+normalizeCoverage = function(object,...,control=NULL, writeToFile = TRUE, destination = NULL,
+    plot=FALSE, sampleID=NULL){
   if(is.null(control)) {
     cat("no control provided")
     data = GRangesList(object, ...)
     control_name = NULL
-    sample_name = as.character(substitute(list(object,...)))[-1]
+    #sample_name = as.character(substitute(list(object,...)))[-1]
+    sample_name = sampleID
   }
   else {
     data = GRangesList(control,object,...)
