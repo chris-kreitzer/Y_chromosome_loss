@@ -10,11 +10,13 @@
 ## start: 07/11/2022
 ## revision: 08/24/2022
 ## revision: 12/02/2022
+## revision: 12/07/2022
 ## chris-kreitzer
 
 
 clean()
 gc()
+.rs.restartR()
 setwd('~/Documents/MSKCC/10_MasterThesis/')
 
 library(dplyr)
@@ -30,13 +32,52 @@ portal_data = fread('Data/signedOut/mskimpact_clinical_data_07112022.tsv', strin
 colnames(portal_data) = toupper(colnames(portal_data))
 colnames(portal_data) = gsub(pattern = ' ', replacement = '_', colnames(portal_data), fixed = T )
 rownames(portal_data) = portal_data$SAMPLE_ID
+oncotree_codes = read.csv('Data/00_CohortData/Oncotree_Code.txt', sep = '\t')
 FacetsPaths = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/facets_annotated.cohort.txt.gz', sep = '\t')
 FacetsPaths = FacetsPaths[!duplicated(FacetsPaths$tumor_sample), ]
 
-#' exclude heme patients
+#' exclude heme patients;
+#' and any lymphoid; myeloid cancers
 portal_data$STUDY_ID = NULL
 portal_data$DIAGNOSIS_AGE = NULL
 portal_data = portal_data[!portal_data$GENE_PANEL %in% c("ACCESS129", "IMPACT-HEME-400", "IMPACT-HEME-468"), ]
+
+tropism = readxl::read_excel('~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Tropism_Bastien.xlsx', sheet = 'Table S1B', skip = 2)
+tropism = tropism[,c('sample_id', 'curated_organ_system', 'cancer_type', 'oncotree_code', 'curated_subtype_display', 'curated_subtype_abbr')]
+tropism = tropism[!duplicated(tropism$oncotree_code), ]
+
+portal_data$curated_organ_system = NA
+portal_data$curated_subtype_display = NA
+for(i in 1:nrow(portal_data)){
+  print(i)
+  if(portal_data$ONCOTREE_CODE[i] %in% tropism$oncotree_code){
+    portal_data$curated_organ_system[i] = tropism$curated_organ_system[which(tropism$oncotree_code == portal_data$ONCOTREE_CODE[i])]
+    portal_data$curated_subtype_display[i] = tropism$curated_subtype_display[which(tropism$oncotree_code == portal_data$ONCOTREE_CODE[i])]
+  } else {
+    portal_data$curated_organ_system[i] = NA
+    portal_data$curated_subtype_display[i] = NA
+  }
+}
+
+portal_data = portal_data[!portal_data$CANCER_TYPE_DETAILED %in% c('Diffuse Large B-Cell Lymphoma, NOS', 'Undifferentiated Malignant Neoplasm',
+                                              'Neoplastic Vs Reactive', 'B-Lymphoblastic Leukemia/Lymphoma',
+                                              'Erdheim-Chester Disease', 'Peripheral T-Cell lymphoma, NOS', 
+                                              'Follicular Dendritic Cell Sarcoma', 'Classical Hodgkin Lymphoma' ,
+                                              'Angioimmunoblastic T-Cell Lymphoma', 'Mature T and NK Neoplasms', 
+                                              'Marginal Zone Lymphoma', 'Myeloid Neoplasm', 'Rosai-Dorfman Disease',
+                                              'Plasma Cell Myeloma', 'Non-Hodgkin Lymphoma', 'Mature B-Cell Neoplasms',
+                                              'Extranodal Marginal Zone Lymphoma of Mucosa-Associated Lymphoid Tissue (MALT lymphoma)',
+                                              'Lymphoid Atypical', 'Myeloid Atypical', 'Primary Mediastinal (Thymic) Large B-Cell Lymphoma',
+                                              'Extraosseous Plasmacytoma', 'Disseminated Juvenile Xanthogranuloma',
+                                              'Chronic Lymphocytic Leukemia/Small Lymphocytic Lymphoma', 'Waldenstrom Macroglobulinemia',
+                                              'Systemic Mastocytosis', NA), ]
+
+for(i in 1:nrow(portal_data)){
+  if(is.na(portal_data$curated_subtype_display[i])){
+    portal_data$curated_subtype_display[i] = portal_data$CANCER_TYPE_DETAILED[i]
+  } else next
+}
+
 portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)` = as.character(as.numeric(portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)`))
 portal_data$TUMOR_PURITY = as.numeric(as.character(portal_data$TUMOR_PURITY))
 
@@ -124,24 +165,57 @@ MSK_f = MSK_one_pts_sample[!MSK_one_pts_sample$SAMPLE_ID %in% sh$SAMPLE_ID, ]
 MSK_out = rbind(MSK_f, sh_mi)
 MSK_out = MSK_out[!is.na(MSK_out$counts_file), ]
 
+
+##----------------+
+## Get bam-file paths;
+##----------------+
+keys = read.csv('~/Documents/MSKCC/dmp-2021/Genomics/keys.txt', sep = '\t')
+MSK_out$counts_file = gsub(pattern = '//', replacement = '/', MSK_out$counts_file)
+MSK_out$Normal_file = NA
+for(i in 1:nrow(MSK_out)){
+  print(i)
+  MSK_out$Normal_file[i] = substr(x = strsplit(MSK_out$counts_file[i], split = '/')[[1]][11], 
+                                  start = 19, stop = 35)
+}
+
+path = '/juno/res/dmpcollab/dmpshare/share/irb12_245/'
+MSK_out$Normal_bam = NA
+for(i in 1:nrow(MSK_out)){
+  print(i)
+  if(MSK_out$Normal_file[i] %in% keys$DMPID){
+    MSK_out$Normal_bam[i] = paste0(path, substr(x = keys$AnonymizedID[which(keys$DMPID == MSK_out$Normal_file[i])], start = 1, stop = 1),
+                               '/', substr(x = keys$AnonymizedID[which(keys$DMPID == MSK_out$Normal_file[i])], start = 2, stop = 2),
+                               '/', keys$AnonymizedID[which(keys$DMPID == MSK_out$Normal_file[i])], '.bam')
+  } else {
+    MSK_out$Normal_bam[i] = NA
+  }
+}
+
+
 ##----------------+
 ## Clinical variables
 ##----------------+
-Clinical_annotation = portal_data[, c('SAMPLE_ID', 'CANCER_TYPE', 'CANCER_TYPE_DETAILED', 'GENE_PANEL',
-                                      'PRIMARY_TUMOR_SITE', 'SAMPLE_TYPE', 'METASTATIC_SITE', 
+Clinical_annotation = portal_data[, c('SAMPLE_ID','PATIENT_ID', 'SEX', 'RACE_CATEGORY', 'curated_organ_system',
+                                      'CANCER_TYPE', 'ONCOTREE_CODE', 'curated_subtype_display', 'CANCER_TYPE_DETAILED',
+                                      'PRIMARY_TUMOR_SITE', 'SAMPLE_TYPE', 'METASTATIC_SITE', 'GENE_PANEL',
                                       'SAMPLE_COVERAGE', 'TUMOR_PURITY', 'MSI_TYPE', 'MSI_SCORE', 
                                       'FRACTION_GENOME_ALTERED', 'IMPACT_TMB_SCORE', 'MUTATION_COUNT',
-                                      'ETHNICITY_CATEGORY', 'RACE_CATEGORY', 'SEX', 'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)',
+                                      'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)',
                                       'OVERALL_SURVIVAL_STATUS', 'OVERALL_SURVIVAL_(MONTHS)')]
 
-##' oncotree codes
-oncotree_codes = read.csv('Data/00_CohortData/Oncotree_Code.txt', sep = '\t')
-Clinical_annotation = merge(Clinical_annotation, oncotree_codes[,c('Sample.ID', 'Oncotree.Code')],
-                            by.x = 'SAMPLE_ID', by.y = 'Sample.ID', all.x = T)
 
 MSK_out$PANEL = NULL
 MSK_out$SAMPLE_TYPE = NULL
+MSK_out$PATIENT_ID = NULL
+MSK_out$METASTATIC_SITE = NULL
+MSK_out$SAMPLE_NUMBER = NULL
+
 MSK_out = merge(MSK_out, Clinical_annotation, by.x = 'SAMPLE_ID', by.y = 'SAMPLE_ID', all.x = T)
+colnames(MSK_out)[25] = 'OS_Status'
+colnames(MSK_out)[26] = 'OS_months'
+colnames(MSK_out)[24] = 'Age_Sequencing'
+
+MSK_out = MSK_out[,c(1,5, 6,7,8,9,10,11, 12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,2,3,4)]
 write.table(MSK_out, 
             "~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/IMPACT_dataFreeze_07.13.22.txt", 
             sep = "\t", row.names = F, quote = F)
@@ -150,12 +224,16 @@ Cohort071322 = list(MSK_IMPACT_cohort = MSK_out)
 saveRDS(Cohort071322, file = 'Data/00_CohortData/Cohort_071322.rds')
 
 
-##-------------------------------------
-## Mosaic annotation: 08/24/2022
-##-------------------------------------
+
+
+##----------------+
+## Mosaic annotation: 
+## 08/24/2022
+##----------------+
 cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
 clinical = cohort$IMPACT_clinicalAnnotation
 IMPACT_LOY = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_LOY.txt', sep = '\t')
+
 
 all_out = data.frame()
 for(i in 1:nrow(clinical)){
@@ -187,6 +265,8 @@ cohort = list(IMPACT_cohort = cohort$IMPACT_cohort,
               IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
               IMPACT_LOY = all_out)
 saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
+
+
 
 
 ##-----------------
