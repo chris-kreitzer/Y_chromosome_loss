@@ -192,13 +192,12 @@ Germline_CN = ggplot(sample_summary, aes(x = target, y = corrected.CN)) +
   geom_hline(yintercept = seq(1, 3, 1), 
              color = 'grey35', 
              linetype = 'dashed', 
-             size = 0.35) +
+             linewidth = 0.35) +
   scale_y_continuous(expand = c(0.01, 0.05),
                      limits = c(0, 3)) +
   labs(x = 'Chromosome', 
        y = 'Germline copy number',
        title = paste0('MSK-IMPACT samples\nn=', length(unique(sample_summary$sample))))
-
 
 Germline_CN
 
@@ -209,12 +208,23 @@ ggsave_golden(filename = '~/Documents/MSKCC/10_MasterThesis/Figures_original/IMP
 
 
 ##-----------------
-## assign Mosaic loss:
+## determine threshold
+## upon which a sample
+## is deemed as mLOY
 ##-----------------
 sample_summary = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_mLRR-Y_summary.txt', sep = '\t')
 LOY = sample_summary[which(sample_summary$target == 'Y'), ]
 LOY = LOY[!is.na(LOY$corrected.CN), ]
 LOY$seq = seq(1, nrow(LOY), 1)
+
+a = ggplot(LOY, aes(x = corrected.CN, y = seq)) +
+  geom_jitter()
+b= ggplot(LOY, aes(x = corrected.CN, y = ..density..)) +
+  geom_histogram(bins = 400) +
+  geom_density()
+
+library(patchwork)
+a/b
 
 plot(LOY$corrected.CN, LOY$seq, 
      pch = 17, 
@@ -225,9 +235,9 @@ plot(LOY$corrected.CN, LOY$seq,
 axis(side = 2, at = c(0, nrow(LOY)), las = 2)
 abline(v = median(LOY$corrected.CN), col = 'red', lwd = 2)
 #' lower 2.5% quantile
-abline(v = quantile(LOY$corrected.CN, probs = c(0.025)) , col = 'grey35')
+abline(v = quantile(LOY$corrected.CN, probs = c(0.005)) , col = 'grey35')
 #' upper 97.5% quantile
-abline(v = quantile(LOY$corrected.CN, probs = c(0.975)), col = 'grey35')
+abline(v = quantile(LOY$corrected.CN, probs = c(0.995)), col = 'grey35')
 box(lwd = 2)
 mtext(text = 'MSK-IMPACT observed mLRR-Y values', adj = 0, line = 0.5)
 mtext(text = 'Individuals', side = 2, line = 2)
