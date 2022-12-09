@@ -144,7 +144,7 @@ bins_summary = function(data){
       summary_df = data.frame(sample = unique(data$sample),
                               target = chromo,
                               ratio = median_target / median_genome,
-                              log_ratio = log(median_target) / log(median_genome))
+                              log_ratio = log(median_target / median_genome))
       summary_df_out = rbind(summary_df_out, summary_df)
     }
 
@@ -156,17 +156,19 @@ bins_summary = function(data){
 
 sample_summary = lapply(unique(Normal_coverage$sample), function(x) bins_summary(x))
 sample_summary = data.table::rbindlist(sample_summary)
+# data.table::fwrite(x = sample_summary, file = 'Data/03_Mosaicism/mLOY_test.txt', sep = '\t', row.names = F)
 
 
-#' make a ploidy correction through population-wise determination of the observed (peak) to
-#' expected ploidy level across chromosomes.
-sample_summary$target = as.integer(as.character(sample_summary$target))
+##----------------+
+## expected ploidy across
+## chromosomes;
+##----------------+
 sample_summary$CN = sample_summary$log_ratio * 2
 sample_summary$corrected.CN = NA
 
 CN_correction = data.frame()
 for(i in unique(sample_summary$target)){
-  density.chromo = density(sample_summary$CN[which(sample_summary$target == i)], bw = 'SJ', na.rm = T)
+  density.chromo = density(sample_summary$CN[which(sample_summary$target == i)], na.rm = T)
   density.max = density.chromo$x[which.max(density.chromo$y)]
   corrected.CN = ifelse(i %in% seq(1, 22, 1), (density.max - 2), (density.max - 1))
   correction_factor = data.frame(chromosome = i,
@@ -217,9 +219,9 @@ LOY = sample_summary[which(sample_summary$target == 'Y'), ]
 LOY = LOY[!is.na(LOY$corrected.CN), ]
 LOY$seq = seq(1, nrow(LOY), 1)
 
-a = ggplot(LOY, aes(x = corrected.CN, y = seq)) +
+a = ggplot(LOY, aes(x = log_ratio, y = seq)) +
   geom_jitter()
-b= ggplot(LOY, aes(x = corrected.CN, y = ..density..)) +
+b= ggplot(LOY, aes(x = log_ratio, y = ..density..)) +
   geom_histogram(bins = 400) +
   geom_density()
 
@@ -232,6 +234,9 @@ plot(LOY$corrected.CN, LOY$seq,
      yaxt = 'n',
      xlab = '',
      ylab = '')
+
+plot(hist(LOY$corrected.CN, nclass = 500, col = 'black' ))
+
 axis(side = 2, at = c(0, nrow(LOY)), las = 2)
 abline(v = median(LOY$corrected.CN), col = 'red', lwd = 2)
 #' lower 2.5% quantile
