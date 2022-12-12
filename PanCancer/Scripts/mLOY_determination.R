@@ -62,15 +62,18 @@ loy_ratio = function(id, data){
   data = data[which(data$id == id), ]
   print(name)
   Y = median(data$normed_depth[which(data$seqnames == 'chrY')])
+  X = median(data$normed_depth[which(data$seqnames == 'chrX')])
   A = median(data$normed_depth[!data$seqnames %in% c('chrX', 'chrY')])
   c22 = median(data$normed_depth[which(data$seqnames == 'chr22')])
   c22_ratio = c22 / A
   ratio = Y / A
   ratio_norm = Y / unique(data$ref_depth)
+  X_ratio = X / A
   out = data.frame(id = name,
                    ratio = ratio,
                    ratio_norm = ratio_norm,
-                   c22 = c22_ratio)
+                   c22 = c22_ratio,
+                   X_ratio = X_ratio)
   out
 }
 
@@ -116,8 +119,14 @@ density.chromoY = density(y$EY, na.rm = T)
 density.maxY = density.chromoY$x[which.max(density.chromoY$y)]
 correction_factorY = density.maxY - 1
 
+y$EX = y$X_ratio * 2
+density.chromoX = density(y$EX, na.rm = T)
+density.maxX = density.chromoX$x[which.max(density.chromoX$y)]
+correction_factorX = density.maxX - 1
+
 y$O22 = abs(y$E22 - correction_factor22)
 y$OY = abs(y$EY - correction_factorY)
+y$OX = abs(y$EX - correction_factorX)
 
 
 ## plot: observed vs corrected
@@ -211,4 +220,70 @@ y$mLOY = ifelse(y$OY < lower_cutoff, 'mLOY', 'no_mLOY')
 # 1% mLOY
 
 
+##----------------+
+## Association studies;
+## Age
+##----------------+ 
+IMPACT = read.csv('Data/00_CohortData/IMPACT_dataFreeze_07.13.22.txt', sep = '\t')
+IMPACT = IMPACT[!IMPACT$Age_Sequencing %in% c('0', '1', '2', '3', '4', '5', '6', '7'), ]
+IMPACT = IMPACT[!is.na(IMPACT$Age_Sequencing), ]
+IMPACT$Age_Sequencing = as.integer(as.character(IMPACT$Age_Sequencing))
 
+LOY_Age = merge(y, IMPACT[, c('SAMPLE_ID', 'Age_Sequencing')], by.x = 'id', by.y = 'SAMPLE_ID', all.x = T)
+
+
+## Visualization
+intercept = summary(lm(LOY_Age$OY ~ LOY_Age$Age_Sequencing))[[4]][1]
+slope = summary(lm(LOY_Age$OY ~ LOY_Age$Age_Sequencing))[[4]][2]
+p.value = summary(lm(LOY_Age$OY ~ LOY_Age$Age_Sequencing))[[4]][8]
+
+Y_chromosome = ggplot(LOY_Age, aes(x = Age_Sequencing, y = OY)) +
+  geom_jitter(size = 0.2) +
+  scale_y_continuous(limits = c(0.5, 1.5),
+                     breaks = c(0.5, 1, 1.5)) +
+  scale_x_continuous(expand = c(0.01, 0.05),
+                     breaks = seq(10, 90, 10)) +
+  geom_smooth(method = 'lm') +
+  theme(panel.background = element_blank(),
+        panel.border = element_rect(fill = NA, 
+                                    linewidth = 2),
+        axis.text = element_text(size = 12, 
+                                 color = 'black')) +
+  annotate(geom = 'text',
+           x = 20,
+           y = 1.40,
+           label = paste0('y = ', round(intercept, 3), round(slope, 3), '\np: ', round(p.value, 3)),
+           size = 5.0) +
+  labs(x = 'Age [reported at sequencing]', y = 'Chromosome Y ploidy', title = 'MSK-IMPACT: Ploidy decrease with age')
+
+Y_chromosome
+
+
+## X-chromosome
+intercept = summary(lm(LOY_Age$OX ~ LOY_Age$Age_Sequencing))[[4]][1]
+slope = summary(lm(LOY_Age$OX ~ LOY_Age$Age_Sequencing))[[4]][2]
+p.value = summary(lm(LOY_Age$OX ~ LOY_Age$Age_Sequencing))[[4]][8]
+
+X_chromosome = ggplot(LOY_Age, aes(x = Age_Sequencing, y = OX)) +
+  geom_jitter(size = 0.2) +
+  scale_y_continuous(limits = c(0.5, 1.5),
+                     breaks = c(0.5, 1, 1.5)) +
+  scale_x_continuous(expand = c(0.01, 0.05),
+                     breaks = seq(10, 90, 10)) +
+  geom_smooth(method = 'lm') +
+  theme(panel.background = element_blank(),
+        panel.border = element_rect(fill = NA, 
+                                    linewidth = 2),
+        axis.text = element_text(size = 12, 
+                                 color = 'black')) +
+  annotate(geom = 'text',
+           x = 20,
+           y = 1.40,
+           label = paste0('y = ', round(intercept, 3), round(slope, 3), '\np: ', round(p.value, 3)),
+           size = 5.0) +
+  labs(x = 'Age [reported at sequencing]', y = 'Chromosome Y ploidy', title = 'MSK-IMPACT: Ploidy decrease with age')
+
+X_chromosome
+
+
+#' out
