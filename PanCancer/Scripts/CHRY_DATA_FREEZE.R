@@ -32,7 +32,6 @@ portal_data = fread('Data/signedOut/mskimpact_clinical_data_07112022.tsv', strin
 colnames(portal_data) = toupper(colnames(portal_data))
 colnames(portal_data) = gsub(pattern = ' ', replacement = '_', colnames(portal_data), fixed = T )
 rownames(portal_data) = portal_data$SAMPLE_ID
-oncotree_codes = read.csv('Data/00_CohortData/Oncotree_Code.txt', sep = '\t')
 FacetsPaths = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/facets_annotated.cohort.txt.gz', sep = '\t')
 FacetsPaths = FacetsPaths[!duplicated(FacetsPaths$tumor_sample), ]
 
@@ -41,6 +40,9 @@ FacetsPaths = FacetsPaths[!duplicated(FacetsPaths$tumor_sample), ]
 portal_data$STUDY_ID = NULL
 portal_data$DIAGNOSIS_AGE = NULL
 portal_data = portal_data[!portal_data$GENE_PANEL %in% c("ACCESS129", "IMPACT-HEME-400", "IMPACT-HEME-468"), ]
+portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)` = as.character(as.numeric(portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)`))
+portal_data$TUMOR_PURITY = as.numeric(as.character(portal_data$TUMOR_PURITY))
+
 
 tropism = readxl::read_excel('~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Tropism_Bastien.xlsx', sheet = 'Table S1B', skip = 2)
 tropism = tropism[,c('sample_id', 'curated_organ_system', 'cancer_type', 'oncotree_code', 'curated_subtype_display', 'curated_subtype_abbr')]
@@ -59,27 +61,66 @@ for(i in 1:nrow(portal_data)){
   }
 }
 
-portal_data = portal_data[!portal_data$CANCER_TYPE_DETAILED %in% c('Diffuse Large B-Cell Lymphoma, NOS', 'Undifferentiated Malignant Neoplasm',
-                                              'Neoplastic Vs Reactive', 'B-Lymphoblastic Leukemia/Lymphoma',
-                                              'Erdheim-Chester Disease', 'Peripheral T-Cell lymphoma, NOS', 
-                                              'Follicular Dendritic Cell Sarcoma', 'Classical Hodgkin Lymphoma' ,
-                                              'Angioimmunoblastic T-Cell Lymphoma', 'Mature T and NK Neoplasms', 
-                                              'Marginal Zone Lymphoma', 'Myeloid Neoplasm', 'Rosai-Dorfman Disease',
-                                              'Plasma Cell Myeloma', 'Non-Hodgkin Lymphoma', 'Mature B-Cell Neoplasms',
-                                              'Extranodal Marginal Zone Lymphoma of Mucosa-Associated Lymphoid Tissue (MALT lymphoma)',
-                                              'Lymphoid Atypical', 'Myeloid Atypical', 'Primary Mediastinal (Thymic) Large B-Cell Lymphoma',
-                                              'Extraosseous Plasmacytoma', 'Disseminated Juvenile Xanthogranuloma',
-                                              'Chronic Lymphocytic Leukemia/Small Lymphocytic Lymphoma', 'Waldenstrom Macroglobulinemia',
-                                              'Systemic Mastocytosis', NA), ]
+portal_data = portal_data[, c('SAMPLE_ID','PATIENT_ID', 'SEX', 'RACE_CATEGORY', 'curated_organ_system',
+                              'CANCER_TYPE', 'ONCOTREE_CODE', 'curated_subtype_display', 'CANCER_TYPE_DETAILED',
+                              'PRIMARY_TUMOR_SITE', 'SAMPLE_TYPE', 'METASTATIC_SITE', 'GENE_PANEL',
+                              'SAMPLE_COVERAGE', 'TUMOR_PURITY', 'MSI_TYPE', 'MSI_SCORE', 
+                              'FRACTION_GENOME_ALTERED', 'IMPACT_TMB_SCORE', 'MUTATION_COUNT',
+                              'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)',
+                              'OVERALL_SURVIVAL_STATUS', 'OVERALL_SURVIVAL_(MONTHS)')]
+
+##----------------+
+## Oncotree Annotations;
+##----------------+
+
+# oncotree_table = read.csv('Data/00_CohortData/oncotree.json', sep = '\t')
+# oncotree_table$metanci = NULL
+# oncotree_table$metaumls = NULL
+# oncotree_table$history = NULL
+# oncotree_table$level_7 = NULL
+# 
+# ne = data.frame()
+# for(i in 1:nrow(oncotree_table)){
+#   print(i)
+#   new = data.frame(parent = paste(oncotree_table[i,c(1,2,3,4,5,6)], sep = ';', collapse = ';'))
+#   ne = rbind(ne, new)
+# }
+# ne$parent = gsub(pattern = ';+', ';', ne$parent)
+# ne$parent = substr(x = ne$parent, start = 1, stop = nchar(ne$parent) - 1)
+# ne$last = NA
+# ne$cancertype = NA
+# for(i in 1:nrow(ne)){
+#   all_types = unlist(strsplit(x = ne$parent[i], split = ';', fixed = T))
+#   all_types_length = length(all_types)
+#   ne$last[i] = all_types[all_types_length]
+#   ne$cancertype[i] = all_types[1]
+# }
+# 
+# ne$code = gsub("[\\(\\)]", "", regmatches(ne$last,gregexpr("\\(.*?\\)", ne$last)))
+# ne = ne[,c(3,2,4,1)]
+# colnames(ne) = c('CancerType', 'cancer_type_detail', 'oncotree_code', 'name_pileup')
+# write.table(ne, file = 'Data/00_CohortData/Oncotree_Code_formated.txt', sep = '\t', row.names = F, quote = F)
+
+oncotree = read.csv('Data/00_CohortData/Oncotree_Code_formated.txt', sep = '\t', header = F)
+colnames(oncotree) = c('CancerType', 'cancer_type_detail', 'oncotree_code', 'name_pileup')
+
+portal_data$CANCER_TYPE_ritika = NA
+portal_data$CANCER_TYPE_DETAILED_ritika = NA
 
 for(i in 1:nrow(portal_data)){
-  if(is.na(portal_data$curated_subtype_display[i])){
-    portal_data$curated_subtype_display[i] = portal_data$CANCER_TYPE_DETAILED[i]
-  } else next
+  print(i)
+  if(portal_data$ONCOTREE_CODE[i] %in% oncotree$oncotree_code){
+    portal_data$CANCER_TYPE_ritika[i] = oncotree$CancerType[which(oncotree$oncotree_code == portal_data$ONCOTREE_CODE[i])]
+    portal_data$CANCER_TYPE_DETAILED_ritika[i] = oncotree$cancer_type_detail[which(oncotree$oncotree_code == portal_data$ONCOTREE_CODE[i])]
+  } else {
+    portal_data$CANCER_TYPE_ritika[i] = NA
+    portal_data$CANCER_TYPE_DETAILED_ritika[i] = NA
+  }
 }
 
-portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)` = as.character(as.numeric(portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)`))
-portal_data$TUMOR_PURITY = as.numeric(as.character(portal_data$TUMOR_PURITY))
+portal_data = portal_data[!is.na(portal_data$CANCER_TYPE), ]
+portal_data = portal_data[!portal_data$CANCER_TYPE_ritika %in% c('Myeloid (MYELOID)', 
+                                                                 'Lymphoid (LYMPH)'), ] 
 
 
 ##----------------+
@@ -195,15 +236,7 @@ for(i in 1:nrow(MSK_out)){
 ##----------------+
 ## Clinical variables
 ##----------------+
-Clinical_annotation = portal_data[, c('SAMPLE_ID','PATIENT_ID', 'SEX', 'RACE_CATEGORY', 'curated_organ_system',
-                                      'CANCER_TYPE', 'ONCOTREE_CODE', 'curated_subtype_display', 'CANCER_TYPE_DETAILED',
-                                      'PRIMARY_TUMOR_SITE', 'SAMPLE_TYPE', 'METASTATIC_SITE', 'GENE_PANEL',
-                                      'SAMPLE_COVERAGE', 'TUMOR_PURITY', 'MSI_TYPE', 'MSI_SCORE', 
-                                      'FRACTION_GENOME_ALTERED', 'IMPACT_TMB_SCORE', 'MUTATION_COUNT',
-                                      'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)',
-                                      'OVERALL_SURVIVAL_STATUS', 'OVERALL_SURVIVAL_(MONTHS)')]
-
-
+Clinical_annotation = portal_data
 MSK_out$PANEL = NULL
 MSK_out$SAMPLE_TYPE = NULL
 MSK_out$PATIENT_ID = NULL
@@ -215,7 +248,7 @@ colnames(MSK_out)[25] = 'OS_Status'
 colnames(MSK_out)[26] = 'OS_months'
 colnames(MSK_out)[24] = 'Age_Sequencing'
 
-MSK_out = MSK_out[,c(1,5, 6,7,8,9,10,11, 12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,2,3,4)]
+MSK_out = MSK_out[,c(1,5, 49, 50, 6,7,8,9,10,11, 12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,2,3,4)]
 write.table(MSK_out, 
             "~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/IMPACT_dataFreeze_07.13.22.txt", 
             sep = "\t", row.names = F, quote = F)
