@@ -22,7 +22,7 @@ setwd('~/Documents/MSKCC/10_MasterThesis/')
 ##----------------+
 IMPACT = read.csv('Data/00_CohortData/IMPACT_dataFreeze_07.13.22.txt', sep = '\t')
 IMPACT_mLOY = IMPACT[!is.na(IMPACT$Normal_bam), ]
-mLOY_files = list.files('Data/03_Mosaicism/Normalized/', full.names = T)
+mLOY_files = list.files('Data/03_Mosaicism/Normalized2/Normalized/', full.names = T)
 mLOY_files_short = substr(x = basename(mLOY_files), start = 1, stop = 17)
 length(intersect(mLOY_files_short, IMPACT_mLOY$SAMPLE_ID))
 length(intersect(mLOY_files_short, IMPACT_mLOY$SAMPLE_ID)) == length(mLOY_files)
@@ -39,7 +39,7 @@ length(intersect(mLOY_files_short, IMPACT_mLOY$SAMPLE_ID)) == length(mLOY_files)
 ## calculate read-depth 
 ## ratio
 ##----------------+
-mLOY_files = list.files('Data/03_Mosaicism/Normalized/', full.names = T)
+mLOY_files = list.files('Data/03_Mosaicism/Normalized2/Normalized/', full.names = T)
 read_mLOY = function(data){
   print(data)
   name = substr(basename(data), start = 1, stop = 17)
@@ -206,3 +206,9 @@ plot_grid(histo, jitter, nrow = 2, rel_heights = c(1,5), align = 'hv')
 ##----------------+
 lower_cutoff = quantile(y$OY, probs = 0.01)[[1]]
 upper_cutoff = quantile(y$OY, probs = 0.99)[[1]]
+y$mLOY = ifelse(y$OY < lower_cutoff, 'mLOY', 'no_mLOY')
+
+# 1% mLOY
+
+
+
