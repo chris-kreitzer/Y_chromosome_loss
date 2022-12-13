@@ -35,15 +35,17 @@ rownames(portal_data) = portal_data$SAMPLE_ID
 FacetsPaths = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/facets_annotated.cohort.txt.gz', sep = '\t')
 FacetsPaths = FacetsPaths[!duplicated(FacetsPaths$tumor_sample), ]
 
-#' exclude heme patients;
-#' and any lymphoid; myeloid cancers
+#' exclude heme gene-panel;
+#' and lymphoid; myeloid tumors
 portal_data$STUDY_ID = NULL
 portal_data$DIAGNOSIS_AGE = NULL
 portal_data = portal_data[!portal_data$GENE_PANEL %in% c("ACCESS129", "IMPACT-HEME-400", "IMPACT-HEME-468"), ]
 portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)` = as.character(as.numeric(portal_data$`AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)`))
 portal_data$TUMOR_PURITY = as.numeric(as.character(portal_data$TUMOR_PURITY))
 
-
+##----------------+
+## Oncotree annotation
+##----------------+
 tropism = readxl::read_excel('~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Tropism_Bastien.xlsx', sheet = 'Table S1B', skip = 2)
 tropism = tropism[,c('sample_id', 'curated_organ_system', 'cancer_type', 'oncotree_code', 'curated_subtype_display', 'curated_subtype_abbr')]
 tropism = tropism[!duplicated(tropism$oncotree_code), ]
@@ -122,7 +124,6 @@ portal_data = portal_data[!is.na(portal_data$CANCER_TYPE), ]
 portal_data = portal_data[!portal_data$CANCER_TYPE_ritika %in% c('Myeloid (MYELOID)', 
                                                                  'Lymphoid (LYMPH)'), ] 
 
-
 ##----------------+
 ## only male samples;
 ##----------------+
@@ -186,12 +187,13 @@ sample_selection = function(data){
 }
 
 MSK_one_pts_sample = sample_selection(data = portal_data)
+portal_data = portal_data[which(portal_data$SAMPLE_ID %in% MSK_one_pts_sample$SAMPLE_ID), ]
 
 
 ##-----------------
 ## Get count-matrices
 ##-----------------
-MSK_one_pts_sample = merge(MSK_one_pts_sample, 
+MSK_one_pts_sample = merge(MSK_one_pts_sample[,c('SAMPLE_ID', 'PATIENT_ID')], 
                            FacetsPaths[, c('tumor_sample', 'counts_file')],
                            by.x = 'SAMPLE_ID', 
                            by.y = 'tumor_sample', all.x = T)
@@ -205,6 +207,7 @@ colnames(sh_mi)[ncol(sh_mi)] = 'counts_file'
 MSK_f = MSK_one_pts_sample[!MSK_one_pts_sample$SAMPLE_ID %in% sh$SAMPLE_ID, ]
 MSK_out = rbind(MSK_f, sh_mi)
 MSK_out = MSK_out[!is.na(MSK_out$counts_file), ]
+MSK_out$PATIENT_ID = NULL
 
 
 ##----------------+
@@ -236,19 +239,13 @@ for(i in 1:nrow(MSK_out)){
 ##----------------+
 ## Clinical variables
 ##----------------+
-Clinical_annotation = portal_data
-MSK_out$PANEL = NULL
-MSK_out$SAMPLE_TYPE = NULL
-MSK_out$PATIENT_ID = NULL
-MSK_out$METASTATIC_SITE = NULL
-MSK_out$SAMPLE_NUMBER = NULL
-
-MSK_out = merge(MSK_out, Clinical_annotation, by.x = 'SAMPLE_ID', by.y = 'SAMPLE_ID', all.x = T)
+MSK_out = merge(MSK_out, portal_data, by.x = 'SAMPLE_ID', by.y = 'SAMPLE_ID', all.x = T)
 colnames(MSK_out)[25] = 'OS_Status'
 colnames(MSK_out)[26] = 'OS_months'
 colnames(MSK_out)[24] = 'Age_Sequencing'
 
-MSK_out = MSK_out[,c(1,5, 49, 50, 6,7,8,9,10,11, 12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,2,3,4)]
+
+MSK_out = MSK_out[,c(1, 5, 6, 7, 9, 27, 28, 10, 14, 13, 15, 8, 11, 16, 18, 17, 19, 20, 21, 22, 23, 24, 25, 26, 2, 3, 4)]
 write.table(MSK_out, 
             "~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/IMPACT_dataFreeze_07.13.22.txt", 
             sep = "\t", row.names = F, quote = F)
@@ -261,7 +258,8 @@ saveRDS(Cohort071322, file = 'Data/00_CohortData/Cohort_071322.rds')
 
 ##----------------+
 ## Mosaic annotation: 
-## 08/24/2022
+## start: 08/24/2022
+## revision: 12/13/2022
 ##----------------+
 cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
 clinical = cohort$IMPACT_clinicalAnnotation
