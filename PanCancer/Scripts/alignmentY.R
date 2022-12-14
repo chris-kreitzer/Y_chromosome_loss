@@ -30,7 +30,8 @@ key_cols = c('chrom', 'start', 'end')
 
 alignment_Y = function(file){
   try({
-    name = substr(x = basename(file), start = 16, stop = 51)
+    name = substr(x = basename(file), start = 17, stop = 51)
+    print(name)
     countmatrix = data.table::fread(file, sep = ',')
     countmatrix = countmatrix[which(countmatrix$Chromosome == 'Y'), ]
     countY = data.frame(chrom = countmatrix$Chromosome,
@@ -53,9 +54,9 @@ alignment_Y = function(file){
 
 coverage = lapply(unique(Masterfile$counts_file), function(x) alignment_Y(file = x))
 coverage = data.table::rbindlist(coverage)
-write.table(coverage, file = '~/Master/coverage.txt', sep = '\t', row.names = F)
+write.table(coverage, file = '~/Master/coverage.txt', sep = '\t', row.names = F, quote = F)
 
-
+message('Part2: Starting')
 ##----------------+
 ## part 2:
 ##----------------+
@@ -86,8 +87,9 @@ alignment_summary = function(id){
 
 coverage_summary = lapply(unique(coverage$id), function(x) alignment_summary(id = x))
 coverage_summary = data.table::rbindlist(coverage_summary)
+write.table(coverage_summary, file = '~/Master/coverage_summary.txt', sep = '\t', row.names = F, quote = F)
 
-
+message('Part3: starting')
 ##----------------+
 ## part3: BAM quality
 ##----------------+
@@ -100,6 +102,7 @@ flag = scanBamFlag(isUnmappedQuery = FALSE,
                    isDuplicate = FALSE)
 
 bam_quality_check = function(file){
+  print(file)
   bam = file
   bai = paste0(substr(x = file, start = 1, stop = nchar(file) - 1), 'i')
   bamfile = BamFile(file = bam, index = bai)
@@ -135,7 +138,7 @@ bam_quality_check = function(file){
 MAPQ_BWA = lapply(unique(Masterfile$Normal_bam), function(x) bam_quality_check(file = x))
 MAPQ_BWA = data.table::rbindlist(MAPQ_BWA)
 
-write.table(MAPQ_BWA, file = '~/Master/MAPQ_BWA.txt', sep = '\t', row.names = F)
+write.table(MAPQ_BWA, file = '~/Master/MAPQ_BWA.txt', sep = '\t', row.names = F, quote = F)
 
 
 
