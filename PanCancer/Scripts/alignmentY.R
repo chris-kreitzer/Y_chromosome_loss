@@ -69,6 +69,37 @@ alignment_Y = function(files){
 out = lapply(unique(Masterfile$ID), function(x) alignment_Y(files = x))
 
 
+##---------------TEST-Normal
+bamfile = BamFile(file = '~/Desktop/KT218731-N.bam', 
+                  index = '~/Desktop/KT218731-N.bai')
+what = scanBamWhat()
+
+## which param: regions for this composite_mutation as GRangesList
+Y_interval = data.frame(chr = 'Y',
+                        start = Regions$Start_hg19,
+                        end = Regions$End_hg19,
+                        name = Regions$Gene_hgnc_symbol)
+Y_interval$end = as.integer(as.character(Y_interval$end))
+Y_interval = Y_interval[!is.na(Y_interval$end), ]
+which = makeGRangesFromDataFrame(Y_interval)
+flag = scanBamFlag(isUnmappedQuery = FALSE,
+                   isNotPassingQualityControls = FALSE,
+                   isSecondaryAlignment = FALSE,
+                   isDuplicate = NA)
+what = c("qname","seq","pos","cigar","qwidth","rname","mrnm","mpos","mate_status")
+param_unfiltered = ScanBamParam(which = which, 
+                                what = what)
+param_filtered = ScanBamParam(which = which, 
+                              mapqFilter = 60,
+                              flag = flag, 
+                              what = what)
+count_unfiltered = countBam(bamfile, param = param_unfiltered)
+count_unfiltered$tag = 'unfiltered'
+count_filtered = countBam(bamfile, param = param_filtered)
+count_filtered$tag = 'filtered'
+
+
+
 
 
 #' out
