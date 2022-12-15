@@ -1,7 +1,7 @@
 ##----------------+
 ## Assess fraction of seq. 
 ## reads uniquely mapping to 
-## chromosome Y features
+## chromosome Y genes
 ##----------------+
 ## Furthermore check the 
 ## sequence quality at
@@ -54,7 +54,7 @@ alignment_Y = function(file){
 
 coverage = lapply(unique(Masterfile$counts_file), function(x) alignment_Y(file = x))
 coverage = data.table::rbindlist(coverage)
-write.table(coverage, file = '~/Master/coverage.txt', sep = '\t', row.names = F, quote = F)
+#write.table(coverage, file = '~/Master/coverage.txt', sep = '\t', row.names = F, quote = F)
 
 message('Part2: Starting')
 ##----------------+
@@ -88,6 +88,7 @@ alignment_summary = function(id){
 coverage_summary = lapply(unique(coverage$id), function(x) alignment_summary(id = x))
 coverage_summary = data.table::rbindlist(coverage_summary)
 write.table(coverage_summary, file = '~/Master/coverage_summary.txt', sep = '\t', row.names = F, quote = F)
+
 
 message('Part3: starting')
 ##----------------+
