@@ -1,12 +1,16 @@
-#' Callable sequence; DNA elements from the Y-chromosome
-#' Read coverage (filtered and raw mapping) and per base coverage;
+##----------------+
+## Callable sequence; 
+## DNA elements from the Y-chromosome
+## Read coverage, and average
+##----------------+
 #' 
 #' start: 06/29/2022
 #' revision: 06/30/2022
 #' revision: 07/06/2022
 #' revision: 07/13/2022
 #' revision: 08/17/2022
-#' 
+#' revision: 12/15/2022
+#'
 #' chris-kreitzer
 
 
@@ -16,88 +20,6 @@ gc()
 setwd('~/Documents/MSKCC/10_MasterThesis/Data/')
 library(scales)
 library(ggrepel)
-
-
-#' Import data
-Alignments = read.csv(file = '01_Coverage_Depth/AlignmentStats.txt', sep = '\t')
-Regions = read.csv(file = '01_Coverage_Depth/Y_features_annotated_hg19.txt', sep = '\t')
-Regions = as.data.frame(Regions)
-
-#' merge regions with gene name
-Alignments = merge(Alignments, Regions[,c('hgnc_symbol', 'Start_hg19')], 
-                              by.x = 'start',  by.y = 'Start_hg19', 
-                   all.x = T)
-
-
-Alignment_summary = data.frame()
-for(i in unique(Alignments$hgnc_symbol)){
-  gene_filtered = exp(mean(log(Alignments$records[which(Alignments$hgnc_symbol == i & Alignments$tag == 'filtered')])))
-  gene_unfiltered = exp(mean(log(Alignments$records[which(Alignments$hgnc_symbol == i & Alignments$tag == 'unfiltered')])))
-  out_f = data.frame(gene = i,
-                     filtered_geo = gene_filtered,
-                     filtered_median = median(Alignments$records[which(Alignments$hgnc_symbol == i & Alignments$tag == 'filtered')]),
-                     unfiltered_geo = gene_unfiltered,
-                     unfiltered_median = median(Alignments$records[which(Alignments$hgnc_symbol == i & Alignments$tag == 'unfiltered')]))
-  
-  Alignment_summary = rbind(Alignment_summary, out_f)
-}
-
-
-#' if more than 50% of the read drop; exclude gene from analysis
-Alignment_summary$keep = ifelse(Alignment_summary$filtered_median > 20, 'yes', 'no')
-Alignment_summary$keep[is.na(Alignment_summary$keep)] = 'no'
-Alignment_summary = Alignment_summary[!is.na(Alignment_summary$gene), ]
-
-#' save output:
-Alignment_out = Alignment_summary[which(Alignment_summary$keep == 'yes'), ]
-keep = as.character(unique(y$gene))
-Alignment_out = Alignment_out[which(Alignment_out$gene %in% keep), ]
-Alignment_out = merge(Alignment_out, Regions[,c('hgnc_symbol', 'gene_biotype')], by.x = 'gene', by.y = 'hgnc_symbol', all.x = T)
-write.table(x = Alignment_out, file = '~/Documents/MSKCC/10_MasterThesis/Data/01_Coverage_Depth/DNA_elements_uniquely_covered.txt', sep = '\t', row.names = F, quote = F)
-# write.table(Alignment_summary, file = 'signedOut/Alignment_summary.txt', sep = '\t', row.names = F, quote = F)
-
-
-
-##-----------------
-## Visualization
-filter = Alignment_summary[,c('gene', 'filtered_median', 'keep')]
-colnames(filter) = c('gene', 'value', 'keep')
-filter$tag = 'filtered'
-unfilter = Alignment_summary[,c('gene', 'unfiltered_median', 'keep')]
-colnames(unfilter) = c('gene', 'value', 'keep')
-unfilter$tag = 'unfiltered'
-
-AlignmentsY = rbind(filter, unfilter)
-AlignmentsY$subject = rep(seq(1, nrow(Alignment_summary), 1), 2)
-AlignmentsY$tag = factor(AlignmentsY$tag, levels = c('unfiltered', 'filtered'))
-
-ggplot(AlignmentsY, aes(x = tag, y = value, group = subject, color = keep, label = ifelse(keep == 'yes', gene, ""))) +
-  geom_line(size = 0.65) +
-  geom_text_repel(size = 3.5) +
-  #geom_point(size = 0.3) +
-  geom_hline(yintercept = c(1, 10, 100, 1000, 10000), color = 'grey30', size = 0.25, linetype = 'dashed') +
-  scale_color_manual(values = c('no' = 'red', 'yes' = 'black'), name = '') +
-  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                labels = trans_format("log10", math_format(10^.x)),
-                limits = c(1e0, 1e4)) +
-  theme_bw() +
-  theme(axis.text = element_text(size = 12, color = 'black'),
-        aspect.ratio = 1.8,
-        panel.grid = element_blank(),
-        panel.border = element_rect(fill = NA, color = 'black', size = 2),
-        legend.position = 'none') +
-  labs(y = '# sequence reads [median]', 
-       x = paste0(length(unique(AlignmentsY$gene[which(AlignmentsY$keep == 'yes')])),
-                  '/', length(unique(AlignmentsY$gene))),
-       title = paste0('n = ', length(unique(Alignments$SampleID)), '; before and after filtering'))
-                                                             
-
-
-
-##-----------------
-## Cross-Check
-
-#' Pass
 
 
 ##-----------------
@@ -138,7 +60,7 @@ Master = Master[with(Master, !((loci %in% 4922131:5612269))), ]
 Master = Master[with(Master, !((loci %in% 10500000:14000000))), ]
 
 ##-------
-Master = read.csv('Coverage_n50.txt', sep = '\t')
+Master = read.csv('Data/01_Coverage_Depth/Coverage_n50.txt', sep = '\t')
 Master$seq = seq(1, nrow(Master), 1)
 
 ## Visualization
@@ -163,9 +85,9 @@ mtext(text = 'Coverage', side = 2, line = 3, cex = 1.2)
 mtext(text = 'Y chromosome coordinates [2.7-27.8 Mb]', side = 1, line = 1, cex = 1.2)
 
 
-
-###############################################################################
-#' per base coverage of kept genes; from countfiles (snp-pileup)
+##----------------+
+## per base coverage; 
+##----------------+ 
 library(facets)
 paths = read.csv('~/Documents/MSKCC/05_IMPACT40K/Data/Signed_out/Facets_annotated.cohort.txt', sep = '\t')
 cohort = read.csv('ProstateCohort_cbio.tsv', sep = '\t')
@@ -203,29 +125,5 @@ for(patient in 1:nrow(cohort)){
       }
       all_out = rbind(all_out, out)
     }
-    
   })
-  
 }
-
-##-----------------
-## Aggregate length to be assessed with MSK-IMPACT sequencing
-pileup = facetsY::readSnpMatrix(filename = '~/Desktop/mnt/ATMcountdata/countsMerged____P-0036764-T01-IM6_P-0036764-N01-IM6.dat.gz')
-Y_chromosome = pileup[which(pileup$Chromosome == 'Y' & 
-                               pileup$Position >= 2654550 & 
-                               pileup$Position <= 28000000), ]
-
-#' exclude PCDH11Y and centromeric region
-Y_chromosome = Y_chromosome[with(Y_chromosome, !((Position %in% 4922131:5612269))), ]
-Y_chromosome = Y_chromosome[with(Y_chromosome, !((Position %in% 10500000:14000000))), ]
-Y_chromosome = Y_chromosome[which(Y_chromosome$NOR.DP > 20), ]
-(max(Y_chromosome$Position) - min(Y_chromosome$Position)) / 59373566
-
-
-##-----------------------------------------------------------------------------
-## Investigate the output:
-baseCoverage = read.csv('baseCoverage.txt', sep = '\t')
-baseCoverageGene = baseCoverage[baseCoverage$mean_cov != 'N/A', ]
-baseCoverageGene$mean_cov = as.numeric(as.character(baseCoverageGene$mean_cov))
-
-hist(baseCoverageGene$mean_cov[which(baseCoverageGene$Gene == 'ZFY')], nclass = 50)
