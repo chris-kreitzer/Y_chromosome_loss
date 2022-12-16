@@ -13,6 +13,8 @@
 ## revision: 12/07/2022
 ## chris-kreitzer
 
+## TODO: add WES validation cohort:
+
 
 clean()
 gc()
