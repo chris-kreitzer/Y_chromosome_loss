@@ -1,14 +1,15 @@
-## Method validation of WES and IMPACT sequencing results
-## Show that both methods are suitable in calling Y-chromosome loss
-## We are using the median CnLR as surrogate for the binary Y-chromosome call;
-## Just show whether there is a significant association or not; WES provides us with a higher resolution;
-## 
-## Furthermore, we can expand the correlation analysis to include ploidy and purity estimates as well;
+##----------------+
+## Confirm IMPACT chromosome Y 
+## calls with WES sequenced
+## samples; using CnLR as surrogate
+## for binary Y-chromosome calls;
+##----------------+ 
 ## 
 ## Start (revision): 08/30/2021
 ## revision: 07/26/2022
 ## revision: 08/21/2022
-## 
+## revision: 12/16/2022
+
 ## chris-kreitzer
 
 clean()
@@ -20,30 +21,29 @@ source('Scripts/UtilityFunctions.R')
 
 
 ## Input
-WES_cnLR = read.csv('Data_out/WES/WES_cnLR_out.txt', sep = '\t')
-IMPACT_cnLR = read.csv('Data_out/IMPACT/Cnlr_out.txt', sep = '\t')
-WES.IMPACT.ids_df = read.csv('Data_in/WES_cBio_ID.match.txt', sep = '\t')
+WES_cnLR = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/02_Method_Validation/WES_cnLR_out.txt', sep = '\t')
+IMPACT_cnLR = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/02_Method_Validation/IMPACT_Cnlr_out.txt', sep = '\t')
+WES.IMPACT.ids_df = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/02_Method_Validation/WES_cBio_ID.match.txt', sep = '\t')
 
 
-## Data modifications:
-WES_cnLR$sample_id = substr(x = WES_cnLR$ID, start = 3, stop = 17)
-WES_cnLR$ID = NULL
-
-
-## Processing; 
-#' calculate median LRR for Y-chromosome; WES
+##----------------+
+## median LRR for WES 
+## chromosome Y
+##-----------------+
 WES_cnLR$mLRR = NA
-for(i in unique(WES_cnLR$sample_id)){
-  if(length(WES_cnLR$sample_id[which(WES_cnLR$sample_id == i)]) >= 10){
-    median.LRR = median(WES_cnLR$cnlr[which(WES_cnLR$sample_id == i)])
-    WES_cnLR$mLRR[which(WES_cnLR$sample_id == i)] = median.LRR
+for(i in unique(WES_cnLR$ID)){
+  print(i)
+  if(length(WES_cnLR$ID[which(WES_cnLR$ID == i)]) >= 10){
+    WES_cnLR$mLRR[which(WES_cnLR$ID == i)] = median(WES_cnLR$cnlr[which(WES_cnLR$ID == i)], na.rm = T)
   } else {
-    median.LRR = 0
-    WES_cnLR$mLRR[which(WES_cnLR$sample_id == i)] = median.LRR
+    WES_cnLR$mLRR[which(WES_cnLR$ID == i)] = 0
   }
 }
+WES_cnLR$ID = substr(x = WES_cnLR$ID, start = 3, stop = 17)
 
-#' IMPACT
+##----------------+
+## median LRR for IMPACT
+##----------------+
 IMPACT_cnLR$mLRR = NA
 for(i in unique(IMPACT_cnLR$ID)){
   if(length(IMPACT_cnLR$ID[which(IMPACT_cnLR$ID == i)]) >= 10){
@@ -56,34 +56,91 @@ for(i in unique(IMPACT_cnLR$ID)){
 }
 
 
-#' merge the two data frames;
+##----------------+
+## merge datasets
+##----------------+
 Seq_merged = WES.IMPACT.ids_df[, c('DMP_Sample_ID', 'CMO_Sample_ID', 'Sex')]
 Seq_merged$mLRR_IMPACT = NA
 Seq_merged$mLRR_WES = NA
 
 for(i in 1:nrow(Seq_merged)){
+  print(i)
   if(Seq_merged$DMP_Sample_ID[i] %in% IMPACT_cnLR$ID){
     Seq_merged$mLRR_IMPACT[i] = IMPACT_cnLR$mLRR[which(IMPACT_cnLR$ID == Seq_merged$DMP_Sample_ID[i])]
   } else {
-    Seq_merged$mLRR_IMPACT[i] = 0
+    Seq_merged$mLRR_IMPACT[i] = NA
   }
 }
 
 for(i in 1:nrow(Seq_merged)){
-  if(Seq_merged$CMO_Sample_ID[i] %in% WES_cnLR$sample_id){
-    Seq_merged$mLRR_WES[i] = WES_cnLR$mLRR[which(WES_cnLR$sample_id == Seq_merged$CMO_Sample_ID[i])]
+  print(i)
+  if(Seq_merged$CMO_Sample_ID[i] %in% WES_cnLR$ID){
+    Seq_merged$mLRR_WES[i] = WES_cnLR$mLRR[which(WES_cnLR$ID == Seq_merged$CMO_Sample_ID[i])]
   } else {
-    Seq_merged$mLRR_WES[i] = 0
+    Seq_merged$mLRR_WES[i] = NA
   }
 }
 
-#' subset to only those samples where we have both, IMPACT and WES data
-Seq_merged = Seq_merged[which(Seq_merged$mLRR_IMPACT != 0 & Seq_merged$mLRR_WES != 0), ]
+Seq_merged = Seq_merged[!with(Seq_merged, is.na(mLRR_IMPACT) & is.na(mLRR_WES)), ]
 write.table(Seq_merged, file = '~/Documents/MSKCC/10_MasterThesis/Data/02_Method_Validation/mLRR_IMPACT_WES_n950.txt', sep = '\t', quote = F, row.names = F)
 
-##-----------------
+##----------------+
 ## Visualization
-## 
+##----------------+
+Y_continious_loss = ggplot(Seq_merged, 
+                           aes(x = mLRR_WES, 
+                               y = mLRR_IMPACT)) +
+  geom_point() +
+  geom_abline(slope = 1, 
+              intercept = 0,
+              linetype = 'dashed',
+              linewidth = 0.35,
+              color = 'grey35') +
+
+  # geom_vline(xintercept = 0,
+  #            color = 'grey55',
+  #            linewidth = 0.1,
+  #            linetype = 'dashed') +
+  # geom_hline(yintercept = 0, 
+  #            linewidth = 0.1, 
+  #            linetype = 'dashed',
+  #            color = 'grey55') +
+  scale_y_continuous(expand = c(0.01, 0.01),
+                     limits = c(-5, 2.5)) +
+  scale_x_continuous(expand = c(0.01, 0.01),
+                     limits = c(-5, 2.5)) +
+  annotate('text',
+           x = -3.5,
+           y = 1.5,
+           label = paste0('r = ', round(cor.test(Seq_merged$mLRR_IMPACT, Seq_merged$mLRR_WES)[[4]][[1]], 3), 
+                          '\np < 2.2e-16'),
+           hjust = 0, 
+           vjust = 0,
+           family = 'ArialMT',
+           size = 6) +
+  
+  theme(aspect.ratio = 1,
+        legend.position = 'top',
+        panel.border = element_rect(fill = NA, linewidth = 1.5),
+        axis.ticks = element_blank(),
+        axis.text = element_text(colour = 'black', size = 12),
+        panel.background = element_rect(fill = 'white')) +
+  
+  labs(x = 'Exome re-sequencing [Y-CnLR]',
+       y = 'MSK-IMPACT [Y-CnLR]',
+       title = 'Y-chromosome CnLR; n = 950')
+
+
+Y_continious_loss
+
+
+ggsave_golden(filename = 'Figures/Method_validation.pdf', plot = Y_continious_loss, width = 10)
+
+
+
+##----------------+
+## Base R solution; plot
+##----------------+
 dev.off()
 par(mfrow = c(1, 3))
 plot(Seq_merged$mLRR_IMPACT, Seq_merged$mLRR_WES,
@@ -118,51 +175,6 @@ text(x = -4.7, y = 1.7, labels = 'r = 97.5\n p < 2.2e-16')
 # P-0037069-T01-IM6
 # P-0047344-T01-IM6
 
-## ggplot solution
-Y_continious_loss = ggplot(Seq_merged, 
-                           aes(x = mLRR_WES, 
-                               y = mLRR_IMPACT)) +
-  geom_point() +
-  geom_abline(slope = 1, 
-              intercept = 0,
-              linetype = 'dashed',
-              size = 0.1,
-              color = 'grey55') +
-
-  geom_vline(xintercept = 0,
-             color = 'grey55',
-             size = 0.1,
-             linetype = 'dashed') +
-  geom_hline(yintercept = 0, 
-             size = 0.1, 
-             linetype = 'dashed',
-             color = 'grey55') +
-  scale_y_continuous(expand = c(0.01, 0.01),
-                     limits = c(-5, 2.5)) +
-  scale_x_continuous(expand = c(0.01, 0.01),
-                     limits = c(-5, 2.5)) +
-  annotate('text',
-           x = -3.5,
-           y = 1.5,
-           label = paste0('r = ', round(cor.test(Seq_merged$mLRR_IMPACT, Seq_merged$mLRR_WES)[[4]][[1]], 3), 
-                          '\np < 2.2e-16'),
-           hjust = 0, 
-           vjust = 0,
-           family = 'ArialMT',
-           size = 6) +
-  
-  theme(aspect.ratio = 1,
-        legend.position = 'top') +
-  
-  labs(x = 'WES [median Copy Number Log Ratio]',
-       y = 'IMPACT [median Copy Number Log Ratio]',
-       title = 'Y-chromosome CnLR; n = 950')
-
-
-Y_continious_loss
-
-
-ggsave_golden(filename = 'Figures/Method_validation.pdf', plot = Y_continious_loss, width = 10)
 
 
 
