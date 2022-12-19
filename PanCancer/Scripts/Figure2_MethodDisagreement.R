@@ -65,3 +65,11 @@ box(lwd = 2)
 mtext(text = 'CnLR', side = 2, line = 1.8)
 mtext(text = 'MSK-WES: C_MA7WDN_M001_d', side = 3, line = 1, adj = 0)
 dev.off()
+
+
+
+
+setwd('~/Documents/MSKCC/10_MasterThesis/')
+a = read.csv('Data/02_Method_Validation/mLRR_IMPACT_WES_n950.txt', sep = '\t')
+dim(a)
+cbio(a$DMP_Sample_ID)
