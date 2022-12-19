@@ -1,19 +1,29 @@
-##-----------------
+##----------------+
 ## Chromosome Y coverage
 ## starting from IMPACT pileups
 ## which genes (features) are covered
 ## assess the depth and breadth
-##-----------------
+##----------------+
 
 ## start: 09/14/2022
+## revision: 12/19/2022
 ## chris-kreitzer
 
 ## juno version 
 ## n=22,320 IMPACT cases
 
+clean()
+gc()
+setwd('~/Documents/MSKCC/10_MasterThesis/')
+cohort = read.csv('Data/00_CohortData/IMPACT_dataFreeze_07.13.22.txt', sep = '\t')
 
-library(data.table)
-library(dplyr)
+##----------------+
+## Part1: 
+## Feature coverage across 
+## n=429 elements; 
+## CountMatrices (snp-pileup) 
+## average-depth; features to retain
+##----------------+
 
 files = read.csv('/home/kreitzec/Master/Data/IMPACT_dataFreeze_07.13.22.txt', sep = '\t')
 files = as.character(files$counts_file)
@@ -62,16 +72,13 @@ breath_out = data.table::rbindlist(breath_out)
 
 write.table(x = breath_out, file = '/home/kreitzec/Master/Data/breath_out.txt', sep = '\t', row.names = F)
 
-#' out
-
-
-
-
 
 ##-----------------
-## Downstream analysis
+## Part2:
+## Downstream analysis;
 ##-----------------
 ## 09/16/2022
+## 12/19/2022
 
 clean()
 gc()
