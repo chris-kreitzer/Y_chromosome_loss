@@ -126,15 +126,13 @@ Y_continious_loss = ggplot(Seq_merged,
         axis.text = element_text(colour = 'black', size = 12),
         panel.background = element_rect(fill = 'white')) +
   
-  labs(x = 'Exome re-sequencing [Y-CnLR]',
-       y = 'MSK-IMPACT [Y-CnLR]',
-       title = 'Y-chromosome CnLR; n = 950')
+  labs(x = 'Exome re-sequencing [m-CnLR]',
+       y = 'MSK-IMPACT [m-CnLR]',
+       title = 'Y-chromosome; n = 950')
 
 
 Y_continious_loss
-
-
-ggsave_golden(filename = 'Figures/Method_validation.pdf', plot = Y_continious_loss, width = 10)
+ggsave_golden(filename = '~/Documents/MSKCC/10_MasterThesis/Figures_original/Method_validation_mCnLR.pdf', plot = Y_continious_loss, width = 10)
 
 
 
