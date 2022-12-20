@@ -7,7 +7,6 @@
 ## revision: 08/24/2022
 ## chris-kreitzer
 
-
 CI_z <- function (x, ci = 0.95){
   `%>%` <- magrittr::`%>%`
   standard_deviation = sd(x)
