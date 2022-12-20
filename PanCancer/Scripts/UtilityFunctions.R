@@ -1,8 +1,10 @@
-## Utility functions for Y-chromosome Project
-## 
+##----------------+
+## Utility functions 
+## for Y-chromosome Project
+##----------------+
+##
 ## start: 08/11/2021
 ## revision: 08/24/2022
-## 
 ## chris-kreitzer
 
 
