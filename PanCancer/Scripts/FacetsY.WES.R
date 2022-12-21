@@ -1,14 +1,18 @@
+##----------------+
 ## FacetsY on WES recapture samples
-## I will start with n = 957 samples which have corresponding IMPACT sequencing
-## This script is intened to be run on the juno cluster
+## Starting with n = 957 samples 
+## Juno-scirpt
+##----------------+
 
 ## run purity run (cval = 700) first; then get dipLogR and run with cval 150
 ## exclude base coverage > 30 Mb (see coverage plot) (PAR2 region not relevant)
 ## hinders Segmentation
 ## run FacetsQC and flag samples with QC == FALSE
 
-## 04/14/2021
-## modified on 08/25/2021
+## start: 04/14/2021
+## revision: 08/25/2021
+## revision: 12/21/2022
+
 ## chris Kreitzer
 
 
