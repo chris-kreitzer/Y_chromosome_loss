@@ -1,5 +1,11 @@
 ##-----------------
-## Tumor classification: LOY
+## Tumor classification: 
+## LOY:
+## - complete
+## - partial
+## - relative
+## - gain
+## - gain-loss
 ##-----------------
 ##
 ## start: 09/21/2022
