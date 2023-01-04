@@ -1,6 +1,6 @@
 ##-----------------
 ## IGV plots on Y-chromosome
-## cancers; inspected
+## cancers; modified
 ##-----------------
 
 clean()
