@@ -9,14 +9,17 @@
 ##-----------------
 ##
 ## start: 09/21/2022
+## revision: 01/05/2023
 ## chris-kreitzer
+
 
 clean()
 gc()
 .rs.restartR()
+setwd('~/Documents/MSKCC/10_MasterThesis/')
 
 #' data
-CNA = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/04_Loss/IMPACT_copynumber_out.txt', sep = '\t')
+CNA = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/04_Loss/010523/CopyNumberStates.txt', sep = '\t')
 
 
 ##-----------------
