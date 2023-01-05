@@ -28,7 +28,7 @@ CNA = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/04_Loss/010523/CopyNumber
 Y_loss_call = function(data, sample.id){
   try({
     print(sample.id)
-    data.sub = data[which(data$ID == sample.id), ]
+    data.sub = data[which(data$id == sample.id), ]
     data.sub = data.sub[which(data.sub$chrom == 24), ]
     if(nrow(data.sub) == 0) next
     else {
@@ -63,8 +63,11 @@ Y_loss_call = function(data, sample.id){
   })
 }
 
-Y_evaluation = lapply(unique(CNA$ID),
+Y_evaluation = lapply(unique(CNA$id),
                       function(x) Y_loss_call(data = CNA, sample.id = x))
+
+
+
 
 #' exclude samples with no call
 Y_evaluation = Y_evaluation[!grepl(pattern = 'Error*', Y_evaluation$chrom), ]
@@ -76,15 +79,16 @@ Y_evaluation = data.table::rbindlist(Y_evaluation)
 ##-----------------
 x = Y_evaluation
 Y_out_all = data.frame()
-for(i in unique(x$ID)){
+for(i in unique(x$id)){
   print(i)
-  data.sub = x[which(x$ID == i), c('cnlr.median', 'tcn.em', 
+  data.sub = x[which(x$id == i), c('cnlr.median', 'tcn.em', 
                                    'lcn.em', 'ID', 'purity', 
                                    'ploidy', 'classification',
                                    'Y_call', 'expected')]
   classi = data.sub$classification
   Y_expected = data.sub$expected
-  out = ifelse(all(data.sub$tcn.em == 0), 'loss',
+  
+  out = ifelse(all(data.sub$tcn.em == 0), 'complete_loss',
                ifelse(data.sub$tcn.em < Y_expected & data.sub$tcn.em != 0, 'relative_loss',
                       ifelse(all(classi == 'wt'), 'wt',
                              ifelse(all(classi %in% c('wt', 'gain')), 'gain',
