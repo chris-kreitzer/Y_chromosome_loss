@@ -74,37 +74,89 @@ Y_evaluation = Y_evaluation[!grepl(pattern = 'Error*', Y_evaluation$chrom), ]
 Y_evaluation = Filter(function(x) length(x) > 1, Y_evaluation)
 Y_evaluation = data.table::rbindlist(Y_evaluation)
 
+
+
 ##-----------------
 ## sample classification:
 ##-----------------
-x = Y_evaluation
-Y_out_all = data.frame()
-for(i in unique(x$id)){
+n_segments = table(Y_evaluation$id)
+mono_segments = names(n_segments[which(n_segments == 1)])
+double_segments = names(n_segments[which(n_segments == 2)])
+tripe_segments = names(n_segments[which(n_segments == 3)])
+quatro_segments = names(n_segments[which(n_segments == 4)])
+
+##----------------+
+## classification of 
+## mono segments
+##----------------+
+mono_Y = Y_evaluation[which(Y_evaluation$id %in% mono_segments), ]
+Y_out_mono = data.frame()
+for(i in unique(mono_Y$id)){
   print(i)
-  data.sub = x[which(x$id == i), c('cnlr.median', 'tcn.em', 
+  data.sub = mono_Y[which(mono_Y$id == i), c('cnlr.median', 'tcn.em', 
                                    'lcn.em', 'ID', 'purity', 
                                    'ploidy', 'classification',
                                    'Y_call', 'expected')]
   classi = data.sub$classification
   Y_expected = data.sub$expected
   
-  out = ifelse(all(data.sub$tcn.em == 0), 'complete_loss',
+  out = ifelse(data.sub$tcn.em == 0, 'complete_loss',
                ifelse(data.sub$tcn.em < Y_expected & data.sub$tcn.em != 0, 'relative_loss',
-                      ifelse(all(classi == 'wt'), 'wt',
-                             ifelse(all(classi %in% c('wt', 'gain')), 'gain',
-                                    ifelse(all(classi %in% c('wt', 'loss')), 'loss',
-                                           ifelse(all(classi %in% c('gain', 'loss')), 'gain_loss',
-                                                  ifelse(all(classi %in% c('loss')), 'loss', NA)))))))
+                      ifelse(data.sub$tcn.em == Y_expected, 'wt',
+                             ifelse(data.sub$tcn.em > Y_expected, 'gain', NA))))
     Y_out = data.frame(sample = i,
                        ploidy = data.sub$ploidy,
                        Y_expected = Y_expected,
                        Y_call = data.sub$Y_call,
                        classification = out)
-    Y_out_all = rbind(Y_out_all, Y_out)
-  }
+    Y_out_mono = rbind(Y_out_mono, Y_out)
 }
 
-Y_out_all = Y_out_all[!duplicated(Y_out_all$sample), ]
+
+##----------------+
+## double segments
+##----------------+
+double_Y = Y_evaluation[which(Y_evaluation$id %in% double_segments), ]
+Y_out_double = data.frame()
+for(i in unique(double_Y$id)){
+  print(i)
+  data.sub = mono_Y[which(mono_Y$id == i), c('cnlr.median', 'tcn.em', 
+                                             'lcn.em', 'ID', 'purity', 
+                                             'ploidy', 'classification',
+                                             'Y_call', 'expected')]
+  for(j in 1:nrow(data.sub)){
+    Y_expected = unique(data.sub$expected)
+    dominant = 
+    
+    out = ifelse(data.sub$tcn.em == 0, 'complete_loss',
+                 ifelse(data.sub$tcn.em < Y_expected & data.sub$tcn.em != 0, 'relative_loss',
+                        ifelse(data.sub$tcn.em == Y_expected, 'wt',
+                               ifelse(data.sub$tcn.em > Y_expected, 'gain', NA))))
+    Y_out = data.frame(sample = i,
+                       ploidy = data.sub$ploidy,
+                       Y_expected = Y_expected,
+                       Y_call = data.sub$Y_call,
+                       classification = out)
+    Y_out_mono = rbind(Y_out_mono, Y_out)
+  }
+  }
+  classi = data.sub$classification
+  Y_expected = data.sub$expected
+  
+  out = ifelse(data.sub$tcn.em == 0, 'complete_loss',
+               ifelse(data.sub$tcn.em < Y_expected & data.sub$tcn.em != 0, 'relative_loss',
+                      ifelse(data.sub$tcn.em == Y_expected, 'wt',
+                             ifelse(data.sub$tcn.em > Y_expected, 'gain', NA))))
+  Y_out = data.frame(sample = i,
+                     ploidy = data.sub$ploidy,
+                     Y_expected = Y_expected,
+                     Y_call = data.sub$Y_call,
+                     classification = out)
+  Y_out_mono = rbind(Y_out_mono, Y_out)
+}
+
+
+
 
 
 write.table(x = Y_out_all, file = '~/Documents/MSKCC/10_MasterThesis/Data/04_Loss/Categorial_Classification_Y.txt', sep = '\t', row.names = F)
