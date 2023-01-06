@@ -82,8 +82,8 @@ Y_evaluation = data.table::rbindlist(Y_evaluation)
 n_segments = table(Y_evaluation$id)
 mono_segments = names(n_segments[which(n_segments == 1)])
 double_segments = names(n_segments[which(n_segments == 2)])
-tripe_segments = names(n_segments[which(n_segments == 3)])
-quatro_segments = names(n_segments[which(n_segments == 4)])
+multi_segments = names(n_segments[which(n_segments > 2)])
+
 
 ##----------------+
 ## classification of 
@@ -120,40 +120,91 @@ double_Y = Y_evaluation[which(Y_evaluation$id %in% double_segments), ]
 Y_out_double = data.frame()
 for(i in unique(double_Y$id)){
   print(i)
-  data.sub = mono_Y[which(mono_Y$id == i), c('cnlr.median', 'tcn.em', 
+  data.sub = double_Y[which(double_Y$id == i), c('cnlr.median', 'tcn.em', 
                                              'lcn.em', 'ID', 'purity', 
                                              'ploidy', 'classification',
                                              'Y_call', 'expected')]
-  for(j in 1:nrow(data.sub)){
-    Y_expected = unique(data.sub$expected)
-    dominant = 
-    
-    out = ifelse(data.sub$tcn.em == 0, 'complete_loss',
-                 ifelse(data.sub$tcn.em < Y_expected & data.sub$tcn.em != 0, 'relative_loss',
-                        ifelse(data.sub$tcn.em == Y_expected, 'wt',
-                               ifelse(data.sub$tcn.em > Y_expected, 'gain', NA))))
-    Y_out = data.frame(sample = i,
-                       ploidy = data.sub$ploidy,
-                       Y_expected = Y_expected,
-                       Y_call = data.sub$Y_call,
-                       classification = out)
-    Y_out_mono = rbind(Y_out_mono, Y_out)
-  }
-  }
-  classi = data.sub$classification
-  Y_expected = data.sub$expected
+  Y_expected = unique(data.sub$expected)
+  data.sub$call = NA
   
-  out = ifelse(data.sub$tcn.em == 0, 'complete_loss',
-               ifelse(data.sub$tcn.em < Y_expected & data.sub$tcn.em != 0, 'relative_loss',
-                      ifelse(data.sub$tcn.em == Y_expected, 'wt',
-                             ifelse(data.sub$tcn.em > Y_expected, 'gain', NA))))
-  Y_out = data.frame(sample = i,
-                     ploidy = data.sub$ploidy,
-                     Y_expected = Y_expected,
-                     Y_call = data.sub$Y_call,
+  for(j in 1:nrow(data.sub)){
+    data.sub$call[j] = ifelse(data.sub$tcn.em[j] == 0, 'complete_loss',
+                              ifelse(data.sub$tcn.em[j] < Y_expected & data.sub$tcn.em[j] != 0, 'relative_loss',
+                                     ifelse(data.sub$tcn.em[j] == Y_expected, 'wt',
+                                            ifelse(data.sub$tcn.em[j] > Y_expected, 'gain', NA))))
+  }
+  
+  states = c(data.sub$call)
+  out = ifelse(all(states %in% c('wt', 'wt')), 'wt',
+               ifelse(all(states %in% c('wt', 'gain')), 'partial_gain',
+                      ifelse(all(states %in% c('wt', 'relative_loss')), 'relative_loss',
+                             ifelse(all(states %in% c('gain', 'gain')), 'gain',
+                                    ifelse(all(states %in% c('wt', 'complete_loss')), 'partial_loss',
+                                           ifelse(all(states %in% c('gain', 'complete_loss')), 'gain_loss',
+                                                  ifelse(all(states %in% c('gain', 'relative_loss')), 'gain_loss',
+                                                         ifelse(all(states %in% c('complete_loss', 'complete_loss')), 'complete_loss',
+                                                                ifelse(all(states %in% c('relative_loss', 'complete_loss')), 'relative_loss', NA)))))))))
+  
+  Y_out = data.frame(sample = unique(i),
+                     ploidy = unique(data.sub$ploidy),
+                     Y_expected = unique(Y_expected),
+                     #Y_call = data.sub$Y_call,
                      classification = out)
-  Y_out_mono = rbind(Y_out_mono, Y_out)
+  
+  Y_out_double = rbind(Y_out_double, Y_out)
 }
+
+
+
+##----------------+
+## multi segments;
+## take only the first 
+## two longest
+##----------------+
+##----------------+
+## double segments
+##----------------+
+multi_Y = Y_evaluation[which(Y_evaluation$id %in% multi_segments), ]
+Y_out_multi = data.frame()
+for(i in unique(double_Y$id)){
+  print(i)
+  data.sub = double_Y[which(double_Y$id == i), c('cnlr.median', 'tcn.em', 
+                                                 'lcn.em', 'ID', 'purity', 
+                                                 'ploidy', 'classification',
+                                                 'Y_call', 'expected')]
+  Y_expected = unique(data.sub$expected)
+  data.sub$call = NA
+  
+  for(j in 1:nrow(data.sub)){
+    data.sub$call[j] = ifelse(data.sub$tcn.em[j] == 0, 'complete_loss',
+                              ifelse(data.sub$tcn.em[j] < Y_expected & data.sub$tcn.em[j] != 0, 'relative_loss',
+                                     ifelse(data.sub$tcn.em[j] == Y_expected, 'wt',
+                                            ifelse(data.sub$tcn.em[j] > Y_expected, 'gain', NA))))
+  }
+  
+  states = c(data.sub$call)
+  out = ifelse(all(states %in% c('wt', 'wt')), 'wt',
+               ifelse(all(states %in% c('wt', 'gain')), 'partial_gain',
+                      ifelse(all(states %in% c('wt', 'relative_loss')), 'relative_loss',
+                             ifelse(all(states %in% c('gain', 'gain')), 'gain',
+                                    ifelse(all(states %in% c('wt', 'complete_loss')), 'partial_loss',
+                                           ifelse(all(states %in% c('gain', 'complete_loss')), 'gain_loss',
+                                                  ifelse(all(states %in% c('gain', 'relative_loss')), 'gain_loss',
+                                                         ifelse(all(states %in% c('complete_loss', 'complete_loss')), 'complete_loss',
+                                                                ifelse(all(states %in% c('relative_loss', 'complete_loss')), 'relative_loss', NA)))))))))
+  
+  Y_out = data.frame(sample = unique(i),
+                     ploidy = unique(data.sub$ploidy),
+                     Y_expected = unique(Y_expected),
+                     #Y_call = data.sub$Y_call,
+                     classification = out)
+  
+  Y_out_double = rbind(Y_out_double, Y_out)
+}
+
+
+
+
 
 
 
