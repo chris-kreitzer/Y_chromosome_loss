@@ -166,15 +166,20 @@ for(i in unique(double_Y$id)){
 ##----------------+
 multi_Y = Y_evaluation[which(Y_evaluation$id %in% multi_segments), ]
 Y_out_multi = data.frame()
-for(i in unique(double_Y$id)){
+for(i in unique(multi_Y$id)){
   print(i)
-  data.sub = double_Y[which(double_Y$id == i), c('cnlr.median', 'tcn.em', 
-                                                 'lcn.em', 'ID', 'purity', 
+  data.sub = multi_Y[which(multi_Y$id == i), c('cnlr.median', 'tcn.em', 
+                                                 'lcn.em', 'ID', 'purity', 'length', 
                                                  'ploidy', 'classification',
                                                  'Y_call', 'expected')]
   Y_expected = unique(data.sub$expected)
-  data.sub$call = NA
+  n = length(data.sub$length)
+  x0 = which.max(data.sub$length)
+  x1 = sort(data.sub$length, partial = n-1)[n-1]
+  x1 = which(data.sub$length == x1, arr.ind = T)
+  data.sub = data.sub[c(x0, x1), ]
   
+  data.sub$call = NA
   for(j in 1:nrow(data.sub)){
     data.sub$call[j] = ifelse(data.sub$tcn.em[j] == 0, 'complete_loss',
                               ifelse(data.sub$tcn.em[j] < Y_expected & data.sub$tcn.em[j] != 0, 'relative_loss',
@@ -199,10 +204,10 @@ for(i in unique(double_Y$id)){
                      #Y_call = data.sub$Y_call,
                      classification = out)
   
-  Y_out_double = rbind(Y_out_double, Y_out)
+  Y_out_multi = rbind(Y_out_multi, Y_out)
 }
 
-
+View(multi_Y)
 
 
 
