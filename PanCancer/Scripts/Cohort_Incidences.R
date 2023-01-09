@@ -132,25 +132,205 @@ Fraction_across_cancerTypes = ggplot(CancerTypes,
 
 ## combine
 plot.out = fraction_Y_loss + theme(legend.position = 'none') + Fraction_across_cancerTypes + labs(y = '')
-ggsave(filename = 'Figures_original/Fraction_Y_loss_acrossCancer.pdf', plot = plot.out, device = 'pdf', width = 14)
+ggsave(filename = 'Figures_original/LOY_CancerType_Ritika.pdf', plot = plot.out, device = 'pdf', width = 14)
 
 
 
 ##----------------+
 ## CancerType detailed
 ##----------------+
+CancerTypesDetailed = data.frame()
+for(i in unique(cohort$CANCER_TYPE_DETAILED_ritika)){
+  data.sub = cohort[which(cohort$CANCER_TYPE_DETAILED_ritika == i), ]
+  n = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE_DETAILED_ritika == i)])
+  for(j in unique(data.sub$classification)){
+    fraction = length(data.sub$SAMPLE_ID[which(data.sub$classification == j)]) / n
+    out = data.frame(cancer = i,
+                     category = j,
+                     fraction = fraction,
+                     n = n,
+                     n_all = n/length(unique(cohort$SAMPLE_ID)) * 100)
+    CancerTypesDetailed = rbind(CancerTypesDetailed, out)
+  }
+}
 
 
+##----------------+
+CancerTypesDetailed = CancerTypesDetailed[which(CancerTypesDetailed$n_all >= 0.5), ]
+CancerTypesDetailed = CancerTypesDetailed[!is.na(CancerTypesDetailed$category), ]
+CancerTypesDetailed$cancer[which(CancerTypesDetailed$cancer == 'Undifferentiated Pleomorphic Sarcoma/Malignant Fibrous Histiocytoma/High-Grade Spindle Cell Sarcoma (MFH)')] = 'High-Grade Spindle Cell Sarcoma (MFH)'
+#CancerTypes$cancer = gsub("\\s*\\([^\\)]+\\)", "", CancerTypes$cancer)
+#CancerTypesDetailed$cancer = paste(CancerTypesDetailed$cancer, paste0('(n=', CancerTypes$n, ')'), sep = '\n')
+loss = CancerTypesDetailed[which(CancerTypesDetailed$category %in% c('complete_loss')), ]
+loss = loss[order(loss$fraction), ]
+CancerTypesDetailed$cancer = factor(CancerTypesDetailed$cancer, levels = rev(loss$cancer))
+CancerTypesDetailed$category = factor(CancerTypesDetailed$category, levels = rev(c('complete_loss',
+                                                               'relative_loss',
+                                                               'partial_loss',
+                                                               'gain',
+                                                               'partial_gain',
+                                                               'gain_loss',
+                                                               'wt')))
+
+
+##----------------+
+## Visualization
+##----------------+
+Fraction_CancerTypesDetailed = ggplot(CancerTypesDetailed, 
+                                     aes(x = cancer, 
+                                         y = fraction, 
+                                         fill = category, 
+                                         label = paste0((round(fraction* 100, 2)), '%'))) +
+  geom_bar(stat = 'identity', position = 'fill') +
+  coord_flip() +
+  scale_fill_manual(values = c('wt' = '#D7D8DA',
+                               'complete_loss' = '#0E3F7C',
+                               'partial_loss' = '#00AEC8',
+                               'relative_loss' = '#474089',
+                               'gain' = '#D53833',
+                               'partial_gain' = '#E3CC98',
+                               'gain_loss' = '#f9f8d5'),
+                    name = '') +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = seq(0, 1, 0.2),
+                     sec.axis = dup_axis()) +
+  theme_std(base_size = 14, base_line_size = 1) +
+  labs(x = '', y = paste0('Fraction of samples\n(n=', sum(CancerTypes[!duplicated(CancerTypes$cancer), 'n']), ')'))
+
+Fraction_CancerTypesDetailed
+
+## combine
+plot.out = fraction_Y_loss + theme(legend.position = 'none') + Fraction_CancerTypesDetailed + labs(y = '')
+ggsave(filename = 'Figures_original/LOY_CancerType_Detailed_Ritika.pdf', plot = plot.out, device = 'pdf', width = 14)
 
 
 
 ##-----------------
-## Incidences among 
-## different cancer types
+## Sample site;
+## Metastatic or Primary samples
 ##-----------------
-IMPACT_data = readRDS('Data/00_CohortData/Cohort_071322.rds')
-IMPACT_data$Y_call = ifelse(IMPACT_data$classification %in% c("complete_loss", "relative_loss", "partial_loss"), 'Y_chrom_loss', 'intact_Y_chrom')
-IMPACT_incidence = data.frame()
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+
+prop_out_site = data.frame()
+for(i in unique(cohort$SAMPLE_TYPE)){
+  data.sub = cohort[which(cohort$SAMPLE_TYPE == i), ]
+  n = length(cohort$SAMPLE_ID[which(cohort$SAMPLE_TYPE == i)])
+  for(j in unique(data.sub$classification)){
+    fraction = length(data.sub$SAMPLE_ID[which(data.sub$classification == j)]) / n
+    out = data.frame(cancer = i,
+                     category = j,
+                     fraction = fraction,
+                     n = n,
+                     n_all = n/length(unique(cohort$SAMPLE_ID)) * 100)
+    prop_out_site = rbind(prop_out_site, out)
+  }
+}
+
+prop_out_site = prop_out_site[!is.na(prop_out_site$category), ]
+prop_out_site$cancer = factor(prop_out_site$cancer, levels = c('Primary', 'Metastasis', 'Local Recurrence', 'Unknown'))
+prop_out_site$category = factor(prop_out_site$category, levels = rev(c('complete_loss',
+                                                                       'relative_loss',
+                                                                       'partial_loss',
+                                                                       'gain',
+                                                                       'partial_gain',
+                                                                       'gain_loss',
+                                                                       'wt')))
+
+##----------------+
+## Visualization
+##----------------+
+Fraction_CancerSite = ggplot(prop_out_site,
+                             aes(x = cancer, 
+                                 y = fraction, 
+                                 fill = category, 
+                                 label = paste0((round(fraction* 100, 2)), '%'))) +
+  geom_bar(stat = 'identity', position = 'fill') +
+  scale_fill_manual(values = c('wt' = '#D7D8DA',
+                               'complete_loss' = '#0E3F7C',
+                               'partial_loss' = '#00AEC8',
+                               'relative_loss' = '#474089',
+                               'gain' = '#D53833',
+                               'partial_gain' = '#E3CC98',
+                               'gain_loss' = '#f9f8d5'),
+                    name = '') +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = seq(0, 1, 0.2)) +
+  theme_std(base_size = 14, base_line_size = 1) +
+  labs(x = '', y = paste0('Fraction of samples\n(n=', sum(prop_out_site[!duplicated(prop_out_site$cancer), 'n']), ')'))
+
+ggsave(filename = 'Figures_original/LOY_CancerSite.pdf', plot = Fraction_CancerSite, device = 'pdf', width = 14)
+
+
+##----------------+
+## Race category
+##----------------+
+
+##-----------------
+## Race category
+##-----------------
+Ancestry = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/admixture_results.50k.2021-09-14.txt', sep = '\t')
+CNA = data$IMPACT_Y_classification_final
+CNA$PatientID = substr(CNA$sample, start = 1, stop = 9)
+Y_ancestry = merge(CNA, Ancestry[,c('Patient', 'ancestry_label')], by.x = 'PatientID', by.y = 'Patient', all.x = T) 
+
+# African (AFR), 
+# European (EUR), 
+# East Asian (EAS), 
+# Native American (NAM) 
+# and South Asian (SAS), 
+# Ashkenazi Jewish (ASJ) 
+
+all_out = data.frame()
+for(i in unique(Y_ancestry$ancestry_label)){
+  data.sub = Y_ancestry[which(Y_ancestry$ancestry_label == i), ]
+  n = length(Y_ancestry$sample[which(Y_ancestry$ancestry_label == i)])
+  for(j in unique(data.sub$classification)){
+    fraction = length(data.sub$sample[which(data.sub$classification == j)]) / n
+    out = data.frame(ancestry = i,
+                     category = j,
+                     fraction = fraction)
+    all_out = rbind(all_out, out)
+  }
+}
+
+##-----------------
+## Ancestry Visualization:
+##-----------------
+AncestryYloss = ggplot(all_out, aes(x = ancestry, 
+                                    y = fraction, 
+                                    fill = category, 
+                                    label = paste0((round(fraction* 100, 2)), '%'))) +
+  geom_bar(stat = 'identity', position = 'fill') +
+  #geom_text(size = 3, position = position_stack(vjust = 0.5), fontface = 'bold') +
+  scale_fill_manual(values = c('wt' = '#D7D8DA',
+                               'loss' = '#0E3F7C',
+                               'relative_loss' = '#00AEC8',
+                               'gain' = '#D53833',
+                               'gain_loss' = '#E3CC98'),
+                    name = '') +
+  scale_y_continuous(expand = c(0.01,0),
+                     breaks = seq(0, 1, 0.2)) +
+  theme_std(base_size = 14, base_line_size = 1) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = '', y = 'Fraction of samples\n(n=14,322)')
+
+ggsave(filename = 'Figures_original/Fraction_Y_loss_Race.pdf', plot = AncestryYloss, device = 'pdf', width = 8)
+
+
+## proportion test
+# fractions = c(0.33, 0.32, 0.33)
+# res = chisq.test(fractions, p = c(1/3, 1/3, 1/3))
+# 
+# test = read.csv('Data/04_Loss/IMPACT_copynumber_out.txt', sep = '\t')
+
+
+
+
+
+
+
+
+dIMPACT_incidence = data.frame()
 for(i in unique(IMPACT_data$CANCER_TYPE_ritika)){
   n.all = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE %in% c('Primary', 'Metastasis') & IMPACT_data$CANCER_TYPE_ritika == i)])
   n.primary = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE_ritika == i)])
@@ -238,72 +418,6 @@ Incidence_site
 ggsave_golden(filename = 'Figures_original/Y_loss_SITE_top20.pdf', plot = Incidence_site, width = 6)
 
 
-##-----------------
-## Minority CancerTypes
-##-----------------
-IMPACT_data = IMPACT_data[which(IMPACT_data$Y_CNA == TRUE), ]
-IMPACT_minority = table(IMPACT_data$CANCER_TYPE)
-IMPACT_minority = IMPACT_minority[order(IMPACT_minority, decreasing = T)]
-IMPACT_minority = IMPACT_minority[21:36]
-
-IMPACT_minority_df = data.frame()
-for(i in unique(names(IMPACT_minority))){
-  n.all = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE %in% c('Primary', 'Metastasis') & IMPACT_data$CANCER_TYPE == i)])
-  n.primary = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE == i)])
-  n.metastasis = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE == i)])
-  
-  primary.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE == i)]) / n.primary
-  metastatic.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE == i)]) / n.metastasis
-  cancer_median = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$CANCER_TYPE == i)]) / n.all
-  cancer_summary = data.frame(CancerType = i,
-                              Type = c('Primary', 'Metastasis'),
-                              value = c(primary.frequency, metastatic.frequency),
-                              median_cancerType = cancer_median)
-  
-  IMPACT_minority_df = rbind(IMPACT_minority_df, cancer_summary)
-  rm(n.all, cancer_summary)
-  rm(primary.frequency)
-  rm(metastatic.frequency)
-  rm(cancer_median)
-}
-
-#' add sample amount
-IMPACT_minority_df$mergedCancerType = NA
-for(i in unique(names(IMPACT_minority))){
-  IMPACT_minority_df$mergedCancerType[which(IMPACT_minority_df$CancerType == i)] = IMPACT_minority[which(names(IMPACT_minority) == i)][[1]]
-}
-
-IMPACT_minority_df$mergedCancerType = paste0(IMPACT_minority_df$CancerType, ' (n=', IMPACT_minority_df$mergedCancerType, ')')
-
-
-##-----------------
-## Minority Plot
-##-----------------
-IMPACT_minority_plot = ggplot(IMPACT_minority_df, 
-                               aes(x = reorder(mergedCancerType, median_cancerType), 
-                                   y = (value * 100), 
-                                   fill = Type)) + 
-  
-  geom_bar(stat = 'identity', position = position_dodge(0.82), width = 0.8) +
-  scale_fill_manual(values = c('Primary' = color_selected[4],
-                               'Metastasis' = color_selected[2]),
-                    guide = guide_legend(direction = 'horizontal',
-                                         title = 'Site',
-                                         label.theme = element_text(size = 14))) +
-  scale_y_continuous(expand = c(0.005, 0)) +
-  geom_hline(yintercept = seq(0, 60, 20), color = 'grey35', linetype = 'dashed', size = 0.2) +
-  theme(legend.position = 'top',
-        panel.background = element_rect(fill = NA),
-        axis.ticks.y = element_blank(),
-        axis.ticks.x = element_line(size = 0.2),
-        axis.line.x = element_line(size = 0.4),
-        axis.text = element_text(size = 10, color = 'black')) +
-  coord_flip() +
-  labs(y = '% Y chromosome loss', x = '')
-
-IMPACT_minority_plot
-
-ggsave_golden(filename = 'Figures_original/Y_loss_SITE_minorities.pdf', plot = IMPACT_minority_plot, width = 6)
 
 
 
@@ -371,231 +485,3 @@ Age_distribution = ggplot(Loss_age, aes(x = group, y = ratio)) +
 Age_distribution
 ggsave_golden(filename = 'Figures_original/Y_loss_AgeDistribution.pdf', plot = Age_distribution, width = 6)
 
-
-
-
-
-##-----------------
-## Old misc scripts
-##-----------------
-#' cohortData = readRDS('Data_out/cohort_data.rds')
-#' IMPACT_data = cohortData$IMPACT.cohort
-#' WES_data = cohortData$WES.cohort
-#' TCGA_data = cohortData$male_TCGA_cohort
-#' 
-#' #' make overview of available data resources (IMPACT, WES and TCGA)
-#' #' IMPACT
-#' top_20_cancer_type = table(IMPACT_data$CANCER_TYPE)
-#' top_20_cancer_type = top_20_cancer_type[order(top_20_cancer_type, decreasing = T)]
-#' top_20_cancer_type = top_20_cancer_type[1:20]
-#' 
-#' pdf(paste0('Figures/IMPACT_Top20_cancer_type.pdf'), width = 9, height = 6)
-#' par(oma = c(0,10,0,0))
-#' barplot(top_20_cancer_type[20:1], 
-#'         horiz = T, 
-#'         border = NA, 
-#'         axes = F, 
-#'         las = 2, 
-#'         xlim = c(0, 1800), 
-#'         cex.axis = 0.75,
-#'         main = paste0('MSK-IMPACT (n = ', dim(IMPACT_data)[1], ')'))
-#' axis(side = 1, at = c(0,500,1000,1500,2000), labels = c(0,500,1000,1500,2000))
-#' dev.off()
-#' 
-#' #' WES
-#' top_20_cancer_type = table(WES_data$Parental_Tumor_Type)
-#' top_20_cancer_type = top_20_cancer_type[order(top_20_cancer_type, decreasing = T)]
-#' top_20_cancer_type = top_20_cancer_type[1:20]
-#' 
-#' pdf(paste0('Figures/WES_Top20_cancer_type.pdf'), width = 9, height = 6)
-#' par(oma = c(0,10,0,0))
-#' barplot(top_20_cancer_type[20:1], 
-#'         horiz = T, 
-#'         border = NA, 
-#'         axes = F, 
-#'         las = 2, 
-#'         xlim = c(0, 150), 
-#'         cex.axis = 0.75,
-#'         main = paste0('MSK-WES (n = ', dim(WES_data)[1], ')'))
-#' axis(side = 1, at = c(0, 50, 100, 150), labels = c(0, 50, 100, 150))
-#' dev.off()
-#' 
-#' #' TCGA
-#' top_20_cancer_type = table(TCGA_data$type)
-#' top_20_cancer_type = top_20_cancer_type[order(top_20_cancer_type, decreasing = T)]
-#' top_20_cancer_type = top_20_cancer_type[1:20]
-#' 
-#' pdf(paste0('Figures/TCGA_Top20_cancer_type.pdf'), width = 9, height = 6)
-#' par(oma = c(0,10,0,0))
-#' barplot(top_20_cancer_type[20:1], 
-#'         horiz = T, 
-#'         border = NA, 
-#'         axes = F, 
-#'         las = 2, 
-#'         xlim = c(0, 500), 
-#'         cex.axis = 0.75,
-#'         main = paste0('TCGA-WES (n = ', dim(TCGA_data)[1], ')'))
-#' axis(side = 1, at = seq(0, 500, 100), labels = seq(0, 500, 100))
-#' dev.off()
-#' 
-#' 
-#' 
-#' #' Y-chromosome loss among different cancer types; stratified according to primary and metastatic samples;
-#' #' start with IMPACT
-#' IMPACT_data = cohortData$IMPACT.cohort
-#' IMPACT_top_20 = table(IMPACT_data$CANCER_TYPE)
-#' IMPACT_top_20 = IMPACT_top_20[order(IMPACT_top_20, decreasing = T)]
-#' IMPACT_top_20 = IMPACT_top_20[1:20]
-#' 
-#' IMPACT_incidence = data.frame()
-#' for(i in unique(names(IMPACT_top_20))){
-#'   n.all = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE %in% c('Primary', 'Metastasis') & IMPACT_data$CANCER_TYPE == i)])
-#'   n.primary = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE == i)])
-#'   n.metastasis = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE == i)])
-#'   
-#'   primary.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE == i)]) / n.primary
-#'   metastatic.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE == i)]) / n.metastasis
-#'   cancer_median = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$CANCER_TYPE == i)]) / n.all
-#'   cancer_summary = data.frame(CancerType = i,
-#'                               Type = c('Primary', 'Metastasis'),
-#'                               value = c(primary.frequency, metastatic.frequency),
-#'                               median_cancerType = cancer_median)
-#'   
-#'   IMPACT_incidence = rbind(IMPACT_incidence, cancer_summary)
-#'   rm(n.all)
-#'   rm(primary.frequency)
-#'   rm(metastatic.frequency)
-#'   rm(cancer_median)
-#' }
-#' 
-#' #' add sample amount
-#' IMPACT_incidence$mergedCancerType = NA
-#' for(i in unique(names(IMPACT_top_20))){
-#'   IMPACT_incidence$mergedCancerType[which(IMPACT_incidence$CancerType == i)] = IMPACT_top_20[which(names(IMPACT_top_20) == i)][[1]]
-#' }
-#' 
-#' IMPACT_incidence$mergedCancerType = paste0(IMPACT_incidence$CancerType, ' (n=', IMPACT_incidence$mergedCancerType, ')')
-#' write.table(IMPACT_incidence, file = 'Data_out/IMPACT/IMPACT_Y.loss_incidence.txt', sep = '\t', row.names = F, quote = F)
-#' 
-#' #' make the visualization
-#' #' color code from Subhi:
-#' color_selected = brewer.pal(n = 6, name = 'Paired')
-#' color_selected = color_selected[c(5,6,1,2)]
-#' 
-#' IMPACT_incidence_plot = ggplot(IMPACT_incidence, 
-#'                                aes(x = reorder(mergedCancerType, median_cancerType), 
-#'                                    y = value, 
-#'                                    fill = Type)) + 
-#'                                  
-#'   geom_bar(stat = 'identity', position = position_dodge(0.82), width = 0.8) +
-#'   scale_fill_manual(values = c('Primary' = color_selected[4],
-#'                                'Metastasis' = color_selected[2]),
-#'                     guide = guide_legend(direction = 'horizontal',
-#'                                          title = 'Site',
-#'                                          label.theme = element_text(size = 14))) +
-#'   scale_y_continuous(expand = c(0.005, 0)) +
-#'   geom_hline(yintercept = seq(0, 0.6, 0.2), color = 'grey35', linetype = 'dashed', size = 0.2) +
-#'   theme(legend.position = 'top',
-#'         panel.background = element_rect(fill = NA),
-#'         axis.ticks.y = element_blank(),
-#'         axis.ticks.x = element_line(size = 0.2),
-#'         axis.line.x = element_line(size = 0.4),
-#'         axis.text = element_text(size = 10, color = 'black')) +
-#'   coord_flip() +
-#'   labs(y = '% Y chromosome loss', x = '')
-#'   
-#' IMPACT_incidence_plot  
-#' 
-#' ggsave_golden(IMPACT_incidence_plot, filename = 'Figures/IMPACT_Y_Loss.pdf', width = 9)
-#' 
-#' 
-#' #' look at the overall distribution of Y-chromosome loss across tissue site
-#' IMPACT_incidence$Type = factor(IMPACT_incidence$Type, levels = c('Primary', 'Metastasis'))
-#' Incidence_site = ggplot(IMPACT_incidence, aes(x = Type, y = value, color = Type)) +
-#'   geom_boxplot(width = 0.4, size = 0.85) +
-#'   geom_jitter(width = 0.15) +
-#'   scale_color_manual(values = c('Primary' = color_selected[4],
-#'                                 'Metastasis' = color_selected[2])) +
-#'   scale_y_continuous(expand = c(0, 0),
-#'                      limits = c(0, 0.8)) +
-#'   theme_Y + 
-#'   theme(legend.position = 'none',
-#'         aspect.ratio = 2.2,
-#'         axis.text.x = element_text(angle = 45, hjust = 1)) +
-#'   labs(x = '', y = 'Y-chromosome loss')
-#' 
-#' ggsave_golden(filename = 'Figures/Y_loss_SITE.pdf', plot = Incidence_site, width = 6)
-#' 
-#' #' statistics
-#' t.test(IMPACT_incidence$value ~ IMPACT_incidence$Type)
-#' 
-#' 
-#' ###############################################################################
-#' ###############################################################################
-#' #' look at the age distribution, and whether age may be associated with higher Y chromosome loss
-#' IMPACT_data # raw
-#' IMPACT_data$AGE_AT_SEQ_REPORTED_YEARS = as.numeric(as.character(IMPACT_data$AGE_AT_SEQ_REPORTED_YEARS))
-#' 
-#' plot_list = list()
-#' for(i in unique(names(IMPACT_top_20))){
-#'   data.plot = IMPACT_data[which(IMPACT_data$CANCER_TYPE == i), ]
-#'   type.density = density(data.plot$AGE_AT_SEQ_REPORTED_YEARS, na.rm = T)
-#'   median.age = type.density$x[which.max(type.density$y)]
-#'   print(median.age)
-#'   peak.max = type.density$y[which.max(type.density$y)]
-#'   #median.age = median(data.plot$AGE_AT_SEQ_REPORTED_YEARS, na.rm = T)
-#'   upper.limit.plot = peak.max / 15
-#'   
-#'   plot = ggplot(data.plot, aes(x = AGE_AT_SEQ_REPORTED_YEARS)) + 
-#'     geom_density(size = 1, bw = 'SJ') +
-#'     theme_minimal() +
-#'     theme(panel.grid = element_blank(),
-#'           axis.title = element_blank(),
-#'           axis.text.y = element_blank(),
-#'           aspect.ratio = 1) +
-#'     scale_y_continuous(expand = c(0.01, 0)) +
-#'     scale_x_continuous(limits = c(30, 90)) +
-#'     geom_segment(x = median.age, y = 0, xend = median.age, yend = upper.limit.plot, color = 'red', size = 0.8) +
-#'     labs(title = i)
-#'   
-#'   plot_list[[i]] = plot
-#'   
-#'   rm(data.plot,
-#'      median.age,
-#'      peak.max,
-#'      upper.limit.plot)
-#' }
-#' 
-#' Age_distribution_IMPACT = plot_list$`Esophagogastric Cancer` / plot_list$`Pancreatic Cancer` / plot_list$`Colorectal Cancer` / plot_list$`Soft Tissue Sarcoma` / plot_list$`Prostate Cancer` / plot_list$Glioma
-#' ggsave_golden(plot = Age_distribution_IMPACT, filename = 'Figures/Age_Distribution_IMPACT.pdf', width = 12)
-#' 
-#' 
-#' #' look at the general trend between Y-chromosome loss and intact among age groups;
-#' i_without = IMPACT_data[!is.na(IMPACT_data$AGE_AT_SEQ_REPORTED_YEARS) & !is.na(IMPACT_data$Y_call), ]
-#' 
-#' Age_cohort = ggplot(i_without) + 
-#'   geom_histogram(aes(x = AGE_AT_SEQ_REPORTED_YEARS, 
-#'                      color = Y_call, 
-#'                      fill = Y_call), bins = 35, binwidth = 0.999, na.rm = T) +
-#'   scale_y_continuous(expand = c(0.01, 0.01)) +
-#'   scale_x_continuous(expand = c(0.01, 0.01),
-#'                      limits = c(0, 90),
-#'                      breaks = seq(0, 90, 30)) +
-#'   scale_fill_manual(values = c('Y_chrom_loss' = color_selected[2],
-#'                              'intact_Y_chrom' = color_selected[4]),
-#'                     labels = c('Y loss', 'Intact Y chromosome'),
-#'                     guide = guide_legend(direction = 'horizontal',
-#'                                          title = '',
-#'                                          label.theme = element_text(size = 12))) +
-#'   scale_color_manual(values = c('Y_chrom_loss' = color_selected[2],
-#'                                 'intact_Y_chrom' = color_selected[4]), guide = 'none') +
-#'   theme_Y +
-#'   theme(axis.text.y = element_blank(),
-#'         legend.position = 'top',
-#'         aspect.ratio = 1) +
-#'   labs(x = 'Age', y = 'Counts')
-#'         
-#' ggsave_golden(Age_cohort, filename = 'Figures/Age_Distribution_Y_loss.pdf', width = 7)
-#' 
-#' 
-#' #' out
