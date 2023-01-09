@@ -2,7 +2,14 @@
 ## Chromosome Y incidences 
 ## among different cancer types;
 ##----------------+
-##
+## Association Studies:
+## Starting with
+## - categories
+## - cancer types ritika (oncotree-code)
+## - cancer types detailed
+## - sample site
+## - RACE
+##----------------+
 ## start: 09/01/2021
 ## revision: 08/25/2022
 ## revision: 01/08/2023
@@ -14,13 +21,20 @@ gc()
 .rs.restartR()
 setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
 source('Scripts/UtilityFunctions.R')
-
-
-
-
-
 source('Scripts/plot_theme.R')
+library(RColorBrewer)
+library(patchwork)
 
+
+
+##----------------+
+## General categories overview;
+##----------------+
+##
+## CAUTION:
+## 
+## ALL SAMPLES INCLUDES (QC = T AND F)
+##----------------+
 
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 
@@ -58,70 +72,89 @@ fraction_Y_loss = ggplot(prop_out, aes(x = arrange, y = fraction, fill = categor
 ggsave(filename = 'Figures_original/Fraction_Y_loss.pdf', plot = fraction_Y_loss, device = 'pdf', width = 4)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-## Libraries and Input
-library(RColorBrewer)
-cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
-samples_loss = unique(as.character(cohort$IMPACT_cohort$SAMPLE_ID[which(cohort$IMPACT_cohort$LOY == 'no')]))
-
-##-----------------
-## Sample consideration
-##-----------------
-Binary = read.csv('Data/04_Loss/IMPACT.binaryLoss_out.txt', sep = '\t')
-Binary = Binary[which(Binary$sample.id %in% samples_loss), ]
-
-#' Just use the FACETS QC TRUE samples
-Facets_QC = read.csv('Data/04_Loss/QC_metrics.txt', sep = '\t')
-samples_pass = Facets_QC[which(Facets_QC$QC == 'TRUE'), ]
-Y_CNA = Binary[which(Binary$sample.id %in% samples_pass$ID), ]
-
-IMPACT = cohort$IMPACT_cohort
-IMPACT$Y_CNA = NA
-
-for(i in 1:nrow(IMPACT)){
-  if(IMPACT$SAMPLE_ID[i] %in% Y_CNA$sample.id){
-    IMPACT$Y_CNA[i] = TRUE
-  } else {
-    IMPACT$Y_CNA[i] = FALSE
+##----------------+
+## Cancer Types
+##----------------+
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+CancerTypes = data.frame()
+for(i in unique(cohort$CANCER_TYPE_ritika)){
+  data.sub = cohort[which(cohort$CANCER_TYPE_ritika == i), ]
+  n = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE_ritika == i)])
+  for(j in unique(data.sub$classification)){
+    fraction = length(data.sub$SAMPLE_ID[which(data.sub$classification == j)]) / n
+    out = data.frame(cancer = i,
+                     category = j,
+                     fraction = fraction,
+                     n = n)
+    CancerTypes = rbind(CancerTypes, out)
   }
 }
 
-cohort = list(IMPACT_cohort = IMPACT,
-              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
-              IMPACT_LOY = cohort$IMPACT_LOY,
-              IMPACT_binaryY_call = Y_CNA)
+##----------------+
+CancerTypes = CancerTypes[!is.na(CancerTypes$category), ]
+CancerTypes = CancerTypes[!CancerTypes$cancer %in% c('Vulva/Vagina (VULVA)', 'Ovary/Fallopian Tube (OVARY)'), ]
+CancerTypes$cancer = gsub("\\s*\\([^\\)]+\\)", "", CancerTypes$cancer)
+CancerTypes$cancer = paste0(CancerTypes$cancer, ' (n=', CancerTypes$n, ')')
+loss = CancerTypes[which(CancerTypes$category %in% c('complete_loss')), ]
+loss = loss[order(loss$fraction), ]
+CancerTypes$cancer = factor(CancerTypes$cancer, levels = rev(loss$cancer))
+CancerTypes$category = factor(CancerTypes$category, levels = c('complete_loss',
+                                                               'relative_loss',
+                                                               'partial_loss',
+                                                               'gain',
+                                                               'partial_gain',
+                                                               'gain_loss',
+                                                               'wt'))
 
-saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
+##----------------+ 
+## Visualization;
+##----------------+
+Fraction_across_cancerTypes = ggplot(CancerTypes, 
+                                     aes(x = cancer, 
+                                         y = fraction, 
+                                         fill = category, 
+                                         label = paste0((round(fraction* 100, 2)), '%'))) +
+  geom_bar(stat = 'identity', position = 'fill') +
+  scale_fill_manual(values = c('wt' = '#D7D8DA',
+                              'complete_loss' = '#0E3F7C',
+                              'partial_loss' = '#00AEC8',
+                              'relative_loss' = '#474089',
+                              'gain' = '#D53833',
+                              'partial_gain' = '#E3CC98',
+                              'gain_loss' = '#f9f8d5'),
+                    name = '') +
+  scale_y_continuous(expand = c(0.01,0),
+                     breaks = seq(0, 1, 0.2)) +
+  theme_std(base_size = 14, base_line_size = 1) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = '', y = paste0('Fraction of samples\n(n=', sum(CancerTypes[!duplicated(CancerTypes$cancer), 'n']), ')'))
+
+
+## combine
+plot.out = fraction_Y_loss + theme(legend.position = 'none') + Fraction_across_cancerTypes + labs(y = '')
+ggsave(filename = 'Figures_original/Fraction_Y_loss_acrossCancer.pdf', plot = plot.out, device = 'pdf', width = 14)
+
+
+
+##----------------+
+## CancerType detailed
+##----------------+
+
+
+
 
 
 ##-----------------
-## Incidences
+## Incidences among 
+## different cancer types
 ##-----------------
-cohortData = readRDS('Data/signedOut/Cohort_07132022.rds')
-IMPACT_data = cohortData$IMPACT_cohort
-
-#' top 20 cancer types
-IMPACT_data = IMPACT_data[which(IMPACT_data$Y_CNA == TRUE), ]
-IMPACT_top_20 = table(IMPACT_data$CANCER_TYPE)
-IMPACT_top_20 = IMPACT_top_20[order(IMPACT_top_20, decreasing = T)]
-IMPACT_top_20 = IMPACT_top_20[1:20]
-
+IMPACT_data = readRDS('Data/00_CohortData/Cohort_071322.rds')
+IMPACT_data$Y_call = ifelse(IMPACT_data$classification %in% c("complete_loss", "relative_loss", "partial_loss"), 'Y_chrom_loss', 'intact_Y_chrom')
 IMPACT_incidence = data.frame()
-for(i in unique(names(IMPACT_top_20))){
-  n.all = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE %in% c('Primary', 'Metastasis') & IMPACT_data$CANCER_TYPE == i)])
-  n.primary = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE == i)])
-  n.metastasis = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE == i)])
+for(i in unique(IMPACT_data$CANCER_TYPE_ritika)){
+  n.all = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE %in% c('Primary', 'Metastasis') & IMPACT_data$CANCER_TYPE_ritika == i)])
+  n.primary = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE_ritika == i)])
+  n.metastasis = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE_ritika == i)])
   
   primary.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE == i)]) / n.primary
   metastatic.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE == i)]) / n.metastasis
