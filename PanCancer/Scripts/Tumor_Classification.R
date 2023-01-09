@@ -135,15 +135,15 @@ for(i in unique(double_Y$id)){
   }
   
   states = c(data.sub$call)
-  out = ifelse(all(states %in% c('wt', 'wt')), 'wt',
-               ifelse(all(states %in% c('wt', 'gain')), 'partial_gain',
-                      ifelse(all(states %in% c('wt', 'relative_loss')), 'relative_loss',
-                             ifelse(all(states %in% c('gain', 'gain')), 'gain',
-                                    ifelse(all(states %in% c('wt', 'complete_loss')), 'partial_loss',
-                                           ifelse(all(states %in% c('gain', 'complete_loss')), 'gain_loss',
-                                                  ifelse(all(states %in% c('gain', 'relative_loss')), 'gain_loss',
-                                                         ifelse(all(states %in% c('complete_loss', 'complete_loss')), 'complete_loss',
-                                                                ifelse(all(states %in% c('relative_loss', 'complete_loss')), 'relative_loss', NA)))))))))
+  out = ifelse(all(states == c('wt', 'wt') | states == rev(c('wt', 'wt'))), 'wt',
+               ifelse(all(states %in% c('gain', 'gain')), 'gain',
+                      ifelse(all(states %in% c('complete_loss', 'complete_loss')), 'complete_loss',
+                             ifelse(all(states == c('wt', 'relative_loss') | states == rev(c('wt', 'relative_loss'))), 'relative_loss',
+                                    ifelse(all(states == c('wt', 'complete_loss') | states == rev(c('wt', 'complete_loss'))), 'partial_loss',
+                                           ifelse(all(states == c('wt', 'gain') | states == rev(c('wt', 'gain'))), 'partial_gain',
+                                                  ifelse(all(states == c('gain', 'complete_loss') | states == rev(c('gain', 'complete_loss'))), 'gain_loss',
+                                                         ifelse(all(states == c('gain', 'relative_loss') | states == rev(c('gain', 'relative_loss'))), 'gain_loss',
+                                                                ifelse(all(states == c('relative_loss', 'complete_loss') | states == rev(c('relative_loss', 'complete_loss'))), 'relative_loss', NA)))))))))
   
   Y_out = data.frame(sample = unique(i),
                      ploidy = unique(data.sub$ploidy),
@@ -160,9 +160,6 @@ for(i in unique(double_Y$id)){
 ## multi segments;
 ## take only the first 
 ## two longest
-##----------------+
-##----------------+
-## double segments
 ##----------------+
 multi_Y = Y_evaluation[which(Y_evaluation$id %in% multi_segments), ]
 Y_out_multi = data.frame()
@@ -188,15 +185,15 @@ for(i in unique(multi_Y$id)){
   }
   
   states = c(data.sub$call)
-  out = ifelse(all(states %in% c('wt', 'wt')), 'wt',
-               ifelse(all(states %in% c('wt', 'gain')), 'partial_gain',
-                      ifelse(all(states %in% c('wt', 'relative_loss')), 'relative_loss',
-                             ifelse(all(states %in% c('gain', 'gain')), 'gain',
-                                    ifelse(all(states %in% c('wt', 'complete_loss')), 'partial_loss',
-                                           ifelse(all(states %in% c('gain', 'complete_loss')), 'gain_loss',
-                                                  ifelse(all(states %in% c('gain', 'relative_loss')), 'gain_loss',
-                                                         ifelse(all(states %in% c('complete_loss', 'complete_loss')), 'complete_loss',
-                                                                ifelse(all(states %in% c('relative_loss', 'complete_loss')), 'relative_loss', NA)))))))))
+  out = ifelse(all(states == c('wt', 'wt') | states == rev(c('wt', 'wt'))), 'wt',
+               ifelse(all(states %in% c('gain', 'gain')), 'gain',
+                      ifelse(all(states %in% c('complete_loss', 'complete_loss')), 'complete_loss',
+                             ifelse(all(states == c('wt', 'relative_loss') | states == rev(c('wt', 'relative_loss'))), 'relative_loss',
+                                    ifelse(all(states == c('wt', 'complete_loss') | states == rev(c('wt', 'complete_loss'))), 'partial_loss',
+                                           ifelse(all(states == c('wt', 'gain') | states == rev(c('wt', 'gain'))), 'partial_gain',
+                                                  ifelse(all(states == c('gain', 'complete_loss') | states == rev(c('gain', 'complete_loss'))), 'gain_loss',
+                                                         ifelse(all(states == c('gain', 'relative_loss') | states == rev(c('gain', 'relative_loss'))), 'gain_loss',
+                                                                ifelse(all(states == c('relative_loss', 'complete_loss') | states == rev(c('relative_loss', 'complete_loss'))), 'relative_loss', NA)))))))))
   
   Y_out = data.frame(sample = unique(i),
                      ploidy = unique(data.sub$ploidy),
@@ -209,7 +206,7 @@ for(i in unique(multi_Y$id)){
 
 View(multi_Y)
 
-
+View(Y_out_multi)
 
 
 
