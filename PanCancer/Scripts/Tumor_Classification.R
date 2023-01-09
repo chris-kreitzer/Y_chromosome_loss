@@ -216,5 +216,11 @@ write.table(x = Y_calls_out,
             quote = F)
 
 
+# cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
+# cohort = merge(cohort, Y_calls_out[,c('sample', 'ploidy', 'classification')],
+#                by.x = 'SAMPLE_ID', 'sample', all.x = T)
+# cohort = cohort[,c(1,2,3,4,5,6,7,8,28,29,9:27)]
+# saveRDS(object = cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
+
 
 #' out

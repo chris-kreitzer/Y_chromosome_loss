@@ -1,6 +1,9 @@
 ##----------------+
 ## Data selection for 
-## Y-chromosome loss determination
+## Y-chromosome loss 
+## determination;
+## AND
+## Annotations
 ##----------------+
 ##
 ## Read in clinical data from cBioPortal: 07/11/2022
@@ -11,6 +14,7 @@
 ## revision: 08/24/2022
 ## revision: 12/02/2022
 ## revision: 12/07/2022
+## revision: 01/08/2023
 ## chris-kreitzer
 
 ## TODO: add WES validation cohort:
@@ -255,6 +259,27 @@ write.table(MSK_out,
 Cohort071322 = list(MSK_IMPACT_cohort = MSK_out)
 saveRDS(Cohort071322, file = 'Data/00_CohortData/Cohort_071322.rds')
 
+
+##-----------------
+## ARM-LEVEL alterations
+## annotations
+##-----------------
+
+# cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
+# Arm_change = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/04_Loss/010523/IMPACT_arm_change_out.txt', sep = '\t')
+# CopyStates = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/04_Loss/010523/CopyNumberStates.txt', sep = '\t')
+# CopyStates = CopyStates[,c('id', 'QC')]
+# CopyStates = unique(CopyStates)
+# cohort = merge(cohort, Arm_change[,c('id', 'purity', 'genome_doubled', 'fraction_cna', 'AS_score', 'losses_n')],
+#                by.x = 'SAMPLE_ID', by.y = 'id', all.x = T)
+# 
+# cohort = cohort[, c(1,2,3,4,5,6,7,8,9,10,30:34, 11:29)]
+# 
+# cohort = merge(cohort, CopyStates,
+#                by.x = 'SAMPLE_ID', by.y = 'id', all.x = T)
+# 
+# cohort = cohort[,c(1:8,35,9,11,12,13:15,10,16:34)]
+# saveRDS(object = cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
 
 
 
