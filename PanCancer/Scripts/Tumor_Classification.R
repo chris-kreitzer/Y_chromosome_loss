@@ -70,7 +70,6 @@ Y_evaluation = lapply(unique(CNA$id),
 
 
 #' exclude samples with no call
-Y_evaluation = Y_evaluation[!grepl(pattern = 'Error*', Y_evaluation$chrom), ]
 Y_evaluation = Filter(function(x) length(x) > 1, Y_evaluation)
 Y_evaluation = data.table::rbindlist(Y_evaluation)
 
@@ -113,6 +112,7 @@ for(i in unique(mono_Y$id)){
 }
 
 
+
 ##----------------+
 ## double segments
 ##----------------+
@@ -135,7 +135,7 @@ for(i in unique(double_Y$id)){
   }
   
   states = c(data.sub$call)
-  out = ifelse(all(states == c('wt', 'wt') | states == rev(c('wt', 'wt'))), 'wt',
+  out = ifelse(all(states == c('wt', 'wt')), 'wt',
                ifelse(all(states %in% c('gain', 'gain')), 'gain',
                       ifelse(all(states %in% c('complete_loss', 'complete_loss')), 'complete_loss',
                              ifelse(all(states == c('wt', 'relative_loss') | states == rev(c('wt', 'relative_loss'))), 'relative_loss',
@@ -204,15 +204,16 @@ for(i in unique(multi_Y$id)){
   Y_out_multi = rbind(Y_out_multi, Y_out)
 }
 
-View(multi_Y)
 
-View(Y_out_multi)
-
-
-
-
-
-write.table(x = Y_out_all, file = '~/Documents/MSKCC/10_MasterThesis/Data/04_Loss/Categorial_Classification_Y.txt', sep = '\t', row.names = F)
+##----------------+
+## combine all matrices
+##----------------+
+Y_calls_out = rbind(Y_out_mono[,c(1,2,3,5)], Y_out_double, Y_out_multi)
+write.table(x = Y_calls_out, 
+            file = '~/Documents/MSKCC/10_MasterThesis/Data/04_Loss/Categorial_Classification_Y.txt', 
+            sep = '\t', 
+            row.names = F,
+            quote = F)
 
 
 
