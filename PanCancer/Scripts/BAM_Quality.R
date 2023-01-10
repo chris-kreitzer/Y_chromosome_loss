@@ -56,10 +56,11 @@ coverage = lapply(unique(Masterfile$counts_file), function(x) alignment_Y(file =
 coverage = data.table::rbindlist(coverage)
 #write.table(coverage, file = '~/Master/coverage.txt', sep = '\t', row.names = F, quote = F)
 
-message('Part2: Starting')
+
 ##----------------+
 ## part 2:
 ##----------------+
+message('Part2: Starting')
 alignment_summary = function(id){
   try({
     all_out = data.frame()
@@ -90,10 +91,10 @@ coverage_summary = data.table::rbindlist(coverage_summary)
 write.table(coverage_summary, file = '~/Master/coverage_summary.txt', sep = '\t', row.names = F, quote = F)
 
 
-message('Part3: starting')
 ##----------------+
 ## part3: BAM quality
 ##----------------+
+message('Part3: starting')
 GOI = bed[, c('chrom', 'start', 'end', 'feature')]
 
 what = c('mapq', 'mrnm', 'isize')
