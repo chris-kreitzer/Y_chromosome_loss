@@ -1,5 +1,5 @@
 ## ggplot theme
-theme_std <- function(base_size = 11, 
+theme_std = function(base_size = 11, 
                       base_line_size = base_size/22, 
                       base_rect_size = base_size/22) {
   require(ggplot2)

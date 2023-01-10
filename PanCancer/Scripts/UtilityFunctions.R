@@ -5,9 +5,10 @@
 ##
 ## start: 08/11/2021
 ## revision: 08/24/2022
+## revision: 01/10/2023
 ## chris-kreitzer
 
-CI_z <- function (x, ci = 0.95){
+CI_z = function (x, ci = 0.95){
   `%>%` <- magrittr::`%>%`
   standard_deviation = sd(x)
   sample_size = length(x)
@@ -34,17 +35,41 @@ normConfInt = function(x, alpha = 0.05){
 rsq = function (x, y) cor(x, y) ^ 2
 
 
-#' ggsave_golden
+##----------------+
+## ggsave_golden
+##----------------+
 ggsave_golden = function(filename, plot, width, ...){
   ggsave(filename = filename, plot = plot, device = cairo_pdf, width = width, height = width / 1.61803398875)
 }
 
 
+##----------------+
+## ggplot theme for LOY project
+##----------------+
+theme_std = function(base_size = 11, 
+                     base_line_size = base_size/22, 
+                     base_rect_size = base_size/22) {
+  require(ggplot2)
+  theme_classic(base_size = base_size, base_family = 'ArialMT')  %+replace%
+    theme(
+      line = element_line(colour = "black", linewidth = base_line_size, linetype = 1, lineend = "round"),
+      text = element_text(family = 'ArialMT', face = "plain",
+                          colour = "black", size = base_size, lineheight = 0.9,
+                          hjust = 0.5, vjust = 0.5, angle = 0, margin = margin(), debug=F),
+      axis.text = element_text(colour = "black", family='ArialMT', size=rel(0.8)),
+      axis.ticks = element_line(colour = "black", linewidth = rel(1)),
+      panel.border = element_blank(), panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "black", linewidth = rel(1)),
+      legend.key = element_blank(),
+      strip.background = element_blank())
+}
+
 theme_Y = theme_bw() +
   theme(
     text = element_text(family = 'ArialMT', size = 14),
     axis.text = element_text(family = 'ArialMT', size = 14, color = 'black'),
-    line = element_line(size = .95*(.95/1.6), lineend = 'round'),
+    line = element_line(linewidth = .95*(.95/1.6), lineend = 'round'),
     plot.background = element_blank(),
     panel.grid.major.x = element_blank(),
     panel.grid.major.y = element_blank(),
@@ -52,11 +77,11 @@ theme_Y = theme_bw() +
     panel.grid.minor.y = element_blank(),
     strip.background = element_blank(),
     panel.border = element_blank(),
-    axis.line.x = element_line(color = 'black', size = .95*(.95/1.6), lineend = 'round'),
-    axis.line.y = element_line(color = 'black', size = .95*(.95/1.6), lineend = 'round'),
+    axis.line.x = element_line(color = 'black', linewidth = .95*(.95/1.6), lineend = 'round'),
+    axis.line.y = element_line(color = 'black', linewidth = .95*(.95/1.6), lineend = 'round'),
     axis.ticks.length = unit(2, 'pt'),
-    axis.ticks.x = element_line(color = 'black', size = .95*(.95/1.6), lineend = 'round'),
-    axis.ticks.y = element_line(color = 'black', size = .95*(.95/1.6), lineend = 'round'),
+    axis.ticks.x = element_line(color = 'black', linewidth = .95*(.95/1.6), lineend = 'round'),
+    axis.ticks.y = element_line(color = 'black', linewidth = .95*(.95/1.6), lineend = 'round'),
     legend.background = element_blank(),
     legend.key = element_blank(),
     legend.key.size = unit(.5, "cm"),
@@ -66,4 +91,4 @@ theme_Y = theme_bw() +
 
   
 
-theme_set(theme_Y)
+#theme_set(theme_Y)
