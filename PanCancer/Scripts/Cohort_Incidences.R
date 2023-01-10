@@ -8,11 +8,13 @@
 ## - cancer types ritika (oncotree-code)
 ## - cancer types detailed
 ## - sample site
-## - RACE
+## - Ancestry
+## - Age
 ##----------------+
 ## start: 09/01/2021
 ## revision: 08/25/2022
 ## revision: 01/08/2023
+## revision: 01/10/2023
 ## chris-kreitzer
 
 
@@ -334,20 +336,86 @@ Ancestry_LOY
 ggsave(filename = 'Figures_original/Fraction_LOY_Ancestry.pdf', plot = AncestryYloss, device = 'pdf', width = 8)
 
 
-## proportion test
+##----------------+
+## proportion test;
+## any association with ancestry
+##----------------+
 # fractions = c(0.33, 0.32, 0.33)
 # res = chisq.test(fractions, p = c(1/3, 1/3, 1/3))
-# 
 # test = read.csv('Data/04_Loss/IMPACT_copynumber_out.txt', sep = '\t')
 
 
+##-----------------
+## Association with age;
+##-----------------
+cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
+
+impact = merge(cohort$IMPACT_cohort, cohort$IMPACT_clinicalAnnotation[, c('SAMPLE_ID', 'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)')],
+               by = 'SAMPLE_ID', all.x = T)
+
+colnames(impact)[ncol(impact)] = 'Age_Sequencing'
+impact = impact[which(impact$Y_CNA == TRUE & !is.na(impact$Y_call)), ]
+
+
+Loss_age = data.frame()
+for(i in seq(15, 90, 5)){
+  da = impact[between(impact$Age_Sequencing, i-4, i), ]
+  da = da[!is.na(da$Age_Sequencing), ]
+  
+  if(length(table(da$Y_call)) == 2){
+    ratio = (table(da$Y_call)[2] / sum(table(da$Y_call))) * 100
+    n = sum(table(da$Y_call))
+    out = data.frame(group = i,
+                     ratio = ratio,
+                     n = n)
+    
+  } else if (length(table(da$Y_call)) == 1) {
+    table.ratio = table(da$Y_call)
+    ratio = ifelse(names(table.ratio) == 'intact_Y_chrom', 0, 100)
+    n = table.ratio[[1]]
+    out = data.frame(group = i,
+                     ratio = ratio,
+                     n = n)
+  } else {
+    ratio = NA
+    n = dim(da)[[1]]
+    out = data.frame(group = i,
+                     ratio = ratio, 
+                     n = n)
+  }
+  Loss_age = rbind(Loss_age, out)
+}
+
+Loss_age$group_plot = paste0(Loss_age$group - 4, '-', Loss_age$group)
+Loss_age$group = factor(Loss_age$group, levels = Loss_age$group)
+
+## Visualization
+
+Age_distribution = ggplot(Loss_age, aes(x = group, y = ratio)) +
+  geom_bar(stat = 'identity', color = 'white', fill = 'grey35') +
+  scale_x_discrete(labels = Loss_age$group_plot, expand = c(0.05, 0.01)) +
+  scale_y_continuous(expand = c(0.01, 0.01), limits = c(0, 40)) +
+  geom_hline(yintercept = seq(10, 30, 10), linetype = 'solid', color = 'white') +
+  theme_void() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 10),
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12, color = 'black'),
+        panel.background = element_rect(fill = NA, size = 1.9),
+        line = element_blank(), 
+        panel.grid.major = element_blank(),
+        axis.title.y = element_text(angle = 90)) +
+  labs(x = 'Age Group', y = 'Chromosome Y Loss incidence [%]')
+
+Age_distribution
+ggsave_golden(filename = 'Figures_original/Y_loss_AgeDistribution.pdf', plot = Age_distribution, width = 6)
 
 
 
 
 
 
-dIMPACT_incidence = data.frame()
+
+IMPACT_incidence = data.frame()
 for(i in unique(IMPACT_data$CANCER_TYPE_ritika)){
   n.all = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE %in% c('Primary', 'Metastasis') & IMPACT_data$CANCER_TYPE_ritika == i)])
   n.primary = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE_ritika == i)])
@@ -438,67 +506,4 @@ ggsave_golden(filename = 'Figures_original/Y_loss_SITE_top20.pdf', plot = Incide
 
 
 
-##-----------------
-## Association with AGE
-##-----------------
-cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
-
-impact = merge(cohort$IMPACT_cohort, cohort$IMPACT_clinicalAnnotation[, c('SAMPLE_ID', 'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)')],
-               by = 'SAMPLE_ID', all.x = T)
-
-colnames(impact)[ncol(impact)] = 'Age_Sequencing'
-impact = impact[which(impact$Y_CNA == TRUE & !is.na(impact$Y_call)), ]
-
-
-Loss_age = data.frame()
-for(i in seq(15, 90, 5)){
-  da = impact[between(impact$Age_Sequencing, i-4, i), ]
-  da = da[!is.na(da$Age_Sequencing), ]
-  
-  if(length(table(da$Y_call)) == 2){
-    ratio = (table(da$Y_call)[2] / sum(table(da$Y_call))) * 100
-    n = sum(table(da$Y_call))
-    out = data.frame(group = i,
-                     ratio = ratio,
-                     n = n)
-    
-  } else if (length(table(da$Y_call)) == 1) {
-    table.ratio = table(da$Y_call)
-    ratio = ifelse(names(table.ratio) == 'intact_Y_chrom', 0, 100)
-    n = table.ratio[[1]]
-    out = data.frame(group = i,
-                     ratio = ratio,
-                     n = n)
-  } else {
-    ratio = NA
-    n = dim(da)[[1]]
-    out = data.frame(group = i,
-                     ratio = ratio, 
-                     n = n)
-  }
-  Loss_age = rbind(Loss_age, out)
-}
-
-Loss_age$group_plot = paste0(Loss_age$group - 4, '-', Loss_age$group)
-Loss_age$group = factor(Loss_age$group, levels = Loss_age$group)
-
-## Visualization
-
-Age_distribution = ggplot(Loss_age, aes(x = group, y = ratio)) +
-  geom_bar(stat = 'identity', color = 'white', fill = 'grey35') +
-  scale_x_discrete(labels = Loss_age$group_plot, expand = c(0.05, 0.01)) +
-  scale_y_continuous(expand = c(0.01, 0.01), limits = c(0, 40)) +
-  geom_hline(yintercept = seq(10, 30, 10), linetype = 'solid', color = 'white') +
-  theme_void() +
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 10),
-        axis.text.y = element_text(size = 10),
-        axis.title = element_text(size = 12, color = 'black'),
-        panel.background = element_rect(fill = NA, size = 1.9),
-        line = element_blank(), 
-        panel.grid.major = element_blank(),
-        axis.title.y = element_text(angle = 90)) +
-  labs(x = 'Age Group', y = 'Chromosome Y Loss incidence [%]')
-
-Age_distribution
-ggsave_golden(filename = 'Figures_original/Y_loss_AgeDistribution.pdf', plot = Age_distribution, width = 6)
 
