@@ -261,17 +261,10 @@ Fraction_CancerSite = ggplot(prop_out_site,
 ggsave(filename = 'Figures_original/LOY_CancerSite.pdf', plot = Fraction_CancerSite, device = 'pdf', width = 14)
 
 
-##----------------+
-## Race category
-##----------------+
 
 ##-----------------
 ## Race category
 ##-----------------
-Ancestry = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/admixture_results.50k.2021-09-14.txt', sep = '\t')
-CNA = data$IMPACT_Y_classification_final
-CNA$PatientID = substr(CNA$sample, start = 1, stop = 9)
-Y_ancestry = merge(CNA, Ancestry[,c('Patient', 'ancestry_label')], by.x = 'PatientID', by.y = 'Patient', all.x = T) 
 
 # African (AFR), 
 # European (EUR), 
@@ -280,41 +273,65 @@ Y_ancestry = merge(CNA, Ancestry[,c('Patient', 'ancestry_label')], by.x = 'Patie
 # and South Asian (SAS), 
 # Ashkenazi Jewish (ASJ) 
 
-all_out = data.frame()
-for(i in unique(Y_ancestry$ancestry_label)){
-  data.sub = Y_ancestry[which(Y_ancestry$ancestry_label == i), ]
-  n = length(Y_ancestry$sample[which(Y_ancestry$ancestry_label == i)])
+Ancestry = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/admixture_results.50k.2021-09-14.txt', sep = '\t')
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+Ancestry_short = merge(cohort[,c('Normal_file', 'classification')], Ancestry[,c('Sample', 'ancestry_label')],
+                       by.x = 'Normal_file', by.y = 'Sample', all.x = T)
+Ancestry_short = Ancestry_short[!is.na(Ancestry_short$ancestry_label), ]
+
+
+Ancestry_out = data.frame()
+for(i in unique(Ancestry_short$ancestry_label)){
+  data.sub = Ancestry_short[which(Ancestry_short$ancestry_label == i), ]
+  n = length(Ancestry_short$Normal_file[which(Ancestry_short$ancestry_label == i)])
   for(j in unique(data.sub$classification)){
-    fraction = length(data.sub$sample[which(data.sub$classification == j)]) / n
+    fraction = length(data.sub$Normal_file[which(data.sub$classification == j)]) / n
     out = data.frame(ancestry = i,
                      category = j,
                      fraction = fraction)
-    all_out = rbind(all_out, out)
+    Ancestry_out = rbind(Ancestry_out, out)
   }
 }
+
+Ancestry_out = Ancestry_out[!is.na(Ancestry_out$category), ]
+loss = Ancestry_out[which(Ancestry_out$category %in% c('complete_loss')), ]
+loss = loss[order(loss$fraction), ]
+Ancestry_out$ancestry = factor(Ancestry_out$ancestry, levels = rev(loss$ancestry))
+Ancestry_out$category = factor(Ancestry_out$category, levels = rev(c('complete_loss',
+                                                                                   'relative_loss',
+                                                                                   'partial_loss',
+                                                                                   'gain',
+                                                                                   'partial_gain',
+                                                                                   'gain_loss',
+                                                                                   'wt')))
 
 ##-----------------
 ## Ancestry Visualization:
 ##-----------------
-AncestryYloss = ggplot(all_out, aes(x = ancestry, 
-                                    y = fraction, 
-                                    fill = category, 
-                                    label = paste0((round(fraction* 100, 2)), '%'))) +
+Ancestry_LOY = ggplot(Ancestry_out, 
+                      aes(x = ancestry, 
+                          y = fraction, 
+                          fill = category, 
+                          label = paste0((round(fraction* 100, 2)), '%'))) +
   geom_bar(stat = 'identity', position = 'fill') +
-  #geom_text(size = 3, position = position_stack(vjust = 0.5), fontface = 'bold') +
+  geom_hline(yintercept = seq(0, 1, 0.2), color = 'white', linewidth = 0.25, linetype = 'dashed') +
   scale_fill_manual(values = c('wt' = '#D7D8DA',
-                               'loss' = '#0E3F7C',
-                               'relative_loss' = '#00AEC8',
+                               'complete_loss' = '#0E3F7C',
+                               'partial_loss' = '#00AEC8',
+                               'relative_loss' = '#474089',
                                'gain' = '#D53833',
-                               'gain_loss' = '#E3CC98'),
+                               'partial_gain' = '#E3CC98',
+                               'gain_loss' = '#f9f8d5'),
                     name = '') +
-  scale_y_continuous(expand = c(0.01,0),
+  scale_y_continuous(expand = c(0, 0),
                      breaks = seq(0, 1, 0.2)) +
   theme_std(base_size = 14, base_line_size = 1) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = '', y = 'Fraction of samples\n(n=14,322)')
 
-ggsave(filename = 'Figures_original/Fraction_Y_loss_Race.pdf', plot = AncestryYloss, device = 'pdf', width = 8)
+Ancestry_LOY
+
+ggsave(filename = 'Figures_original/Fraction_LOY_Ancestry.pdf', plot = AncestryYloss, device = 'pdf', width = 8)
 
 
 ## proportion test
