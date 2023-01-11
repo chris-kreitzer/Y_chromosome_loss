@@ -1,7 +1,13 @@
 ##----------------+
-## Genome Scores with 
-## Y-chrom loss correlation
+## Genome-scores; and
+## correlations with 
+## LOY
 ##----------------+
+##
+## start: 11/01/2022
+## revision: 01/10/2023
+## chris-kreitzer
+
 
 clean()
 gc()
@@ -10,18 +16,31 @@ setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
 
 library(ggrepel)
 library(cowplot)
-source('Scripts/plot_theme.R')
-data = readRDS('Data/signedOut/Cohort_07132022.rds')
-Y_calls = data$IMPACT_Y_classification_final
-Y_calls = merge(Y_calls, data$IMPACT_binaryY_call[,c('sample.id', 'purity')],
-                by.x = 'sample', by.y = 'sample.id', all.x = T)
+source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
+
+
+##----------------+
+## both QC TRUE and FALSE
+## included
+##----------------+
+
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+
+
+##----------------+
+## purity distribution
+## - LOY enriched in low tumor purity
+## - LOY enriched in high tumor purity?
+##----------------+
+Y_calls = cohort
 Y_calls$purity[which(Y_calls$purity == 0)] = 0.0001
+Y_calls = Y_calls[!is.na(Y_calls$purity), ]
 
 purity_bin = data.frame()
-for(i in seq(0, 0.8, 0.2)){
+for(i in seq(0, 0.9, 0.1)){
   #print(c(i, i+0.2))
-  data_sub = Y_calls[which(Y_calls$purity > i & Y_calls$purity <= i + 0.2), ]
-  n_loss = length(data_sub$sample[which(data_sub$classification %in% c('loss', 'relative_loss', 'gain_loss'))])
+  data_sub = Y_calls[which(Y_calls$purity > i & Y_calls$purity <= i + 0.1), ]
+  n_loss = length(data_sub$SAMPLE_ID[which(data_sub$classification %in% c('complete_loss'))])
   n_loss_rel = n_loss / nrow(data_sub)
   out = data.frame(purity_bin = i,
                    total = nrow(data_sub),
@@ -29,107 +48,126 @@ for(i in seq(0, 0.8, 0.2)){
   purity_bin = rbind(purity_bin, out)
 }
 
-barplot(height = c(43.4, 39.0, 37.3, 32.5, 26.0), 
-        names.arg = c('[0-0.2]', '[0.2-0.4]', '[0.4-0.6]', '[0.6-0.8]', '[0.8-1]'), 
-        space = 0.1, col = 'white', ylim = c(0, 100), las = 1, xlab = 'purity-bin', 
-        ylab = 'Samples [%]', main = 'Chromosome Y-loss in varying purity groups')
+purity_bin$purity_bin = paste0('[', purity_bin$purity_bin, '-', purity_bin$purity_bin+0.1, ']')
 
-purity_bin
+cases_purity = ggplot(purity_bin, aes(x = purity_bin, y = total)) +
+  geom_bar(stat = 'identity', color = 'grey25', fill = 'grey25') +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  theme_std(base_size = 14, base_line_size = 1) +
+  theme(axis.text.x = element_blank()) +
+  labs(x = '', y = 'cases (n)')
+
+procent_purity = ggplot(purity_bin, aes(x = purity_bin, y = n_loss_rel)) +
+  geom_bar(stat = 'identity', color = 'grey25', fill = 'grey25') +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  theme_std(base_size = 14, base_line_size = 1) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = 'purity-group', y = 'Y-chromosome loss [%]')
+procent_purity
+
+purity_compact = cases_purity / procent_purity
+ggsave_golden(filename = 'Figures_original/LOY_by_Purity.pdf', plot = purity_compact, width = 10)
+
+
 
 
 ##----------------+
-## Getting FGA and 
-## number of chromosome 
-## arm alterations (AS score)
+## LOY in lower pure samples
+## associated with sample coverage?
 ##----------------+
-clean()
-gc()
-.rs.restartR()
-setwd(dir = '~/Documents/MSKCC/10_MasterThesis/')
-full_cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
-cohort_pass = full_cohort$IMPACT_Y_classification_final
-#arms = read.csv('Data/04_Loss/IMPACT_arm_change_out.txt', sep = '\t')
-segs = read.csv('Data/04_Loss/IMPACT_copynumber_out.txt', sep = '\t')
-segs_pass = segs[which(segs$ID %in% cohort_pass$sample), ]
-copyNumber = facetsSuite:::copy_number_states
-cn_state_loss = copyNumber$call[which(copyNumber$numeric_call %in% c(-2, -1))]
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+low_purity_samples = cohort$counts_file[which(cohort$purity > 0 & cohort$purity < 0.3)]
+write.table(low_purity_samples, file = 'Data/01_Coverage_Depth/Low_purity[0:0.29]_samples.txt', sep = '\t', row.names = F, quote = F, col.names = 'sample')
+high_purity_samples = cohort$counts_file[which(cohort$purity > 0.8 & cohort$purity < 1)]
+write.table(high_purity_samples, file = 'Data/01_Coverage_Depth/High_purity[0.8:1]_samples.txt', sep = '\t', row.names = F, quote = F, col.names = 'sample')
 
-arm_changes_full_cohort = data.frame()
-for(i in unique(segs_pass$ID)){
-  print(i)
-  try({
-    id = i
-    purity = unique(segs_pass$purity[which(segs_pass$ID == i)])
-    ploidy = unique(segs_pass$ploidy[which(segs_pass$ID == i)])
-    arm_change = facetsSuite::arm_level_changes(segs = segs_pass[which(segs_pass$ID == i), ],
-                                                ploidy = ploidy,
-                                                genome = 'hg19',
-                                                algorithm = 'em')
-    arm_change_df = arm_change$full_output
-    Aneuploidy = filter(arm_change_df, cn_state != 'DIPLOID')
-    loss = filter(arm_change_df, cn_state %in% cn_state_loss)
-    out = data.frame(id = id,
-                     purity = purity,
-                     ploidy = ploidy,
-                     genome_doubled = arm_change$genome_doubled,
-                     fraction_cna = arm_change$fraction_cna,
-                     weighted_fraction_cna = arm_change$weighted_fraction_cna,
-                     AS_score = nrow(Aneuploidy),
-                     losses_n = nrow(loss))
-    arm_changes_full_cohort = rbind(arm_changes_full_cohort, out)
-  })
-}
+
+
+
 
 
 
 ##----------------+
 ## Correlation analysis;
 ## FGA, arm-losses VS 
-## Fraction LOY; purity all
+## Fraction LOY; 
+## purity all
 ##----------------+
 clean()
 gc()
 .rs.restartR()
-cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
-top20 = read.csv('Data/04_Loss/IMPACT_Y_loss_incidences_top20.txt', sep = '\t')
-Y_calls = cohort$IMPACT_Y_classification_final
-arm_changes = cohort$IMPACT_ARM_level_changes
-arm_changes = merge(arm_changes, cohort$IMPACT_clinicalAnnotation[,c('SAMPLE_ID', 'CANCER_TYPE', 'MUTATION_COUNT')],
-                    by.x = 'id', by.y = 'SAMPLE_ID', all.x = T)
-arm_changes = merge(arm_changes, Y_calls[,c('sample', 'classification')],
-                    by.x = 'id', by.y = 'sample', all.x = T)
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 
 genome_scores = data.frame()
-for(i in unique(arm_changes$CANCER_TYPE)){
+for(i in unique(cohort$CANCER_TYPE_ritika)){
   type = i
-  median_AS = median(x = arm_changes$AS_score[which(arm_changes$CANCER_TYPE == i)], na.rm = T)
-  mean_AS = mean(x = arm_changes$AS_score[which(arm_changes$CANCER_TYPE == i)], na.rm = T)
-  median_loss = median(x = arm_changes$losses_n[which(arm_changes$CANCER_TYPE == i)], na.rm = T)
-  mean_loss = mean(x = arm_changes$losses_n[which(arm_changes$CANCER_TYPE == i)], na.rm = T)
-  median_mutation = median(x = arm_changes$MUTATION_COUNT[which(arm_changes$CANCER_TYPE == i)], na.rm = T)
-  mean_mutation = mean(x = arm_changes$MUTATION_COUNT[which(arm_changes$CANCER_TYPE == i)], na.rm = T)
-  median_AS = median(x = arm_changes$AS_score[which(arm_changes$CANCER_TYPE == i)], na.rm = T)
-  mean_AS = mean(x = arm_changes$AS_score[which(arm_changes$CANCER_TYPE == i)], na.rm = T)
-  median_fga = median(x = arm_changes$fraction_cna[which(arm_changes$CANCER_TYPE == i)], na.rm = T)
-  mean_fga = mean(x = arm_changes$fraction_cna[which(arm_changes$CANCER_TYPE == i)], na.rm = T)
-  n_loy = length(arm_changes$id[which(arm_changes$CANCER_TYPE == i & arm_changes$classification %in% c('loss', 'relative_loss'))])
-  fraction_LOY = n_loy / length(arm_changes$id[which(arm_changes$CANCER_TYPE == i)])
+  Aneuploidy_score = mean(x = cohort$AS_score[which(cohort$CANCER_TYPE_ritika == i)], na.rm = T)
+  Loss_score = mean(x = cohort$losses_n[which(cohort$CANCER_TYPE_ritika == i)], na.rm = T)
+  FGA_score = mean(x = cohort$fraction_cna[which(cohort$CANCER_TYPE_ritika == i)], na.rm = T)
+  n_loy = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE_ritika == i & cohort$classification %in% c('complete_loss', 'partial_loss', 'relative_loss'))])
+  fraction_LOY = n_loy / length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE_ritika == i)])
   out = data.frame(CancerType = type,
-                   median_AS = median_AS,
-                   mean_AS = mean_AS,
-                   median_loss = median_loss,
-                   mean_loss = mean_loss,
-                   median_mutation = median_mutation,
-                   mean_mutation = mean_mutation,
-                   median_fga = median_fga,
-                   mean_fga = mean_fga,
-                   fraction_LOY = fraction_LOY)
+                   Aneuploidy_score = Aneuploidy_score,
+                   Loss_score = Loss_score,
+                   FGA_score = FGA_score,
+                   n = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE_ritika == i)]),
+                   n_loy = n_loy,
+                   fraction_LOY = fraction_LOY*100)
   genome_scores = rbind(genome_scores, out)
 }
-
-genome_scores = genome_scores[!is.na(genome_scores$CancerType), ]
-genome_scores = genome_scores[which(genome_scores$CancerType %in% unique(top20$CancerType)), ]
+genome_scores = genome_scores[!genome_scores$CancerType %in% c('Ovary/Fallopian Tube (OVARY)', 'Vulva/Vagina (VULVA)'), ]
 write.table(genome_scores, file = 'Data/05_Association/gene_level/GenomeScores.txt', sep = '\t', row.names = F)
+
+
+##-------
+## Visualization;
+## - Aneuploidy score
+##-------
+Aneuploidy_correlation = ggplot(genome_scores, 
+                                aes(x = fraction_LOY, 
+                                    y = Aneuploidy_score)) +
+  geom_point(data = genome_scores, aes(size = n), shape = 20) +
+  scale_size_continuous(breaks = c(50, 100, 500, 1000, 1500, 3000),
+                        labels = c(50, 100, 500, 1000, 1500, '>1500'),
+                        name = 'n/CancerType') +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  geom_text_repel(aes(label = CancerType), size = 3) +
+  stat_smooth(method = lm) +
+  #stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
+  theme_std(base_size = 14, base_line_size = 1) + 
+  theme(aspect.ratio = 1) +
+  labs(y = '#Arms altered [gain & loss]', x = 'Fraction LOY')
+
+Aneuploidy_correlation
+
+
+##-------
+## Visualization;
+## - Loss score
+##-------
+Loss_correlation = ggplot(genome_scores, 
+                          aes(x = fraction_LOY, 
+                              y = Loss_score)) +
+  geom_point(data = genome_scores, aes(size = n), shape = 20) +
+  scale_size_continuous(breaks = c(50, 100, 500, 1000, 1500, 3000),
+                        labels = c(50, 100, 500, 1000, 1500, '>1500'),
+                        name = 'n/CancerType') +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  geom_text_repel(aes(label = CancerType), size = 3) +
+  stat_smooth(method = lm) +
+  #stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
+  theme_std(base_size = 14, base_line_size = 1) + 
+  theme(aspect.ratio = 1) +
+  labs(y = 'Average # of chromosome arms lost', x = 'Fraction of male tumors with LOY')
+
+Loss_correlation
+
+
+
+
+
+
+cor.test(genome_scores$fraction_LOY, genome_scores$Loss_score, method = 'spearman')
 
 
 ##----------------+
