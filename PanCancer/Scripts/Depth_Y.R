@@ -21,9 +21,8 @@ depth_Y = function(samples){
                      panel = panel,
                      average_depth_TUM = mean(data.in$TUM.DP, na.rm = T),
                      average_depth_NOR = mean(data.in$NOR.DP, na.rm = T))
-    
+    out  
   })
-  out
 }
 
 xx = lapply(unique(low_purity_samples), function(x) depth_Y(samples = x))
