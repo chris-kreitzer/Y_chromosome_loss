@@ -82,6 +82,39 @@ high_purity_samples = cohort$counts_file[which(cohort$purity > 0.8 & cohort$puri
 write.table(high_purity_samples, file = 'Data/01_Coverage_Depth/High_purity[0.8:1]_samples.txt', sep = '\t', row.names = F, quote = F, col.names = 'sample')
 
 
+low_purity = read.csv('Data/01_Coverage_Depth/Average_Depth_lowPurity.txt', sep = '\t')
+low_purity$group = 'low_purity'
+high_purity = read.csv('Data/01_Coverage_Depth/Average_Depth_highPurity.txt', sep = '\t')
+high_purity$group = 'high_purity'
+
+xx = rbind(low_purity, high_purity)
+
+ggplot(xx, aes(x = group, y = average_depth_TUM)) +
+  geom_violin(width = 0.45) +
+  geom_jitter(position = position_dodge2(width = 0.15), size = 0.25) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  theme_std(base_size = 14, base_line_size = 0.5) +
+  theme(aspect.ratio = 1,
+        panel.border = element_rect(fill = NA, linewidth = 2)) +
+  labs(x = '', y = 'Average sequencing depth')
+  
+  
+
+head(xx)
+
+
+
+
+head(xx)
+summary(high_purity$average_depth_TUM)
+summary(high_purity$average_depth_NOR)
+plot(density(low_purity$average_depth_TUM))
+plot(density(high_purity$average_depth_TUM))
+
+t.test(low_purity$average_depth_TUM, high_purity$average_depth_TUM)
+
+
+
 all_out = data.frame()
 for(i in unique(cohort$CANCER_TYPE_ritika)){
   cancer = i
