@@ -189,6 +189,8 @@ Purity_Coverage_plot = ggplot(purity_coverage, aes(x = group, y = average_depth_
 ggsave_golden(filename = 'Figures_original/Purity_Coverage.pdf', plot = Purity_Coverage_plot, width = 6)  
 
 
+
+
 ##----------------+
 ## Correlation analysis;
 ## FGA, arm-losses VS 
