@@ -16,6 +16,7 @@ setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
 
 library(ggrepel)
 library(cowplot)
+library(patchwork)
 source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
 
 
@@ -69,6 +70,84 @@ purity_compact = cases_purity / procent_purity
 ggsave_golden(filename = 'Figures_original/LOY_by_Purity.pdf', plot = purity_compact, width = 10)
 
 
+
+##----------------+
+## Average purity and
+## LOY based on cancer types
+##----------------+
+purity_out = data.frame()
+for(i in unique(cohort$CANCER_TYPE_ritika)){
+  cancer = gsub("\\s*\\([^\\)]+\\)", "", i)
+  data.sub = cohort[which(cohort$CANCER_TYPE_ritika == i), ]
+  data.sub = data.sub[!is.na(data.sub$purity), ]
+  n = nrow(data.sub)
+  out = data.frame(cancer = cancer,
+                   n = n,
+                   value = data.sub$purity,
+                   median_value = median(data.sub$purity, na.rm = T))
+  purity_out = rbind(purity_out, out)
+  rm(data.sub)
+}
+
+purity_summary = purity_out[,c('cancer', 'n', 'median_value')]
+purity_summary = unique(purity_summary)
+purity_summary$cancer = gsub("\\s*\\([^\\)]+\\)", "", purity_summary$cancer)
+purity_summary = purity_summary[order(purity_summary$median_value, decreasing = F), ]
+fn = factor(unique(x$cancer), levels = purity_summary$cancer)
+
+##-------
+## Visualization
+##-------
+Purity.plot = ggplot(purity_out, aes(x = reorder(cancer, median_value), y = value)) +
+  geom_quasirandom(dodge.width = 0.6, cex = 1, nbins = 50, alpha = 0.5) +
+  stat_summary(fun = median, 
+               geom = "errorbar", 
+               aes(ymax = ..y.., ymin = ..y..), 
+               position = position_dodge(width = 0.5), 
+               linewidth = 0.8, 
+               col = 'red',
+               size = 1) +
+  scale_x_discrete(breaks = purity_summary$cancer,
+                   labels = paste0(purity_summary$cancer, '\n(n=', purity_summary$n, ')')) +
+  theme_std(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(0, 1),
+                     breaks = seq(0, 1, 0.25),
+                     labels = seq(0, 1, 0.25)) +
+  labs(x = '', y = 'Purity')
+
+
+##-------
+## Add info for LOY
+##-------
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+fLOY = data.frame()
+for(i in unique(cohort$CANCER_TYPE_ritika)){
+  cancer = gsub("\\s*\\([^\\)]+\\)", "", i)
+  data.sub = cohort[which(cohort$CANCER_TYPE_ritika == i), ]
+  n = nrow(data.sub)
+  n_loss = length(data.sub$SAMPLE_ID[which(data.sub$classification %in% c('complete_loss', 'partial_loss', 'relative_loss'))])
+  out = data.frame(cancer = cancer,
+                   n = n,
+                   value = n_loss / n * 100)
+  fLOY = rbind(fLOY, out)
+  rm(data.sub)
+}
+
+fLOY$cancer = factor(fLOY$cancer, levels = levels(fn))
+
+fLOY_plot = ggplot(fLOY, aes(x = cancer, y = value)) +
+  geom_bar(stat = 'identity', fill = 'black', color = 'black') +
+  geom_hline(yintercept = seq(0, 100, 25), linewidth = 0.25, color = 'grey55', linetype = 'dashed') +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_std(base_size = 14) +
+  theme(axis.text.x = element_blank()) +
+  labs(x = '', y = 'LOY [%]')
+
+
+purity_fLOY = fLOY_plot / Purity.plot
+ggsave_golden(filename = 'Figures_original/Purity_fractionLOY_cancer.pdf', plot = purity_fLOY, width = 12)
 
 
 ##----------------+
