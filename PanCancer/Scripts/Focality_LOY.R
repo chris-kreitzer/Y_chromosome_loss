@@ -313,20 +313,4 @@ plot_Gscores_Gistic = ggplot() +
 plot_Gscores_Gistic
 ggsave_golden(filename = 'Figures_original/GISTIC_scores_Y.pdf', plot = plot_Gscores_Gistic, width = 16)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #' out
