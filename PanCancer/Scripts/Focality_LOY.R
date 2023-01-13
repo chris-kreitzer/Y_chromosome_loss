@@ -3,9 +3,18 @@
 ## alterations;
 ##----------------+
 ##
-## start: 11/07/2022
-## revision: 01/10/2023
+## AND
 ## 
+## ##----------------+
+## run GISTIC on n=546 samples
+## where we have multiple segments
+## from the Y-chromosome;
+## determine whether there is any
+## focal alteration above the background?
+##----------------+
+##
+## start: 11/07/2022
+## revision: 01/13/2023
 ## chris-kreitzer
 
 
@@ -192,5 +201,132 @@ Focality_plot = ggplot(Focality_out, aes(x = x,
 plot_grid = cowplot::plot_grid(plotlist = list(n_segment_plot, multi_segment_plot, Focality_plot), nrow = 1, ncol = 3,
                    align = 'h')
 ggsave_golden(filename = 'Figures_original/Focality_LOY.pdf', plot = plot_grid, width = 14)
+
+
+
+##----------------+
+## GISTIC on double segments
+##----------------+
+##-------
+## Modify GISTIC
+## output; to be plotted
+##-------
+gene.lookup = read.csv('Data/01_Coverage_Depth/BAM_quality_out.txt', sep = '\t')
+gene.lookup = unique(gene.lookup$gene)
+
+all_output_files = list.files(path = 'Data/04_Loss/GISTIC_results/', full.names = T)
+all_data_genes = read.csv(file = grep('.thresholded.by_gene.*', all_output_files, value = T), sep = '\t')
+
+## fetch genes from chromosome Y
+sample_gene.lookup = all_data_genes[all_data_genes$Gene.Symbol %in% as.character(gene.lookup),, drop = F]
+sample_gene.lookup = as.data.frame(t(sample_gene.lookup))
+colnames(sample_gene.lookup) = sample_gene.lookup[1, ]
+sample_gene.lookup = droplevels(sample_gene.lookup[-c(1,2,3),, drop = F])
+sample_gene.lookup$ID = row.names(sample_gene.lookup)
+rownames(sample_gene.lookup) = NULL
+sample_gene.lookup[1:12] = lapply(sample_gene.lookup[1:12], str_trim) 
+
+all_genes = data.frame()
+for(i in (1:(length(sample_gene.lookup) - 1))){
+  print(i)
+  n = dim(sample_gene.lookup)[1]
+  gene = colnames(sample_gene.lookup)[i]
+  crosstab = as.data.frame(table(sample_gene.lookup[,i]))
+  crosstab$gene = gene
+  crosstab$freq = crosstab$Freq / n
+  colnames(crosstab) = c('Category', 'Frequency', 'gene', 'rel_freq')
+  all_genes = rbind(all_genes, crosstab)
+}
+
+xx = all_genes[which(all_genes$Category == '-1'),, drop = F ]
+xx = xx[order(xx$rel_freq), ]
+fn = factor(xx$gene, levels = xx$gene)
+all_genes$gene = factor(all_genes$gene, levels = levels(fn))
+
+all_genes$Category = as.character(all_genes$Category)
+all_genes$Category = ifelse(all_genes$Category == '2', '1',
+                            ifelse(all_genes$Category == '-2', '-1', all_genes$Category))
+all_genes$Category = factor(all_genes$Category, levels = rev(c('-1', '0', '1')))
+
+
+Genes_GISTIC = ggplot(all_genes,
+                      aes(x = gene,
+                          y = rel_freq,
+                          fill = Category, 
+                          label = paste0((round(rel_freq* 100, 2)), '%'))) +
+  geom_bar(stat = 'identity', position = 'fill') +
+  coord_flip() +
+  scale_fill_manual(values = c('0' = '#D7D8DA',
+                               '-1' = '#00AEC8',
+                               '1' = '#E3CC98'),
+                    name = '') +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = seq(0, 1, 0.2),
+                     sec.axis = dup_axis()) +
+  theme_std(base_size = 14, base_line_size = 1) +
+  labs(x = '', y = 'Fraction')
+
+
+ggsave_golden(filename = 'Figures_original/Genes_GISTIC_alterations.pdf', plot = Genes_GISTIC, width = 6)
+
+## all_lesions.conf.XX
+all_lesions = read.csv(file = grep('.lesions.conf.*', all_output_files, value = T), sep = '\t')
+all_lesions = all_lesions[grep('0.*', all_lesions$Amplitude.Threshold),, drop = F]
+all_lesions_subset1 = all_lesions[, c('Unique.Name', 'Descriptor', 'Peak.Limits', 'q.values')]
+all_lesions_subset2 = all_lesions[, c(10:ncol(all_lesions))]
+all_lesions_subset2$X = NULL
+
+for(i in 1:ncol(all_lesions_subset2)){
+  all_lesions_subset2[, i] = ifelse(all_lesions_subset2[, i] == 2, 1,
+                                    ifelse(all_lesions_subset2[, i] == 1, 1, 0))
+}
+sample.summary = data.frame(Sample.summary = rowSums(all_lesions_subset2))
+all_lesions_out = cbind(all_lesions_subset1, sample.summary)
+all_lesions_out$Peak.Limits = gsub(pattern = '.p.*', replacement = '', all_lesions_out$Peak.Limits)
+
+## work on Gistic output
+gistic = read.csv(file = grep('.cores.gistic.*', all_output_files, value = T), sep = '\t')
+
+
+##-------
+## Visualization;
+##-------
+plot_Gscores_Gistic = ggplot() +
+  geom_path(data = subset(gistic, gistic$Type == 'Amp'), aes(x = Start, y = G.score), lineend = 'butt', linejoin = 'round', 
+            linemitre = 50, linetype = 'solid', linewidth = 1.5, col = 'red') +
+  geom_path(data = subset(gistic, gistic$Type == 'Del'), aes(x = Start, y = G.score), lineend = 'butt', linejoin = 'round', 
+            linemitre = 50, linetype = 'solid', linewidth = 1.5, col = 'blue') +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0, 0.8)) +
+  theme(aspect.ratio = 3, axis.text.x = element_blank()) +
+  labs(x = '', y = 'G score') +
+  
+  facet_wrap(~Chromosome, scales = 'free_x', nrow = 1) +
+  
+  theme(panel.spacing = unit(0.05, "lines"),
+        axis.ticks = element_blank(),
+        strip.placement = 'inside', 
+        strip.background = element_blank(),
+        strip.text = element_text(size = 12)) +
+  panel_border(color = 'black')
+
+plot_Gscores_Gistic
+ggsave_golden(filename = 'Figures_original/GISTIC_scores_Y.pdf', plot = plot_Gscores_Gistic, width = 16)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #' out
