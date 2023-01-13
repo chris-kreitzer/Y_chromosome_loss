@@ -1,20 +1,19 @@
 ##----------------+
-## Run a logistic regression model 
-## on the whole Impact (male) cohort;
-## Look into which variables influence 
-## the Y-chromosome loss probability
+## Run GLM model on whole (male) cohort;
+## Which variables influence the LOY probability
 ##----------------+
 ## start: 11/2021
 ## revision: 12/2021
 ## revision: 11/18/2022
 ## revision: 11/21/2022
+## revision: 01/13/2023
 ## chris-kreitzer
 
 
 clean()
 gc()
 setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
-source('Scripts/plot_theme.R')
+source('Scripts/UtilityFunctions.R')
 
 
 ## Libraries and input data
@@ -25,47 +24,39 @@ library(rcompanion)
 library(ggplot2)
 library(cowplot)
 
+##-------
+## TODO:
+## - QC TRUE and FALSE samples
+## - what to do with Gain_Loss segments?
 
-cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
-clinical = cohort$IMPACT_clinicalAnnotation
-loy = cohort$IMPACT_Y_classification_final
-loy_clinical = cohort$IMPACT_binaryY_call
-arm_level = cohort$IMPACT_ARM_level_changes
 
-clinical_glm = merge(loy[,c('sample', 'ploidy', 'classification')], loy_clinical[,c('sample.id', 'purity')],
-                     by.x = 'sample', by.y = 'sample.id', all.x = T)
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 
-clinical_glm$classification[which(clinical_glm$classification %in% c('loss', 'relative_loss'))] = 1
-clinical_glm$classification[which(clinical_glm$classification %in% c('gain', 'wt', 'gain_loss'))] = 0
-clinical_glm$classification[which(clinical_glm$sample == 'P-0002130-T02-IM3')] = 0
-clinical_glm$classification[which(clinical_glm$sample == 'P-0013100-T01-IM5')] = 0
-clinical_glm$classification[which(clinical_glm$sample == 'P-0028409-T01-IM6')] = 1
-clinical_glm$classification[which(clinical_glm$sample == 'P-0064933-T02-IM7')] = 0
+cohort$classification[which(cohort$classification %in% c('complete_loss', 'relative_loss', 'partial_loss'))] = 1
+cohort$classification[which(cohort$classification %in% c('gain', 'wt', 'partial_gain'))] = 0
+cohort = cohort[!cohort$classification %in% c('NA', 'gain_loss'), ]
+cohort = cohort[!is.na(cohort$classification), ]
 
-clinical_glm = merge(clinical_glm, clinical[,c('SAMPLE_ID', 'CANCER_TYPE', 'MSI_TYPE', 
-                                               'MSI_SCORE', 'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)', 
-                                               'IMPACT_TMB_SCORE', 'MUTATION_COUNT')],
-                     by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
-clinical_glm = merge(clinical_glm, cohort$IMPACT_cohort[,c('SAMPLE_ID', 'SAMPLE_TYPE')],
-                     by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
-clinical_glm = merge(clinical_glm, arm_level[,c('id', 'genome_doubled', 'fraction_cna')],
-                     by.x = 'sample', by.y = 'id', all.x = T)
-clinical_glm$classification = as.integer(as.character(clinical_glm$classification))
-colnames(clinical_glm) = c('sample', 'ploidy', 'Y_call', 'purity', 'CANCER_TYPE', 'MSI_TYPE', 
-                           'MSI_SCORE', 'Age', 'TMB', 'Mut_Count', 'SAMPLE_TYPE', 'WGD', 'FGA')
+# cohort$classification[which(cohort$sample == 'P-0002130-T02-IM3')] = 0
+# cohort$classification[which(cohort$sample == 'P-0013100-T01-IM5')] = 0
+# cohort$classification[which(cohort$sample == 'P-0028409-T01-IM6')] = 1
+# cohort$classification[which(cohort$sample == 'P-0064933-T02-IM7')] = 0
+
+clinical_glm = cohort[,c('SAMPLE_ID', 'ploidy', 'classification', 'purity', 'CANCER_TYPE', 'MSI_TYPE',
+                         'Age_Sequencing', 'SAMPLE_TYPE', 'genome_doubled', 'fraction_cna')]
 
 #' only work with cancer types whose frequency is > 1% in the whole cohort (n = 12,405)
 #' also modify the data frame columns, so that they are properly encoded
 CancerTypes_considered = names(which(table(clinical_glm$CANCER_TYPE) / sum(table(clinical_glm$CANCER_TYPE)) > 0.01))
 clinical_glm = clinical_glm[which(clinical_glm$CANCER_TYPE %in% CancerTypes_considered), ]
 clinical_glm$CANCER_TYPE = as.factor(as.character(clinical_glm$CANCER_TYPE))
-clinical_glm$Age = as.integer(as.character(clinical_glm$Age))
+clinical_glm$Age_Sequencing = as.integer(as.character(clinical_glm$Age_Sequencing))
 clinical_glm$SAMPLE_TYPE = as.factor(as.character(clinical_glm$SAMPLE_TYPE))
 clinical_glm$MSI_TYPE = as.factor(as.character(clinical_glm$MSI_TYPE))
 clinical_glm$MSI_TYPE = factor(clinical_glm$MSI_TYPE, levels = c('Stable', 'Instable', 'Indeterminate', 'Do not report'))
-clinical_glm$WGD[which(clinical_glm$WGD == TRUE)] = 1
-clinical_glm$WGD[which(clinical_glm$WGD == FALSE)] = 0
-clinical_glm$WGD = as.factor(clinical_glm$WGD)
+clinical_glm$genome_doubled[which(clinical_glm$genome_doubled == TRUE)] = 1
+clinical_glm$genome_doubled[which(clinical_glm$genome_doubled == FALSE)] = 0
+clinical_glm$genome_doubled = as.factor(clinical_glm$genome_doubled)
 
 
 ##----------------+
@@ -73,7 +64,9 @@ clinical_glm$WGD = as.factor(clinical_glm$WGD)
 ## without CancerType included
 ##----------------+
 glm_model = clinical_glm[, -which(names(clinical_glm) == "CANCER_TYPE")]
-model_full = glm(Y_call ~ ploidy+purity+MSI_TYPE+Age+TMB+SAMPLE_TYPE+WGD+FGA, data = glm_model, family = binomial)
+glm_model = glm_model[!is.na(glm_model$purity), ]
+glm_model$classification = as.integer(as.character(glm_model$classification))
+model_full = glm(classification ~ ploidy+purity+MSI_TYPE+Age_Sequencing+SAMPLE_TYPE+genome_doubled+fraction_cna, data = glm_model, family = binomial)
 summary(model_full)
 
 #' check for multicollinearity with car::vif()
@@ -81,20 +74,16 @@ model.vif = as.data.frame(car::vif(model_full))
 model.vif$Test = model.vif$`GVIF^(1/(2*Df))` ^ 2
 
 ##----------------+
-## excluding variables:
-## TMB, 
-## Mut_Count, 
-## WGD as they show high VIF
+## excluding variables
+## that show VIF/TEST > 2.5
 ##----------------+
-glm_model = glm_model[,-which(names(glm_model) == 'TMB')]
-glm_model = glm_model[,-which(names(glm_model) == 'WGD')]
-glm_model = glm_model[,-which(names(glm_model) == 'Mut_Count')]
-glm_model = glm_model[,-which(names(glm_model) == 'MSI_SCORE')]
-glm_model = glm_model[,-which(names(glm_model) == 'sample')]
-
-model_final = glm(Y_call ~., data = glm_model, family = binomial(link = 'logit'))
+# glm_model = glm_model[,-which(names(glm_model) == 'TMB')]
+# glm_model = glm_model[,-which(names(glm_model) == 'WGD')]
+# glm_model = glm_model[,-which(names(glm_model) == 'Mut_Count')]
+# glm_model = glm_model[,-which(names(glm_model) == 'MSI_SCORE')]
+glm_model = glm_model[,-which(names(glm_model) == 'SAMPLE_ID')]
+model_final = glm(classification ~., data = glm_model, family = binomial(link = 'logit'))
 car::vif(model_final)
-# any model_final$test > 10 - variance inflation factor
 summary(model_final)
 
 
