@@ -306,49 +306,46 @@ Aneuploidy_correlation / Loss_correlation / FGA_correlation
 ##----------------+
 ## WGD and LOY association;
 ##----------------+
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 
-loy = data$IMPACT_Y_classification_final
-clinics = data$IMPACT_clinicalAnnotation
+WGD_LOY = data.frame()
+for(i in unique(cohort$genome_doubled)){
+  if(i %in% c('TRUE', 'FALSE')){
+    n = length(unique(cohort$SAMPLE_ID[which(cohort$genome_doubled == i)]))
+    cc = cohort[which(cohort$genome_doubled == i), ]
+    cc_df = as.data.frame(table(cc$classification))
+    cc_df$group = i
+    cc_df$rel_freq = cc_df$Freq / n
+    WGD_LOY = rbind(WGD_LOY, cc_df)
+  } else next
+}
+WGD_LOY$group[which(WGD_LOY$group == 'TRUE')] = '1x'
+WGD_LOY$group[which(WGD_LOY$group == 'FALSE')] = 'none'
+WGD_LOY$group = factor(WGD_LOY$group, levels = c('none', '1x'))
 
-eso = clinics[which(clinics$CANCER_TYPE == 'Esophagogastric Cancer'), 'SAMPLE_ID']
-pan = clinics[which(clinics$CANCER_TYPE == 'Pancreatic Cancer'), 'SAMPLE_ID']
-pro = clinics[which(clinics$CANCER_TYPE == 'Prostate Cancer'), 'SAMPLE_ID']
-gli = clinics[which(clinics$CANCER_TYPE == 'Glioma'), 'SAMPLE_ID']
-table(loy$classification[which(loy$sample %in% gli)])
-wgd = read.csv('Data/04_Loss/QC_metrics.txt', sep = '\t')
-wgd = wgd[which(wgd$ID %in% loy$sample), ]
-head(wgd)
-
-
-wgd_loy = merge(loy, wgd, by.x = 'sample', by.y = 'ID', all.x = T)
-
-
-head(wgd_loy)
-sum(table(wgd_loy$classification[which(wgd_loy$wgd == T)]))
-
-wgd_plot = data.frame(category = rep(c('gain', 'gain_loss', 'loss', 'relative_loss', 'wt'), 2),
-                      wgd = c(rep('NONE', 5), rep(1, 5)),
-                      value = c(1693, 43, 2848, 17, 5055, 1281, 75, 1967, 178, 1161))
-wgd_plot$wgd = factor(wgd_plot$wgd, levels = c('NONE', '1'))
-wgd_plot$new_value[1:5] = (wgd_plot$value[1:5] / 9656) * 100
-wgd_plot$new_value[6:10] = (wgd_plot$value[6:10] / 4662) * 100
-
-source('Scripts/plot_theme.R')
-WGD_LOY = ggplot(wgd_plot, aes(x = wgd, y = new_value, fill = category)) +
+##-------
+## Visualization
+##-------
+WGD_LOY_plot = ggplot(WGD_LOY, 
+                      aes(x = group, 
+                          y = rel_freq, 
+                          fill = Var1)) +
   geom_bar(position = 'stack', stat = 'identity') +
   scale_fill_manual(values = c('wt' = '#D7D8DA',
-                               'loss' = '#0E3F7C',
-                               'relative_loss' = '#00AEC8',
+                               'complete_loss' = '#0E3F7C',
+                               'partial_loss' = '#00AEC8',
+                               'relative_loss' = '#474089',
                                'gain' = '#D53833',
-                               'gain_loss' = '#E3CC98'), name = '') +
+                               'partial_gain' = '#E3CC98',
+                               'gain_loss' = '#f9f8d5'),
+                    name = '') +
   scale_y_continuous(expand = c(0.01,0)) +
-  scale_x_discrete(labels = c('none', '1x')) +
+  #scale_x_discrete(labels = c('none', '1x')) +
   theme_std(base_size = 14, base_line_size = 1) +
   theme(aspect.ratio = 2) +
   labs(x = '# genome doublings', y = 'Fraction of tumors')
 
-ggsave(filename = 'Figures_original/Fraction_Y_loss_WGD.pdf', plot = WGD_LOY, device = 'pdf', width = 4)
+ggsave(filename = 'Figures_original/Fraction_Y_loss_WGD.pdf', plot = WGD_LOY_plot, device = 'pdf', width = 4)
 
 
-
-
+#' out
