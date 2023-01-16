@@ -6,7 +6,43 @@
 ## start: 08/11/2021
 ## revision: 08/24/2022
 ## revision: 01/10/2023
+## revision: 01/16/2023
+## 
 ## chris-kreitzer
+
+
+##----------------+
+## Required packages
+##----------------+
+suppressPackageStartupMessages({
+  library(plyr)
+  library(tidyverse)
+  library(patchwork)
+  library(ggsignif)
+  library(binom)
+  library(stringi)
+  library(ggrepel)
+  library(grid)
+  library(readxl)
+  library(ggbeeswarm)
+  library(here)
+  library(survival)
+  library(survminer)
+})
+
+
+##----------------+
+## Cancer-types to include
+##----------------+
+
+
+##----------------+
+## Current cohort
+##----------------+
+Cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+
+
+
 
 CI_z = function (x, ci = 0.95){
   `%>%` <- magrittr::`%>%`
@@ -54,7 +90,7 @@ theme_std = function(base_size = 11,
     theme(
       line = element_line(colour = "black", linewidth = base_line_size, linetype = 1, lineend = "round"),
       text = element_text(family = 'ArialMT', face = "plain",
-                          colour = "black", size = base_size, lineheight = 0.9,
+                          colour = "black", linewidth = base_size, lineheight = 0.9,
                           hjust = 0.5, vjust = 0.5, angle = 0, margin = margin(), debug=F),
       axis.text = element_text(colour = "black", family='ArialMT', size=rel(0.8)),
       axis.ticks = element_line(colour = "black", linewidth = rel(1)),
@@ -65,30 +101,5 @@ theme_std = function(base_size = 11,
       strip.background = element_blank())
 }
 
-theme_Y = theme_bw() +
-  theme(
-    text = element_text(family = 'ArialMT', size = 14),
-    axis.text = element_text(family = 'ArialMT', size = 14, color = 'black'),
-    line = element_line(linewidth = .95*(.95/1.6), lineend = 'round'),
-    plot.background = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.major.y = element_blank(),
-    panel.grid.minor.x = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    strip.background = element_blank(),
-    panel.border = element_blank(),
-    axis.line.x = element_line(color = 'black', linewidth = .95*(.95/1.6), lineend = 'round'),
-    axis.line.y = element_line(color = 'black', linewidth = .95*(.95/1.6), lineend = 'round'),
-    axis.ticks.length = unit(2, 'pt'),
-    axis.ticks.x = element_line(color = 'black', linewidth = .95*(.95/1.6), lineend = 'round'),
-    axis.ticks.y = element_line(color = 'black', linewidth = .95*(.95/1.6), lineend = 'round'),
-    legend.background = element_blank(),
-    legend.key = element_blank(),
-    legend.key.size = unit(.5, "cm"),
-    legend.title = element_blank(),
-    panel.background = element_blank(),
-    plot.margin = unit(c(0.25,0.5,0.25,0.25), 'lines'))
 
-  
-
-#theme_set(theme_Y)
+#' out
