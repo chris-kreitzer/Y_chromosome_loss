@@ -95,30 +95,81 @@ summary(loy.pancancer_MV)
 ## co-variates;
 ##----------------+
 
-OS_cohort$CANCER_TYPE = as.factor(OS_cohort$CANCER_TYPE)
-
+OS_cancertypes = data.frame()
 for(i in unique(OS_cohort$CANCER_TYPE)){
-  print(i)
   data_sub = OS_cohort[which(OS_cohort$CANCER_TYPE == i), ]
-  print(coxph(Surv(OS_months, OS_Status_INT) ~ LOY, data = data_sub) %>%
-    gtsummary::tbl_regression(exp = TRUE))
+  cancer = i
+  n = nrow(data_sub)
+  if(n < 60) next
+  else {
+    model = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY, data = data_sub)
+    estimate = summary(model)$conf.int[[1]]
+    significance = summary(model)$coefficients[[5]]
+    lower = summary(model)$conf.int[[3]]
+    upper = summary(model)$conf.int[[4]]
+    out = data.frame(cancer = cancer,
+                     n = n,
+                     estimate = estimate,
+                     lower = lower,
+                     upper = upper,
+                     significance = significance)
+    OS_cancertypes = rbind(OS_cancertypes, out)
+    rm(data_sub, model, estimate, significance)
+  }
 }
 
-head(OS_cohort)
-str(OS_cohort)
-levels(OS_cohort$CANCER_TYPE)
 
-loy.pancancer_MV = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY+CANCER_TYPE+SAMPLE_TYPE, data = OS_cohort)
-summary(loy.pancancer_MV)
-str(OS_cohort)
+OS_cancertypes
+OS_cancertypes$cancer = paste0(OS_cancertypes$cancer, ' (n=', OS_cancertypes$n, ')')
+OS_cancertypes$plot_color = ifelse(OS_cancertypes$significance <= 0.01, 'plot', 'notplot')
+
+##-------
+## Visualization
+##-------
+OS_CancerTypes_plot = ggplot(data = OS_cancertypes, aes(x = reorder(cancer, estimate), y = estimate)) +
+  geom_point(aes(colour = plot_color), size = 1.5) +
+  geom_pointrange(aes(ymin = estimate - lower,
+                      ymax = estimate + upper,
+                      colour = plot_color),
+                  size = 0.5) +
+  coord_flip() +
+  theme(panel.background = element_blank(),
+        panel.border = element_rect(fill = NA, size = 1),
+        aspect.ratio = 1,
+        axis.title.x.top = element_blank(),
+        axis.text = element_text(size = 10, face = 'bold', color = 'black')) +
+  scale_color_manual(values = c('notplot' = 'grey',
+                                'plot' = 'red'),
+                     labels = c('not_significant', 'significant'),
+                     name = '') +
+  geom_hline(yintercept = 1) +
+  scale_y_continuous(sec.axis = dup_axis()) +
+  labs(x = '', y = 'Model coefficient (log [HR])')
+
+ggsave_golden(filename = 'Figures_original/OS_CancerTypes.pdf', plot = OS_CancerTypes_plot, width = 8)
+
+
+ 
+
+a = survfit(Surv(OS_months, OS_Status_INT) ~ LOY+genome_doubled, data = OS_cohort[which(OS_cohort$CANCER_TYPE == 'Pancreatic Cancer'), ])
+p1 = ggsurvplot(a,
+                size = 0.8,
+                legend = 'top',
+                xlab = 'Time (months)',
+                ylab = 'Overall survival (%)', pval = T
+)$plot +
+  theme_std(base_size = 14, base_line_size = 1) +
+  theme(aspect.ratio = 1)
+p1
 
 
 
+a = coxph(Surv(OS_months, OS_Status_INT) ~ LOY+genome_doubled, data = OS_cohort[which(OS_cohort$CANCER_TYPE == 'Pancreatic Cancer'), ])
+summary(a)
 
 
 
-
-
+xx = read.csv('~/Desktop/breast.txt', sep = '\t')
 
 
 

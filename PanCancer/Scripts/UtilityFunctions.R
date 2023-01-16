@@ -90,7 +90,7 @@ theme_std = function(base_size = 11,
     theme(
       line = element_line(colour = "black", linewidth = base_line_size, linetype = 1, lineend = "round"),
       text = element_text(family = 'ArialMT', face = "plain",
-                          colour = "black", linewidth = base_size, lineheight = 0.9,
+                          colour = "black", size = base_size, lineheight = 0.9,
                           hjust = 0.5, vjust = 0.5, angle = 0, margin = margin(), debug=F),
       axis.text = element_text(colour = "black", family='ArialMT', size=rel(0.8)),
       axis.ticks = element_line(colour = "black", linewidth = rel(1)),

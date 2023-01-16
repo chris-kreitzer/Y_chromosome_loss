@@ -66,7 +66,7 @@ m = ggplot(ECC_full_merged, aes(x = cnas_oncokb, y = mutations)) +
                      limits = c(0, 20))
   
 
-
+m
 ## check for the overall selection for Y-chromosome loss
 Impact_cohort = unique(cohort$IMPACT.cohort$SAMPLE_ID)
 
