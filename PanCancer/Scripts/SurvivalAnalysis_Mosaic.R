@@ -34,10 +34,10 @@ library(survival)
 ## Data rendering;
 ##-------
 Cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
-OS_cohort = Cohort[,c('PATIENT_ID', 'QC', 'Age_Sequencing', 'genome_doubled', 'SAMPLE_TYPE', 'MSI_TYPE',
+OS_cohort = Cohort[,c('PATIENT_ID', 'CANCER_TYPE', 'QC', 'Age_Sequencing', 'genome_doubled', 'SAMPLE_TYPE', 'MSI_TYPE',
                       'classification', 'OS_Status', 'OS_months')]
 OS_cohort = OS_cohort[!is.na(OS_cohort$OS_Status) & !is.na(OS_cohort$OS_months), ]
-colnames(OS_cohort)[7] = 'LOY'
+colnames(OS_cohort)[8] = 'LOY'
 OS_cohort$LOY = ifelse(OS_cohort$LOY == 'complete_loss', TRUE, FALSE)
 OS_cohort$OS_Status = ifelse(OS_cohort$OS_Status == '1:DECEASED', 'Dead', 'Alive')
 OS_cohort$OS_Status_INT = ifelse(OS_cohort$OS_Status == 'Dead', 2L, 1L)
@@ -88,6 +88,29 @@ summary(loy.pancancer_MV)
 
 
 
+##----------------+
+## run CoxPh model on per
+## cancer-type level
+## additionally adjust for
+## co-variates;
+##----------------+
+
+OS_cohort$CANCER_TYPE = as.factor(OS_cohort$CANCER_TYPE)
+
+for(i in unique(OS_cohort$CANCER_TYPE)){
+  print(i)
+  data_sub = OS_cohort[which(OS_cohort$CANCER_TYPE == i), ]
+  print(coxph(Surv(OS_months, OS_Status_INT) ~ LOY, data = data_sub) %>%
+    gtsummary::tbl_regression(exp = TRUE))
+}
+
+head(OS_cohort)
+str(OS_cohort)
+levels(OS_cohort$CANCER_TYPE)
+
+loy.pancancer_MV = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY+CANCER_TYPE+SAMPLE_TYPE, data = OS_cohort)
+summary(loy.pancancer_MV)
+str(OS_cohort)
 
 
 
