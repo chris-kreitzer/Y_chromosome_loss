@@ -1,14 +1,65 @@
-## Survival Analysis LOY, and associated stuff
+##----------------+
+## Survival analysis of LOY
+## and cancer-types;
+## Run Cox model and filter out
+## cancer types with significant
+## association of deprived OS;
+##----------------+
 ## 
 ## start: 08/16/2021
 ## revision: 08/24/2022
+## revision: 01/16/2023
 ## 
 ## chris-kreitzer
+## 
+## 
+## TODO:
+## - QC TRUE/FALSE samples
+## - complete_loss as TRUE? what's with partial loss?
 
 clean()
 gc()
 .rs.restartR()
 setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
+
+library(readxl)
+library(data.table)
+library(survival)
+
+
+
+
+##-------
+## Data rendering;
+##-------
+Cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+OS_cohort = Cohort[,c('PATIENT_ID', 'QC', 'Age_Sequencing', 'classification', 'OS_Status', 'OS_months')]
+colnames(OS_cohort)[4] = 'LOY'
+OS_cohort$LOY = ifelse(OS_cohort$LOY == 'complete_loss', TRUE, FALSE)
+OS_cohort$OS_Status = ifelse(OS_cohort$OS_Status == '1:DECEASED', 'Dead', 'Alive')
+
+
+loy.pancancer = coxph(formula = Surv(OS_months, as.numeric(factor(OS_Status))) ~ LOY, data = OS_cohort)
+summary(loy.pancancer)
+
+
+# Load per-patient WGD and outcome data
+os.dat <-
+  as.data.table(readxl::read_excel(
+    "~/Downloads/NIHMS970114-supplement-1.xlsx",
+    skip = 2,
+    n_max = 9692
+  ))
+colnames(os.dat)[7] = 'OS'
+colnames(os.dat)[8] = 'Use'
+colnames(os.dat)[6] = 'VitalStatus'
+model.pancan <-
+  coxph(formula = Surv(OS, as.numeric(factor(VitalStatus))) ~ WGD,
+        data = os.dat[Use == T])
+
+summary(model.pancan)
+
+
 
 
 Cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
