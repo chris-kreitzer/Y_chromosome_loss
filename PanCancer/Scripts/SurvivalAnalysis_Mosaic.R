@@ -98,8 +98,6 @@ summary(model.breast)
 
 
 
-
-
 ##----------------+
 ## run CoxPh model on per
 ## cancer-type level

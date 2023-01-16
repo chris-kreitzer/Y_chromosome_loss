@@ -15,6 +15,8 @@
 ## revision: 08/25/2022
 ## revision: 01/08/2023
 ## revision: 01/10/2023
+## revision: 01/16/2023
+## 
 ## chris-kreitzer
 
 
@@ -22,8 +24,7 @@ clean()
 gc()
 .rs.restartR()
 setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
-source('Scripts/UtilityFunctions.R')
-source('Scripts/plot_theme.R')
+source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
 library(RColorBrewer)
 library(patchwork)
 library(dplyr)
@@ -51,7 +52,13 @@ for(i in unique(cohort$classification)){
 
 prop_out$arrange = 1
 prop_out$n = n
-prop_out$category = factor(prop_out$category, levels = rev(c('wt', 'complete_loss', 'relative_loss', 'partial_loss', 'gain', 'partial_gain', 'gain_loss')))
+prop_out$category = factor(prop_out$category, levels = rev(c('complete_loss',
+                                                             'relative_loss',
+                                                             'partial_loss',
+                                                             'gain',
+                                                             'partial_gain',
+                                                             'gain_loss',
+                                                             'wt')))
 fraction_Y_loss = ggplot(prop_out, aes(x = arrange, y = fraction, fill = category, label = paste0((round(fraction* 100, 2)), '%'))) +
   geom_bar(stat = 'identity', position = 'fill') +
   geom_text(size = 3, position = position_stack(vjust = 0.5), fontface = 'bold') +
@@ -74,39 +81,42 @@ fraction_Y_loss = ggplot(prop_out, aes(x = arrange, y = fraction, fill = categor
 ggsave(filename = 'Figures_original/Fraction_Y_loss.pdf', plot = fraction_Y_loss, device = 'pdf', width = 4)
 
 
+
 ##----------------+
 ## Cancer Types
 ##----------------+
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 CancerTypes = data.frame()
-for(i in unique(cohort$CANCER_TYPE_ritika)){
-  data.sub = cohort[which(cohort$CANCER_TYPE_ritika == i), ]
-  n = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE_ritika == i)])
+for(i in unique(cohort$CANCER_TYPE)){
+  total = nrow(cohort)
+  data.sub = cohort[which(cohort$CANCER_TYPE == i), ]
+  n = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE == i)])
   for(j in unique(data.sub$classification)){
     fraction = length(data.sub$SAMPLE_ID[which(data.sub$classification == j)]) / n
     out = data.frame(cancer = i,
                      category = j,
                      fraction = fraction,
-                     n = n)
+                     n = n,
+                     rel_contribution_cohort = (n/total)*100)
     CancerTypes = rbind(CancerTypes, out)
   }
 }
 
 ##----------------+
 CancerTypes = CancerTypes[!is.na(CancerTypes$category), ]
-CancerTypes = CancerTypes[!CancerTypes$cancer %in% c('Vulva/Vagina (VULVA)', 'Ovary/Fallopian Tube (OVARY)'), ]
-CancerTypes$cancer = gsub("\\s*\\([^\\)]+\\)", "", CancerTypes$cancer)
+CancerTypes = CancerTypes[which(CancerTypes$rel_contribution_cohort >= 0.28), ]
+# CancerTypes$cancer = gsub("\\s*\\([^\\)]+\\)", "", CancerTypes$cancer)
 CancerTypes$cancer = paste0(CancerTypes$cancer, ' (n=', CancerTypes$n, ')')
 loss = CancerTypes[which(CancerTypes$category %in% c('complete_loss')), ]
 loss = loss[order(loss$fraction), ]
 CancerTypes$cancer = factor(CancerTypes$cancer, levels = rev(loss$cancer))
-CancerTypes$category = factor(CancerTypes$category, levels = c('complete_loss',
+CancerTypes$category = factor(CancerTypes$category, levels = rev(c('complete_loss',
                                                                'relative_loss',
                                                                'partial_loss',
                                                                'gain',
                                                                'partial_gain',
                                                                'gain_loss',
-                                                               'wt'))
+                                                               'wt')))
 
 ##----------------+ 
 ## Visualization;
@@ -127,6 +137,7 @@ Fraction_across_cancerTypes = ggplot(CancerTypes,
                     name = '') +
   scale_y_continuous(expand = c(0.01,0),
                      breaks = seq(0, 1, 0.2)) +
+  geom_hline(yintercept = seq(0, 1, 0.2), linetype = 'dashed', color = 'white', linewidth = 0.25) +
   theme_std(base_size = 14, base_line_size = 1) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = '', y = paste0('Fraction of samples\n(n=', sum(CancerTypes[!duplicated(CancerTypes$cancer), 'n']), ')'))
@@ -134,7 +145,7 @@ Fraction_across_cancerTypes = ggplot(CancerTypes,
 
 ## combine
 plot.out = fraction_Y_loss + theme(legend.position = 'none') + Fraction_across_cancerTypes + labs(y = '')
-ggsave(filename = 'Figures_original/LOY_CancerType_Ritika.pdf', plot = plot.out, device = 'pdf', width = 14)
+ggsave(filename = 'Figures_original/LOY_CancerType.pdf', plot = plot.out, device = 'pdf', width = 14)
 
 
 
@@ -142,19 +153,42 @@ ggsave(filename = 'Figures_original/LOY_CancerType_Ritika.pdf', plot = plot.out,
 ## CancerType detailed
 ##----------------+
 CancerTypesDetailed = data.frame()
-for(i in unique(cohort$CANCER_TYPE_DETAILED_ritika)){
-  data.sub = cohort[which(cohort$CANCER_TYPE_DETAILED_ritika == i), ]
-  n = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE_DETAILED_ritika == i)])
-  for(j in unique(data.sub$classification)){
-    fraction = length(data.sub$SAMPLE_ID[which(data.sub$classification == j)]) / n
-    out = data.frame(cancer = i,
-                     category = j,
-                     fraction = fraction,
-                     n = n,
-                     n_all = n/length(unique(cohort$SAMPLE_ID)) * 100)
-    CancerTypesDetailed = rbind(CancerTypesDetailed, out)
+for(i in unique(cohort$CANCER_TYPE)){
+  data.sub = cohort[which(cohort$CANCER_TYPE == i), ]
+  n = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE == i)])
+  print(n)
+  for(j in unique(data.sub$CANCER_TYPE_DETAILED_ritika)){
+    data.sub2 = data.sub[which(data.sub$CANCER_TYPE_DETAILED_ritika == j), ]
+    n2 = length(data.sub2$SAMPLE_ID[which(data.sub2$CANCER_TYPE_DETAILED_ritika == j)])
+    cancertype = j
+    for(k in unique(data.sub2$classification)){
+      fraction = length(data.sub2$SAMPLE_ID[which(data.sub2$classification == k)]) / n2
+      out = data.frame(cancer = i,
+                       cancerdetailed = cancertype,
+                       category = k,
+                       fraction = fraction,
+                       n = n2)
+      CancerTypesDetailed = rbind(CancerTypesDetailed, out)
+    }
   }
+  rm(data.sub, data.sub2, n, fraction)
 }
+
+##-------
+## Further summary
+##-------
+CancerTypesDetailed_loss = CancerTypesDetailed[which(CancerTypesDetailed$category == 'complete_loss'), ]
+CancerTypesDetailed_loss$cancerdetailed2 = NA
+for(i in 1:nrow(CancerTypesDetailed_loss)){
+  CancerTypesDetailed_loss$cancerdetailed2[i] = gsub(pattern = CancerTypesDetailed_loss$cancer[i], 
+                                                     replacement = '', 
+                                                     x = CancerTypesDetailed_loss$cancerdetailed[i])
+}
+
+CancerTypesDetailed_loss$cancerdetailed2 = substr(x = CancerTypesDetailed_loss$cancerdetailed2, start = 1, stop = nchar(CancerTypesDetailed_loss$cancerdetailed2)-1)
+CancerTypesDetailed_loss$name = paste0(CancerTypesDetailed_loss$cancerdetailed2, ', ', CancerTypesDetailed_loss$n, ')')
+
+
 
 
 ##----------------+
