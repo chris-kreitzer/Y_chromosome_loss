@@ -4,9 +4,9 @@
 ##----------------+
 ## Association Studies:
 ## Starting with
-## - categories
-## - cancer types ritika (oncotree-code)
-## - cancer types detailed
+## - Categories
+## - CANCER_TYPE
+## - CANCER_TYPE_detailed
 ## - sample site
 ## - Ancestry
 ## - Age
@@ -188,56 +188,41 @@ for(i in 1:nrow(CancerTypesDetailed_loss)){
 CancerTypesDetailed_loss$cancerdetailed2 = substr(x = CancerTypesDetailed_loss$cancerdetailed2, start = 1, stop = nchar(CancerTypesDetailed_loss$cancerdetailed2)-1)
 CancerTypesDetailed_loss$name = paste0(CancerTypesDetailed_loss$cancerdetailed2, ', ', CancerTypesDetailed_loss$n, ')')
 
+##-------
+## at least:
+## - 2 sub-types
+## - 10 cases per sub-type 
+##-------
+CancerTypesDetailed_loss = CancerTypesDetailed_loss[which(CancerTypesDetailed_loss$n > 10), ]
+names_exclude = sort(table(CancerTypesDetailed_loss$cancer), decreasing = T)
+names_exclude = names(names_exclude[names_exclude > 1])
+CancerTypesDetailed_loss = CancerTypesDetailed_loss[which(CancerTypesDetailed_loss$cancer %in% names_exclude), ]
 
 
+plot_list = list()
+for(i in unique(CancerTypesDetailed_loss$cancer)){
+  plot_i = ggplot(CancerTypesDetailed_loss[which(CancerTypesDetailed_loss$cancer == i), ], 
+                aes(x = reorder(name, fraction), y = fraction)) +
+    geom_bar(stat = 'identity', color = 'black', fill = 'black') +
+    coord_flip() +
+    scale_y_continuous(expand = c(0, 0),
+                       limits = c(0, round(max(CancerTypesDetailed_loss$fraction[which(CancerTypesDetailed_loss$cancer == i)]), 1) +0.1),
+                       sec.axis = dup_axis()) +
+    geom_hline(yintercept = seq(0, 1, 0.2), color = 'white', linetype = 'dashed', linewidth = 0.25) +
+    theme_std(base_size = 14) +
+    theme(axis.line.x.bottom = element_blank(),
+          axis.text.x.bottom = element_blank(),
+          axis.ticks.x.bottom = element_blank(),
+          axis.title.x.bottom = element_blank()) +
+    labs(x = '', y = 'Percent of cases with LOY', title = i)
+  
+  plot_list[[i]] = plot_i
+}
 
-##----------------+
-CancerTypesDetailed = CancerTypesDetailed[which(CancerTypesDetailed$n_all >= 0.5), ]
-CancerTypesDetailed = CancerTypesDetailed[!is.na(CancerTypesDetailed$category), ]
-CancerTypesDetailed$cancer[which(CancerTypesDetailed$cancer == 'Undifferentiated Pleomorphic Sarcoma/Malignant Fibrous Histiocytoma/High-Grade Spindle Cell Sarcoma (MFH)')] = 'High-Grade Spindle Cell Sarcoma (MFH)'
-#CancerTypes$cancer = gsub("\\s*\\([^\\)]+\\)", "", CancerTypes$cancer)
-#CancerTypesDetailed$cancer = paste(CancerTypesDetailed$cancer, paste0('(n=', CancerTypes$n, ')'), sep = '\n')
-loss = CancerTypesDetailed[which(CancerTypesDetailed$category %in% c('complete_loss')), ]
-loss = loss[order(loss$fraction), ]
-CancerTypesDetailed$cancer = factor(CancerTypesDetailed$cancer, levels = rev(loss$cancer))
-CancerTypesDetailed$category = factor(CancerTypesDetailed$category, levels = rev(c('complete_loss',
-                                                               'relative_loss',
-                                                               'partial_loss',
-                                                               'gain',
-                                                               'partial_gain',
-                                                               'gain_loss',
-                                                               'wt')))
+library(cowplot)
 
+plot_grid(plotlist = plot_list)
 
-##----------------+
-## Visualization
-##----------------+
-Fraction_CancerTypesDetailed = ggplot(CancerTypesDetailed, 
-                                     aes(x = cancer, 
-                                         y = fraction, 
-                                         fill = category, 
-                                         label = paste0((round(fraction* 100, 2)), '%'))) +
-  geom_bar(stat = 'identity', position = 'fill') +
-  coord_flip() +
-  scale_fill_manual(values = c('wt' = '#D7D8DA',
-                               'complete_loss' = '#0E3F7C',
-                               'partial_loss' = '#00AEC8',
-                               'relative_loss' = '#474089',
-                               'gain' = '#D53833',
-                               'partial_gain' = '#E3CC98',
-                               'gain_loss' = '#f9f8d5'),
-                    name = '') +
-  scale_y_continuous(expand = c(0,0),
-                     breaks = seq(0, 1, 0.2),
-                     sec.axis = dup_axis()) +
-  theme_std(base_size = 14, base_line_size = 1) +
-  labs(x = '', y = paste0('Fraction of samples\n(n=', sum(CancerTypes[!duplicated(CancerTypes$cancer), 'n']), ')'))
-
-Fraction_CancerTypesDetailed
-
-## combine
-plot.out = fraction_Y_loss + theme(legend.position = 'none') + Fraction_CancerTypesDetailed + labs(y = '')
-ggsave(filename = 'Figures_original/LOY_CancerType_Detailed_Ritika.pdf', plot = plot.out, device = 'pdf', width = 14)
 
 
 
