@@ -17,16 +17,18 @@
 ## - QC TRUE/FALSE samples
 ## - complete_loss as TRUE? what's with partial loss?
 
+
 clean()
 gc()
 .rs.restartR()
 setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
-source('Scripts/UtilityFunctions.R')
+source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
 
 library(readxl)
 library(data.table)
 library(survival)
-
+library(survminer)
+library(dplyr)
 
 
 
@@ -85,6 +87,16 @@ summary(loy.pancancer)
 loy.pancancer_MV = coxph(formula = Surv(OS_months, as.numeric(factor(OS_Status))) ~ LOY+genome_doubled+SAMPLE_TYPE, data = OS_cohort)
 summary(loy.pancancer_MV)
 
+##---- Craig Example: WGD
+xx = read.csv('~/Desktop/breast.txt', sep = '\t')
+model.breast <- coxph(
+  formula = Surv(as.numeric(os_days) / 30,
+                 as.numeric(factor(VitalStatus))) ~ gd + DetailedTumorType2 + age_at_diagnosis + menopause_status + stage + grade + esr1_mutant,
+  data = xx
+)
+summary(model.breast)
+
+
 
 
 
@@ -103,13 +115,17 @@ for(i in unique(OS_cohort$CANCER_TYPE)){
   if(n < 60) next
   else {
     model = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY, data = data_sub)
-    estimate = summary(model)$conf.int[[1]]
+    estimate = summary(model)$coefficients[[1]]
+    estimate_se = summary(model)$coefficients[[3]]
     significance = summary(model)$coefficients[[5]]
+    exp_estimate = summary(model)$conf.int[[1]]
     lower = summary(model)$conf.int[[3]]
     upper = summary(model)$conf.int[[4]]
     out = data.frame(cancer = cancer,
                      n = n,
                      estimate = estimate,
+                     estimate_se = estimate_se,
+                     exp_estimate = exp_estimate,
                      lower = lower,
                      upper = upper,
                      significance = significance)
@@ -123,13 +139,14 @@ OS_cancertypes
 OS_cancertypes$cancer = paste0(OS_cancertypes$cancer, ' (n=', OS_cancertypes$n, ')')
 OS_cancertypes$plot_color = ifelse(OS_cancertypes$significance <= 0.01, 'plot', 'notplot')
 
+
 ##-------
 ## Visualization
 ##-------
 OS_CancerTypes_plot = ggplot(data = OS_cancertypes, aes(x = reorder(cancer, estimate), y = estimate)) +
   geom_point(aes(colour = plot_color), size = 1.5) +
-  geom_pointrange(aes(ymin = estimate - lower,
-                      ymax = estimate + upper,
+  geom_pointrange(aes(ymin = estimate - estimate_se,
+                      ymax = estimate + estimate_se,
                       colour = plot_color),
                   size = 0.5) +
   coord_flip() +
@@ -142,36 +159,11 @@ OS_CancerTypes_plot = ggplot(data = OS_cancertypes, aes(x = reorder(cancer, esti
                                 'plot' = 'red'),
                      labels = c('not_significant', 'significant'),
                      name = '') +
-  geom_hline(yintercept = 1) +
+  geom_hline(yintercept = 0) +
   scale_y_continuous(sec.axis = dup_axis()) +
   labs(x = '', y = 'Model coefficient (log [HR])')
 
-ggsave_golden(filename = 'Figures_original/OS_CancerTypes.pdf', plot = OS_CancerTypes_plot, width = 8)
-
-
- 
-
-a = survfit(Surv(OS_months, OS_Status_INT) ~ LOY+genome_doubled, data = OS_cohort[which(OS_cohort$CANCER_TYPE == 'Pancreatic Cancer'), ])
-p1 = ggsurvplot(a,
-                size = 0.8,
-                legend = 'top',
-                xlab = 'Time (months)',
-                ylab = 'Overall survival (%)', pval = T
-)$plot +
-  theme_std(base_size = 14, base_line_size = 1) +
-  theme(aspect.ratio = 1)
-p1
-
-
-
-a = coxph(Surv(OS_months, OS_Status_INT) ~ LOY+genome_doubled, data = OS_cohort[which(OS_cohort$CANCER_TYPE == 'Pancreatic Cancer'), ])
-summary(a)
-
-
-
-xx = read.csv('~/Desktop/breast.txt', sep = '\t')
-
-
+ggsave_golden(filename = 'Figures_original/OS_CancerTypes.pdf', plot = OS_CancerTypes_plot, width = 12)
 
 
 
