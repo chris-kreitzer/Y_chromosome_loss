@@ -17,8 +17,10 @@
 ## TODO:
 ## - QC T/F samples included
 ## - just work with SOMATIC mutations?
+##   (currently also GERMLINE variants included)
 ## - mutation cutoff
-## - OncoKB-CNA include or not?
+## - FUSIONS; old cohort (Bastien)
+
 
 
 clean()
@@ -149,21 +151,45 @@ saveRDS(object = data_gam, file = 'Data/05_Mutation/data_gam.rds')
 ## MERGE all three object;
 ## Mutations, CNAs, Fusions;
 ##----------------+
-data_gam = 
+data_gam = readRDS('Data/05_Mutation/data_gam.rds')
+muts = data_gam$mutations
+cnas = data_gam$CNAs
+fusions = data_gam$fusions
+first = merge(muts, cnas, by = 'sample', all.x = T)
+GAM_all = merge(first, fusions, by = 'sample', all.x = T)
 
-
-
-
-
-
-
+data_gam = list(Mutations = data_gam$mutations, 
+                CNAs = data_gam$CNAs,
+                Fusions = data_gam$fusions,
+                All = GAM_all)
+saveRDS(object = data_gam, file = 'Data/05_Mutation/data_gam.rds')
 
 
 
 ##----------------+
 ## Genes to keep;
-## frequently occuring mutations;
+## frequently occurring mutations;
 ##----------------+
+data_gam = readRDS('Data/05_Mutation/data_gam.rds')
+data_gam = data_gam$All
+alterations_out = data.frame()
+for(i in 2:length(data_gam)){
+  gene = colnames(data_gam)[i]
+  total = nrow(data_gam)
+  n_specific = sum(data_gam[, i], na.rm = T)
+  out = data.frame(alteration = gene,
+                   fraction = (n_specific / total) * 100)
+  alterations_out = rbind(alterations_out, out)
+}
+
+##-------
+## exclude genes:
+## - 0% occurrence
+##-------
+genes_remove = data.frame(alterations_out$alteration[which(alterations_out$fraction <= 0.1)])
+
+View(genes_remove)
+
 mutation_cohort = data.frame()
 for(i in unique(onco_cohort$Hugo_Symbol)){
   n = length(onco_cohort$Tumor_Sample_Barcode[which(onco_cohort$Hugo_Symbol == i)])
