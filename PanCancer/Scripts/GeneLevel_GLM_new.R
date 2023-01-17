@@ -170,8 +170,8 @@ saveRDS(object = data_gam, file = 'Data/05_Mutation/data_gam.rds')
 ## Genes to keep;
 ## frequently occurring mutations;
 ##----------------+
-data_gam = readRDS('Data/05_Mutation/data_gam.rds')
-data_gam = data_gam$All
+data_gam_raw = readRDS('Data/05_Mutation/data_gam.rds')
+data_gam = data_gam_raw$All
 alterations_out = data.frame()
 for(i in 2:length(data_gam)){
   gene = colnames(data_gam)[i]
@@ -184,61 +184,20 @@ for(i in 2:length(data_gam)){
 
 ##-------
 ## exclude genes:
-## - 0% occurrence
+## < 0.1% occurrence
 ##-------
-genes_remove = data.frame(alterations_out$alteration[which(alterations_out$fraction <= 0.1)])
+genes_remove = alterations_out$alteration[which(alterations_out$fraction <= 0.1)]
+genes_remove = genes_remove[!genes_remove %in% c('KDM5C_Deletion', 'VHL_Deletion', 'EIF1AX_Deletion',
+                                                 'PHF6_mut', 'PHF6_Deletion', 'PHF6_Amplification',
+                                                 'ZRSR2_Deletion')]
 
-View(genes_remove)
-
-mutation_cohort = data.frame()
-for(i in unique(onco_cohort$Hugo_Symbol)){
-  n = length(onco_cohort$Tumor_Sample_Barcode[which(onco_cohort$Hugo_Symbol == i)])
-  total = length(unique(onco_cohort$Tumor_Sample_Barcode))
-  out = data.frame(gene = i,
-                   fraction = (n / total) * 100)
-  mutation_cohort = rbind(mutation_cohort, out)
-}
-
-muts_keep = as.data.frame(table(onco_cohort$Hugo_Symbol) / length(unique(onco_cohort$Tumor_Sample_Barcode)))
-muts_keep = muts_keep[which(muts_keep$Freq > 0.03), ]
-muts_keep = rbind(muts_keep, data.frame(Var1 = 'VHL', Freq = 0.02))
-GOI = unique(as.character(muts_keep$Var1))
-GOI = c(GOI, 'EIF1AX', 'KDM5C', 'PHF6', 'ZRSR2')
-GOI = c(GOI, unique(colnames(gam_cna)[2:ncol(gam_cna)]))
-
-
-
-##----------------+
-## set-up mutation matrix
-##----------------+
-mutation_matrix = setNames(data.frame(matrix(ncol = length(unique(GOI)), nrow = 0)), unique(GOI))
-for(id in 1:length(cohort_samples)){
-  print(id)
-  data.mut.sub = onco_cohort[which(onco_cohort$Tumor_Sample_Barcode == cohort_samples[id]), ]
-  if(nrow(data.mut.sub) != 0){
-    for(j in unique(data.mut.sub$Hugo_Symbol)){
-      if(j %in% colnames(mutation_matrix)){
-        mutation_matrix[id, j] = 1
-      } else {
-        mutation_matrix[id, j] = 0
-      }
-    }
-    mutation_matrix[id, 'Sample.ID'] = cohort_samples[id]
-  } else {
-    mutation_matrix[id, ] = 0
-    mutation_matrix[id, 'Sample.ID'] = cohort_samples[id]
-  }
-}
-
-row.names(mutation_matrix) = mutation_matrix$Sample.ID
-mutation_matrix$Sample.ID = NULL
-mutation_matrix = mutation_matrix[, which(colnames(mutation_matrix) %in% GOI)]
-mutation_matrix[is.na(mutation_matrix)] = 0
-mutation_matrix$sample = row.names(mutation_matrix)
-row.names(mutation_matrix) = NULL
-mutation_matrix = as.data.frame.matrix(mutation_matrix)
-# write.table(mutation_matrix, file = 'Data/05_Association/gene_level/mutation_matrix.txt', sep = '\t')
-
+data_gam_analysis = data_gam[, !colnames(data_gam) %in% genes_remove]
+data_gam = list(Mutations = data_gam_raw$Mutations,
+                CNAs = data_gam_raw$CNAs,
+                Fusions = data_gam_raw$Fusions,
+                All = data_gam_raw$All,
+                GAM_Analysis = data_gam_analysis)
+saveRDS(object = data_gam, file = 'Data/05_Mutation/data_gam.rds')
 
 
 ##----------------+
