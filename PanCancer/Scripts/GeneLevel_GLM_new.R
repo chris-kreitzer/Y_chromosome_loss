@@ -2,35 +2,109 @@
 ## GLM model (gene-wise) and 
 ## Fisher's exact test
 ## for mutations in genes
-## associated with LOY
+## associated with LOY;
+## general inspection of mutations
+## and loy;
 ##----------------+
-
+##
 ## start: 11/11/2022
 ## revision: 11/20/2022
+## revision: 01/17/2023
+## 
 ## chris-kreitzer
 
+
+## TODO:
+## - QC T/F samples included
+## - just work with SOMATIC mutations?
+## - mutation cutoff
+## - OncoKB-CNA include or not?
 
 
 clean()
 gc()
+.rs.restartR()
 setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
 library(patchwork)
 
-cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
-cohort_samples = cohort$IMPACT_Y_classification_final$sample
-oncoKB = read.csv('Data/signedOut/data_mutations_extended.oncokb.txt', sep = '\t')
-onco_cohort = oncoKB[which(oncoKB$Tumor_Sample_Barcode %in% cohort_samples), ]
-onco_cohort = onco_cohort[which(onco_cohort$Mutation_Status == 'SOMATIC'), ]
+
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort_samples = unique(cohort$SAMPLE_ID)
+oncoKB_mutations = read.csv('Data/05_Mutation/data_mutations_extended.oncokb.txt', sep = '\t')
+oncoKB_cna = read.csv('Data/05_Mutation/data_CNA.txt', sep = '\t')
+oncoKB_sv = read.csv('Data/05_Mutation/data_sv.oncokb.txt', sep = '\t')
+data_gam = list()
 
 ##----------------+
-## which genes to keep
+## set-up mutation matrix
+## - all mutations are INCLUDED;
 ##----------------+
+mutation_matrix = setNames(data.frame(matrix(ncol = length(unique(oncoKB_mutations$Hugo_Symbol)), nrow = 0)), unique(oncoKB_mutations$Hugo_Symbol))
+for(id in 1:length(cohort_samples)){
+  print(id)
+  data.mut.sub = oncoKB_mutations[which(oncoKB_mutations$Tumor_Sample_Barcode == cohort_samples[id]), ]
+  if(nrow(data.mut.sub) != 0){
+    for(j in unique(data.mut.sub$Hugo_Symbol)){
+      if(j %in% colnames(mutation_matrix)){
+        mutation_matrix[id, j] = 1
+      } else {
+        mutation_matrix[id, j] = 0
+      }
+    }
+    mutation_matrix[id, 'Sample.ID'] = cohort_samples[id]
+  } else {
+    mutation_matrix[id, ] = 0
+    mutation_matrix[id, 'Sample.ID'] = cohort_samples[id]
+  }
+}
+
+row.names(mutation_matrix) = mutation_matrix$Sample.ID
+row.names(mutation_matrix) = NULL
+mutation_matrix[is.na(mutation_matrix)] = 0
+mutation_matrix = as.data.frame.matrix(mutation_matrix)
+colnames(mutation_matrix) = paste0(colnames(mutation_matrix), '_mut')
+colnames(mutation_matrix)[ncol(mutation_matrix)] = 'sample'
+
+data_gam = c(data_gam, list(mut = mutation_matrix))
+saveRDS(object = data_gam, file = 'Data/05_Mutation/data_gam.rds')
+
+
+##----------------+
+## set-up CNA matrix
+## - all mutations are INCLUDED;
+##----------------+
+
+
+
+
+
+
+
+
+gam_cna = load('Data/signedOut/1.0.genomic_data_all.Rdata')
+
+
+##----------------+
+## Genes to keep;
+## frequently occuring mutations;
+##----------------+
+mutation_cohort = data.frame()
+for(i in unique(onco_cohort$Hugo_Symbol)){
+  n = length(onco_cohort$Tumor_Sample_Barcode[which(onco_cohort$Hugo_Symbol == i)])
+  total = length(unique(onco_cohort$Tumor_Sample_Barcode))
+  out = data.frame(gene = i,
+                   fraction = (n / total) * 100)
+  mutation_cohort = rbind(mutation_cohort, out)
+}
+
 muts_keep = as.data.frame(table(onco_cohort$Hugo_Symbol) / length(unique(onco_cohort$Tumor_Sample_Barcode)))
 muts_keep = muts_keep[which(muts_keep$Freq > 0.03), ]
 muts_keep = rbind(muts_keep, data.frame(Var1 = 'VHL', Freq = 0.02))
 GOI = unique(as.character(muts_keep$Var1))
 GOI = c(GOI, 'EIF1AX', 'KDM5C', 'PHF6', 'ZRSR2')
 GOI = c(GOI, unique(colnames(gam_cna)[2:ncol(gam_cna)]))
+
+
 
 ##----------------+
 ## set-up mutation matrix
