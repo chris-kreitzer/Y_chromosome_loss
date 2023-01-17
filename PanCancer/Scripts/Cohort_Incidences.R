@@ -219,10 +219,11 @@ for(i in unique(CancerTypesDetailed_loss$cancer)){
   plot_list[[i]] = plot_i
 }
 
-library(cowplot)
-
-plot_grid(plotlist = plot_list)
-
+##-------
+## save individual plot;
+##-------
+ggsave_golden(filename = 'Figures_original/CTD_Esophagastric.pdf', plot = plot_list$`Esophagogastric Cancer`, width = 8)
+plot_list$`Esophagogastric Cancer` / plot_list$`Renal Cell Carcinoma` / plot_list$`Pancreatic Cancer` / plot_list$`Ampullary Cancer`
 
 
 
