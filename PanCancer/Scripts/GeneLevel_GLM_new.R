@@ -26,12 +26,12 @@ gc()
 .rs.restartR()
 setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
 library(patchwork)
-
+library(data.table)
 
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 cohort_samples = unique(cohort$SAMPLE_ID)
 oncoKB_mutations = read.csv('Data/05_Mutation/data_mutations_extended.oncokb.txt', sep = '\t')
-oncoKB_cna = read.csv('Data/05_Mutation/data_CNA.txt', sep = '\t')
+oncoKB_cna = data.table::fread('Data/05_Mutation/data_CNA.txt', sep = '\t')
 oncoKB_sv = read.csv('Data/05_Mutation/data_sv.oncokb.txt', sep = '\t')
 data_gam = list()
 
@@ -69,19 +69,95 @@ data_gam = c(data_gam, list(mut = mutation_matrix))
 saveRDS(object = data_gam, file = 'Data/05_Mutation/data_gam.rds')
 
 
+
 ##----------------+
 ## set-up CNA matrix
-## - all mutations are INCLUDED;
+## - all CNAs are INCLUDED;
 ##----------------+
+colnames(oncoKB_cna)[2:ncol(oncoKB_cna)] = gsub(pattern = '\\.', replacement = '-', x = colnames(oncoKB_cna)[2:ncol(oncoKB_cna)])
+oncoKB_cna = t(oncoKB_cna)
+colnames(oncoKB_cna) = oncoKB_cna[1, ]
+oncoKB_cna = oncoKB_cna[-1, ]
+oncoKB_cna = as.data.frame.matrix(oncoKB_cna)
+oncoKB_cna$sample = row.names(oncoKB_cna)
+oncoKB_cna = as.data.frame(apply(oncoKB_cna, 2, function(x) gsub("\\s+", "", x)))
+oncoKB_cna[oncoKB_cna == '0.0'] = 0
+oncoKB_cna[oncoKB_cna == '-2.0'] = -2
+oncoKB_cna[oncoKB_cna == '2.0'] = 2
+oncoKB_cna[oncoKB_cna == '-1.5'] = -2
+
+##-------
+## check if there
+## are any more weird
+## encodings;
+##-------
+df2 = as.vector(as.matrix(oncoKB_cna[,-ncol(oncoKB_cna)]))
+unique(df2)
+
+##-------
+## alteration matrix;
+## - first: Amplifications
+## - second: Deletions
+##-------
+oncokb_amp = oncoKB_cna
+oncokb_amp$sample = NULL
+colnames(oncokb_amp) = paste0(colnames(oncokb_amp), '_Amplification')
+oncokb_amp[oncokb_amp == '2'] = 1
+oncokb_amp[oncokb_amp == '-2'] = 0
+
+oncokb_del = oncoKB_cna
+oncokb_del$sample = NULL
+colnames(oncokb_del) = paste0(colnames(oncokb_del), '_Deletion')
+oncokb_del[oncokb_del == '-2'] = 1
+oncokb_del[oncokb_del == '2'] = 0
+
+cna_matrix = merge(oncokb_amp, oncokb_del, by = 'row.names', all.x = T)
+colnames(cna_matrix)[1] = 'sample'
+
+row.names(cna_matrix) = cna_matrix$sample
+cna_matrix$sample = NULL
+
+cna_matrix = as.data.frame(lapply(cna_matrix, as.integer), row.names = row.names(cna_matrix))
+cna_matrix$sample = row.names(cna_matrix)
+row.names(cna_matrix) = NULL
+
+data_gam = readRDS('Data/05_Mutation/data_gam.rds')
+data_gam = list(mut = data_gam$mut, cna = cna_matrix)
+saveRDS(object = data_gam, file = 'Data/05_Mutation/data_gam.rds')
 
 
 
-
-
-
-
-
+##----------------+
+## set-up Fusion matrix
+## - all Fusions are INCLUDED;
+## - use Bastien's matrix for now - no update
+##----------------+
 gam_cna = load('Data/signedOut/1.0.genomic_data_all.Rdata')
+data_fusion = data_gam$fusion
+rm(data_gam, data_gam_onc, data_MAF, data_broad_genomic)
+gc()
+
+data_fusion = as.data.frame.matrix(data_fusion) 
+data_fusion$sample = row.names(data_fusion)
+row.names(data_fusion) = NULL
+data_gam = readRDS('Data/05_Mutation/data_gam.rds')
+data_gam = list(mutations = data_gam$mut, CNAs = data_gam$cna, fusions = data_fusion)
+saveRDS(object = data_gam, file = 'Data/05_Mutation/data_gam.rds')
+
+
+##----------------+
+## MERGE all three object;
+## Mutations, CNAs, Fusions;
+##----------------+
+data_gam = 
+
+
+
+
+
+
+
+
 
 
 ##----------------+
