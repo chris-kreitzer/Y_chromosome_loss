@@ -34,9 +34,11 @@ library(dplyr)
 ## General categories overview;
 ##----------------+
 ##
-## CAUTION:
+## TODO: 
 ## 
-## ALL SAMPLES INCLUDES (QC = T AND F)
+## CAUTION:
+## - ALL SAMPLES INCLUDES (QC = T AND F)
+## - Site Sequenced: include local recurrence or not (n~238) and UNKNOWN
 ##----------------+
 
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
@@ -228,59 +230,82 @@ plot_list$`Esophagogastric Cancer` / plot_list$`Renal Cell Carcinoma` / plot_lis
 
 
 ##-----------------
-## Sample site;
+## Site sequenced;
 ## Metastatic or Primary samples
 ##-----------------
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort_ss = cohort[which(cohort$SAMPLE_TYPE %in% c('Local Recurrence', 'Metastasis', 'Primary')), ]
 
 prop_out_site = data.frame()
-for(i in unique(cohort$SAMPLE_TYPE)){
-  data.sub = cohort[which(cohort$SAMPLE_TYPE == i), ]
-  n = length(cohort$SAMPLE_ID[which(cohort$SAMPLE_TYPE == i)])
-  for(j in unique(data.sub$classification)){
-    fraction = length(data.sub$SAMPLE_ID[which(data.sub$classification == j)]) / n
-    out = data.frame(cancer = i,
-                     category = j,
-                     fraction = fraction,
-                     n = n,
-                     n_all = n/length(unique(cohort$SAMPLE_ID)) * 100)
-    prop_out_site = rbind(prop_out_site, out)
+for(i in unique(cohort_ss$CANCER_TYPE)){
+  data.sub = cohort_ss[which(cohort_ss$CANCER_TYPE == i), ]
+  for(j in unique(data.sub$SAMPLE_TYPE)){
+    data.sub2 = data.sub[which(data.sub$SAMPLE_TYPE == j), ]
+    n = length(data.sub$SAMPLE_ID[which(data.sub$SAMPLE_TYPE == j)])
+    for(k in unique(data.sub2$classification)){
+      fraction = length(data.sub2$SAMPLE_ID[which(data.sub2$classification == k)]) / n
+      n2 = length(data.sub2$SAMPLE_ID[which(data.sub2$classification == k)])
+      out = data.frame(cancer = i,
+                       site_sequenced = j,
+                       category = k,
+                       fraction = fraction,
+                       total_cancertype = n,
+                       n_ss = n2)
+      prop_out_site = rbind(prop_out_site, out)
+    }
   }
+  rm(data.sub, n, n2, fraction)
 }
 
 prop_out_site = prop_out_site[!is.na(prop_out_site$category), ]
-prop_out_site$cancer = factor(prop_out_site$cancer, levels = c('Primary', 'Metastasis', 'Local Recurrence', 'Unknown'))
-prop_out_site$category = factor(prop_out_site$category, levels = rev(c('complete_loss',
-                                                                       'relative_loss',
-                                                                       'partial_loss',
-                                                                       'gain',
-                                                                       'partial_gain',
-                                                                       'gain_loss',
-                                                                       'wt')))
+prop_out_site = prop_out_site[which(prop_out_site$category == 'complete_loss'), ]
+names_two_sites = table(prop_out_site$cancer)
+names_two_sites = names(names_two_sites[names_two_sites > 1])
+prop_out_site = prop_out_site[which(prop_out_site$cancer %in% names_two_sites), ]
+
+
+##-------
+## assign binomial confidence interval;
+## for plotting;
+## Error bars represent binomial CIs
+##-------
+prop_out_site$lower = ci_lower(n = prop_out_site$n_ss, N = prop_out_site$total_cancertype)
+prop_out_site$upper = ci_upper(n = prop_out_site$n_ss, N = prop_out_site$total_cancertype)
+prop_out_site = prop_out_site[which(prop_out_site$site_sequenced %in% c('Primary', 'Metastasis')), ]
+prop_out_site$site_sequenced = factor(prop_out_site$site_sequenced, levels = rev(c('Metastasis', 'Primary')))
+for(i in unique(prop_out_site$cancer)){
+  prop_out_site$name[which(prop_out_site$cancer == i)] = paste0(prop_out_site$cancer[which(prop_out_site$cancer == i)], 
+                                                                ' (', 
+                                                                prop_out_site$total_cancertype[which(prop_out_site$cancer == i & prop_out_site$site_sequenced == 'Primary')],
+                                                                ', ', 
+                                                                prop_out_site$total_cancertype[which(prop_out_site$cancer == i & prop_out_site$site_sequenced == 'Metastasis')], ')')
+}
+
 
 ##----------------+
 ## Visualization
 ##----------------+
-Fraction_CancerSite = ggplot(prop_out_site,
-                             aes(x = cancer, 
-                                 y = fraction, 
-                                 fill = category, 
-                                 label = paste0((round(fraction* 100, 2)), '%'))) +
-  geom_bar(stat = 'identity', position = 'fill') +
-  scale_fill_manual(values = c('wt' = '#D7D8DA',
-                               'complete_loss' = '#0E3F7C',
-                               'partial_loss' = '#00AEC8',
-                               'relative_loss' = '#474089',
-                               'gain' = '#D53833',
-                               'partial_gain' = '#E3CC98',
-                               'gain_loss' = '#f9f8d5'),
-                    name = '') +
-  scale_y_continuous(expand = c(0,0),
-                     breaks = seq(0, 1, 0.2)) +
+LOY_site_Sequenced = ggplot(prop_out_site, 
+                            aes(x = name, 
+                                y = fraction, 
+                                ymin = lower, 
+                                ymax = upper)) +
+  geom_pointrange(aes(color = site_sequenced), position = position_dodge2(width = .5), size = as_points(1), fatten = 4) +
+  stat_summary(fun = "mean", geom = "segment", mapping = aes(xend = ..x.. - 0.2, yend = ..y..)) +
+  stat_summary(fun = "mean", geom = "segment", mapping = aes(xend = ..x.. + 0.2, yend = ..y..)) +
+  scale_color_manual(values = c('Primary' = '#7c93b5',
+                                'Metastasis' = '#35538c'),
+                     name = 'Site sequenced') +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1), labels = function(x) 100*x) +
   theme_std(base_size = 14, base_line_size = 1) +
-  labs(x = '', y = paste0('Fraction of samples\n(n=', sum(prop_out_site[!duplicated(prop_out_site$cancer), 'n']), ')'))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = 'top',
+        legend.justification = c(1, 1),
+        aspect.ratio = 0.2) +
+  labs(x = NULL, y = '% of tumors with LOY', color = NULL)
 
-ggsave(filename = 'Figures_original/LOY_CancerSite.pdf', plot = Fraction_CancerSite, device = 'pdf', width = 14)
+LOY_site_Sequenced
+ggsave(filename = 'Figures_original/LOY_CancerSite.pdf', plot = LOY_site_Sequenced, device = 'pdf', width = 14)
 
 
 
@@ -421,94 +446,7 @@ Age_distribution
 
 ggsave_golden(filename = 'Figures_original/LOY_AgeDistribution.pdf', plot = Age_distribution, width = 6)
 
+
+
+
 #' out
-
-
-
-
-#' IMPACT_incidence = data.frame()
-#' for(i in unique(IMPACT_data$CANCER_TYPE_ritika)){
-#'   n.all = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE %in% c('Primary', 'Metastasis') & IMPACT_data$CANCER_TYPE_ritika == i)])
-#'   n.primary = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE_ritika == i)])
-#'   n.metastasis = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE_ritika == i)])
-#'   
-#'   primary.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Primary' & IMPACT_data$CANCER_TYPE == i)]) / n.primary
-#'   metastatic.frequency = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$SAMPLE_TYPE == 'Metastasis' & IMPACT_data$CANCER_TYPE == i)]) / n.metastasis
-#'   cancer_median = length(IMPACT_data$SAMPLE_ID[which(IMPACT_data$Y_call == 'Y_chrom_loss' & IMPACT_data$CANCER_TYPE == i)]) / n.all
-#'   cancer_summary = data.frame(CancerType = i,
-#'                               Type = c('Primary', 'Metastasis'),
-#'                               value = c(primary.frequency, metastatic.frequency),
-#'                               median_cancerType = cancer_median)
-#'   
-#'   IMPACT_incidence = rbind(IMPACT_incidence, cancer_summary)
-#'   rm(n.all, cancer_summary)
-#'   rm(primary.frequency)
-#'   rm(metastatic.frequency)
-#'   rm(cancer_median)
-#' }
-#' 
-#' #' add sample amount
-#' IMPACT_incidence$mergedCancerType = NA
-#' for(i in unique(names(IMPACT_top_20))){
-#'   IMPACT_incidence$mergedCancerType[which(IMPACT_incidence$CancerType == i)] = IMPACT_top_20[which(names(IMPACT_top_20) == i)][[1]]
-#' }
-#' 
-#' IMPACT_incidence$mergedCancerType = paste0(IMPACT_incidence$CancerType, ' (n=', IMPACT_incidence$mergedCancerType, ')')
-#' write.table(IMPACT_incidence, file = 'Data/04_Loss/IMPACT_Y_loss_incidences_top20.txt', sep = '\t', row.names = F, quote = F)
-#' 
-#' 
-#' ##-----------------
-#' ## Visualization
-#' ##-----------------
-#' color_selected = brewer.pal(n = 6, name = 'Paired')
-#' color_selected = color_selected[c(5,6,1,2)]
-#' 
-#' IMPACT_incidence_plot = ggplot(IMPACT_incidence, 
-#'                                aes(x = reorder(mergedCancerType, median_cancerType), 
-#'                                    y = (value * 100), 
-#'                                    fill = Type)) + 
-#'   
-#'   geom_bar(stat = 'identity', position = position_dodge(0.82), width = 0.8) +
-#'   scale_fill_manual(values = c('Primary' = color_selected[4],
-#'                                'Metastasis' = color_selected[2]),
-#'                     guide = guide_legend(direction = 'horizontal',
-#'                                          title = 'Site',
-#'                                          label.theme = element_text(size = 14))) +
-#'   scale_y_continuous(expand = c(0.005, 0)) +
-#'   geom_hline(yintercept = seq(0, 60, 20), color = 'grey35', linetype = 'dashed', size = 0.2) +
-#'   theme(legend.position = 'top',
-#'         panel.background = element_rect(fill = NA),
-#'         axis.ticks.y = element_blank(),
-#'         axis.ticks.x = element_line(size = 0.2),
-#'         axis.line.x = element_line(size = 0.4),
-#'         axis.text = element_text(size = 10, color = 'black')) +
-#'   coord_flip() +
-#'   labs(y = '% Y chromosome loss', x = '')
-#' 
-#' IMPACT_incidence_plot  
-#' 
-#' ggsave_golden(IMPACT_incidence_plot, filename = 'Figures_original/IMPACT_Y_Loss_top20.pdf', width = 9)
-#' 
-#' 
-#' ##-----------------
-#' ## Y-loss across SampleType
-#' ##-----------------
-#' IMPACT_incidence$Type = factor(IMPACT_incidence$Type, levels = c('Primary', 'Metastasis'))
-#' Incidence_site = ggplot(IMPACT_incidence, aes(x = Type, y = (value*100), color = Type)) +
-#'   geom_boxplot(width = 0.4, size = 0.85) +
-#'   geom_jitter(width = 0.15) +
-#'   scale_color_manual(values = c('Primary' = color_selected[4],
-#'                                 'Metastasis' = color_selected[2])) +
-#'   scale_y_continuous(expand = c(0, 0),
-#'                      limits = c(0, 80)) +
-#'   theme(legend.position = 'none',
-#'         #panel.background = element_rect(fill = NA),
-#'         axis.text = element_text(size = 12, color = 'black'),
-#'         aspect.ratio = 2.2,
-#'         axis.text.x = element_text(angle = 45, hjust = 1)) +
-#'   
-#'   labs(x = '', y = 'Y-chromosome loss [%]')
-#' 
-#' Incidence_site
-#' 
-#' ggsave_golden(filename = 'Figures_original/Y_loss_SITE_top20.pdf', plot = Incidence_site, width = 6)
