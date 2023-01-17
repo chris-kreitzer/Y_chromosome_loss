@@ -42,6 +42,19 @@ suppressPackageStartupMessages({
 Cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 
 
+##----------------+ 
+## Convenience functions; 
+##----------------+
+as_perc = function(x) { 100*x }
+as_points = function(x, input_unit = 'mm') { as.numeric(convertUnit(unit(x, 'pt'), input_unit)) }
+ci_upper = function(n, N) { binom.confint(n, N, methods = 'wilson')[['upper']] }
+ci_lower = function(n, N) { binom.confint(n, N, methods = 'wilson')[['lower']] }
+mcn_test = function(a, b, c, total) {
+  mcnemar.test(matrix(c(a, b, c, total - (a + b + c)), ncol = 2))[['p.value']]
+}
+f_test = function(a, b, c, d) {
+  fisher.test(matrix(c(a, b, c, d), ncol = 2))[['p.value']]
+}
 
 
 CI_z = function (x, ci = 0.95){
