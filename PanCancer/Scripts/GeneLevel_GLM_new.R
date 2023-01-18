@@ -10,6 +10,7 @@
 ## start: 11/11/2022
 ## revision: 11/20/2022
 ## revision: 01/17/2023
+## revision: 01/18/2023
 ## 
 ## chris-kreitzer
 
@@ -20,6 +21,8 @@
 ##   (currently also GERMLINE variants included)
 ## - mutation cutoff
 ## - FUSIONS; old cohort (Bastien)
+## - EVENT: only for complete_loss
+##   (partial, and relative loss not considered)
 
 
 
@@ -200,17 +203,22 @@ data_gam = list(Mutations = data_gam_raw$Mutations,
 saveRDS(object = data_gam, file = 'Data/05_Mutation/data_gam.rds')
 
 
+
+
+
 ##----------------+
-## Merge Clinical and gene
-## data information
+## Prepare genomic/clinical 
+## data table for gene-wise
+## glm;
 ##----------------+
-cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
-clinical = cohort$IMPACT_clinicalAnnotation
-loy = cohort$IMPACT_Y_classification_final
-loy_clinical = cohort$IMPACT_binaryY_call
-arm_level = cohort$IMPACT_ARM_level_changes
-clinical_glm = merge(loy[,c('sample', 'ploidy', 'classification')], loy_clinical[,c('sample.id', 'purity')],
-                     by.x = 'sample', by.y = 'sample.id', all.x = T)
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+clinical_glm = cohort[,c('SAMPLE_ID', 'QC', 'ploidy', 'classification', 'purity', 'CANCER_TYPE', 'MSI_TYPE',
+                         'MSI_SCORE', 'Age_Sequencing', 'IMPACT_TMB_SCORE', 'MUTATION_COUNT', 'SAMPLE_TYPE',
+                         'genome_doubled', 'fraction_cna')]
+clinical_glm$classification[which(clinical_glm$classification == 'complete_loss')] = 1
+
+
+
 
 clinical_glm$classification[which(clinical_glm$classification %in% c('loss', 'relative_loss'))] = 1
 clinical_glm$classification[which(clinical_glm$classification %in% c('gain', 'wt', 'gain_loss'))] = 0
