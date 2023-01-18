@@ -30,8 +30,11 @@ clean()
 gc()
 .rs.restartR()
 setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
+source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
 library(patchwork)
 library(data.table)
+library(ggpubr)
+
 
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 cohort_samples = unique(cohort$SAMPLE_ID)
@@ -204,8 +207,6 @@ saveRDS(object = data_gam, file = 'Data/05_Mutation/data_gam.rds')
 
 
 
-
-
 ##----------------+
 ## Prepare genomic/clinical 
 ## data table for gene-wise
@@ -216,27 +217,66 @@ clinical_glm = cohort[,c('SAMPLE_ID', 'QC', 'ploidy', 'classification', 'purity'
                          'MSI_SCORE', 'Age_Sequencing', 'IMPACT_TMB_SCORE', 'MUTATION_COUNT', 'SAMPLE_TYPE',
                          'genome_doubled', 'fraction_cna')]
 clinical_glm$classification[which(clinical_glm$classification == 'complete_loss')] = 1
-
-
-
-
-clinical_glm$classification[which(clinical_glm$classification %in% c('loss', 'relative_loss'))] = 1
-clinical_glm$classification[which(clinical_glm$classification %in% c('gain', 'wt', 'gain_loss'))] = 0
-clinical_glm$classification[which(clinical_glm$sample == 'P-0002130-T02-IM3')] = 0
-clinical_glm$classification[which(clinical_glm$sample == 'P-0013100-T01-IM5')] = 0
-clinical_glm$classification[which(clinical_glm$sample == 'P-0028409-T01-IM6')] = 1
-clinical_glm$classification[which(clinical_glm$sample == 'P-0064933-T02-IM7')] = 0
-clinical_glm = merge(clinical_glm, clinical[,c('SAMPLE_ID', 'CANCER_TYPE', 'MSI_TYPE', 
-                                               'MSI_SCORE', 'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)', 
-                                               'IMPACT_TMB_SCORE', 'MUTATION_COUNT')],
-                     by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
-clinical_glm = merge(clinical_glm, cohort$IMPACT_cohort[,c('SAMPLE_ID', 'SAMPLE_TYPE')],
-                     by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
-clinical_glm = merge(clinical_glm, arm_level[,c('id', 'genome_doubled', 'fraction_cna')],
-                     by.x = 'sample', by.y = 'id', all.x = T)
-clinical_glm$classification = as.integer(as.character(clinical_glm$classification))
-colnames(clinical_glm) = c('sample', 'ploidy', 'Y_call', 'purity', 'CANCER_TYPE', 'MSI_TYPE', 
+clinical_glm$classification[which(clinical_glm$classification %in% c('relative_loss', 'partial_loss',
+                                                                     'wt', 'gain', 'gain_loss', 'partial_gain'))] = 0
+clinical_glm = clinical_glm[!is.na(clinical_glm$classification), ]
+colnames(clinical_glm) = c('sample', 'QC', 'ploidy', 'Y_call', 'purity', 'CANCER_TYPE', 'MSI_TYPE', 
                            'MSI_SCORE', 'Age', 'TMB', 'Mut_Count', 'SAMPLE_TYPE', 'WGD', 'FGA')
+
+
+
+##----------------+
+## TMB and LOY;
+##----------------+
+clinical_glm = clinical_glm[which(clinical_glm$CANCER_TYPE %in% ctypes_keep), ]
+clinical_glm$Y_call = ifelse(clinical_glm$Y_call == '1', 'LOY', 'nonLOY')
+
+#' All together
+TMB_LOY_All = ggplot(clinical_glm, aes(x = Y_call, y = log10(TMB))) +
+  geom_boxplot(aes(color = Y_call), position = position_dodge2(width = 1), 
+               outlier.alpha = 0.25, outlier.stroke = 0.5) +
+  scale_color_manual(values = c('nonLOY' = '#3d4397',
+                                'LOY' = '#a22231'),
+                     name = '',
+                     label = c('nonLOY', 'LOY')) +
+  scale_y_continuous(limits = c(0 , 3)) +
+  theme_std(base_size = 14, base_line_size = 0.5) +
+  theme(axis.text.x = element_blank(),
+        aspect.ratio = 2,
+        panel.border = element_rect(fill = NA, linewidth = 1.5),
+        legend.position = 'top') +
+  labs(x = '', y = 'Mutational burden (log10)')
+
+#' CancerType specific
+TMB_LOY_plot = ggplot(clinical_glm, aes(x = Y_call, y = log10(TMB))) +
+  geom_boxplot(aes(color = Y_call), position = position_dodge2(width = 1), 
+               outlier.alpha = 0.25, outlier.stroke = 0.5) +
+  facet_wrap(~CANCER_TYPE, nrow = 1, scales = 'fixed') +
+  stat_compare_means(comparisons = list(c('LOY', 'nonLOY')),
+                     method = 'wilcox.test', label = 'p.signif', hide.ns = T) +
+  scale_color_manual(values = c('nonLOY' = '#3d4397',
+                                'LOY' = '#a22231'),
+                     name = '',
+                     label = c('nonLOY', 'LOY')) +
+  scale_y_continuous(limits = c(0 , 3)) +
+  geom_vline(xintercept = 2.5, linetype = 'dashed', linewidth = 0.25) +
+  theme_std(base_size = 14) +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(size = rel(0.8), margin = margin(), angle = 90, hjust = 0),
+        panel.spacing = unit(0, "pt"),
+        legend.position = 'none',
+        axis.text.x = element_blank()) +
+  labs(x = '', y = 'Mutational burden (log10)')
+
+TMB_LOY = TMB_LOY_All + TMB_LOY_plot        
+ggsave_golden(filename = 'Figures_original/TMB_LOY.pdf', plot = TMB_LOY, width = 14)
+
+
+
+##----------------+
+## TP53 mutations;
+##----------------+
+
 
 clinical_glm$Mut_Count = NULL
 clinical_glm$TMB = NULL
@@ -250,6 +290,10 @@ clinical_glm$WGD = NULL
 log_input_df = clinical_glm %>%
   left_join(mutation_matrix) %>%
   mutate(Age = as.numeric(Age))
+
+mutation_matrix = read.csv('Data/05_Mutation/gene_level/mutation_matrix.txt', sep = '\t')
+
+head(mutation_matrix)
 
 # Change gene factors to numeric
 log_input_df[,colnames(mutation_matrix)[1:ncol(mutation_matrix)-1]] = log_input_df[, colnames(mutation_matrix)[1:ncol(mutation_matrix)-1]] %>%
