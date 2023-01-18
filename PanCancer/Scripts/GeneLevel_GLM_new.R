@@ -306,8 +306,13 @@ TP53_muts = ggplot(TP53, aes(x = group, y = fraction_altered)) +
 ggsave_golden(filename = 'Figures_original/TP53_mutations.pdf', plot = TP53_muts, width = 6)
 
 
-
-
+##-------
+## LOY and TP53 wild-type
+##-------
+samples_TP53wt_loy = clinical_glm$sample[which(clinical_glm$Y_call == 'LOY' & clinical_glm$TP53_Deletion == 0 | clinical_glm$TP53_mut == 0)]
+samples_TP53mut_loy = clinical_glm$sample[which(clinical_glm$Y_call == 'LOY' & clinical_glm$TP53_Deletion == 1 | clinical_glm$TP53_mut == 1)]
+cbio(samples_TP53wt_loy)
+cbio(samples_TP53mut_loy)
 
 clinical_glm$Mut_Count = NULL
 clinical_glm$TMB = NULL
