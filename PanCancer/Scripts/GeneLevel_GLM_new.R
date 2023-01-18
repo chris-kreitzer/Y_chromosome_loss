@@ -314,6 +314,21 @@ samples_TP53mut_loy = clinical_glm$sample[which(clinical_glm$Y_call == 'LOY' & c
 cbio(samples_TP53wt_loy)
 cbio(samples_TP53mut_loy)
 
+
+
+
+
+
+
+
+
+
+clean()
+gc()
+.rs.restartR()
+
+
+
 clinical_glm$Mut_Count = NULL
 clinical_glm$TMB = NULL
 # clinical_glm$MSI_TYPE = NULL
