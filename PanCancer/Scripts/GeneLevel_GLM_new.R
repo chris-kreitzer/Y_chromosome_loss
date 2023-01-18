@@ -276,6 +276,37 @@ ggsave_golden(filename = 'Figures_original/TMB_LOY.pdf', plot = TMB_LOY, width =
 ##----------------+
 ## TP53 mutations;
 ##----------------+
+data_gam = readRDS('Data/05_Mutation/data_gam.rds')
+data_gam = data_gam$GAM_Analysis
+clinical_glm = merge(clinical_glm, data_gam[, c('sample', 'TP53_mut', 'TP53_Deletion')],
+                     by.x = 'sample', by.y = 'sample', all.x = T)
+clinical_glm$TP53_Deletion = as.numeric(as.integer(clinical_glm$TP53_Deletion))
+TP53 = data.frame()
+for(i in unique(clinical_glm$Y_call)){
+  n = length(clinical_glm$sample[which(clinical_glm$Y_call == i)])
+  n_muts = sum(clinical_glm$TP53_mut[which(clinical_glm$Y_call == i)], na.rm = T)
+  n_dels = sum(clinical_glm$TP53_Deletion[which(clinical_glm$Y_call == i)], na.rm = T)
+  n_alts = n_muts + n_dels
+  out = data.frame(group = i,
+                   n = n,
+                   fraction_altered = (n_alts / n) * 100,
+                   fraction_wt = ((n - n_alts) / n) * 100)
+  TP53 = rbind(TP53, out)
+}
+
+TP53_muts = ggplot(TP53, aes(x = group, y = fraction_altered)) +
+  geom_bar(stat = 'identity', color = 'black', fill = 'black') +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  scale_x_discrete(label = c(paste0('LOY\n', '(n=', TP53$n[which(TP53$group == 'LOY')], ')'),
+                             paste0('WT\n', '(n=', TP53$n[which(TP53$group == 'nonLOY')], ')'))) +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 1) +
+  labs(x = '', y = '% male samples\n with TP53 mutation')
+
+ggsave_golden(filename = 'Figures_original/TP53_mutations.pdf', plot = TP53_muts, width = 6)
+
+
+
 
 
 clinical_glm$Mut_Count = NULL
