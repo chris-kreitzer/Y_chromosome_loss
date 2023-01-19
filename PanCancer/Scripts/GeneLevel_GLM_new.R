@@ -432,11 +432,54 @@ for(i in 1:length(log_results_df)){
   } else next
 }
 
-log_results_df = log_results_df[-c(2156, 4484)]
+log_results_df = log_results_df[-c(4011, 6447, 12546, 14062, 20090, 23532, 23601, 26121)]
 log_results_df = do.call("rbind.fill", log_results_df)
 log_results_df$p_adj = p.adjust(log_results_df$p_value, method = "fdr")
+log_results_df = log_results_df[!is.na(log_results_df$p_adj), ]
+log_results_df = log_results_df[!log_results_df$variable %in% '(Intercept)', ]
 
-write.table(x = log_results_df, file = 'Data/05_Association/gene_level/gene_level_full_out.txt', sep = '\t')
+write.table(x = log_results_df, file = 'Data/05_Mutation/011823/GLM_gene_level_full_out.txt', sep = '\t')
+
+
+##----------------+
+## Visualization;
+##----------------+
+gene_glm = log_results_df[which(log_results_df$p_adj <= 0.05 & log_results_df$variable == 'Y_call'), ]
+length_genes = length(unique(gene_glm$gene))
+ggplot(gene_glm, 
+       aes(x = gene, 
+           y = estimate, 
+           label = cancer_type)) +
+  geom_pointrange(aes(ymin = estimate - std_err,
+                      ymax = estimate + std_err),
+                  size = 0.75,
+                  position = position_dodge2(padding = 2, width = 0.75), 
+                  fatten = 4) +
+  geom_hline(yintercept = 0, linetype = 'dashed', color = 'grey35', size = 0.25) +
+  geom_vline(xintercept = seq(1.5, length_genes, 1), linetype = 'dashed', color = 'grey35', size = 0.4) +
+  geom_text_repel(aes(label = cancer_type), color = 'black', size = 3) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(-3, 4),
+                     breaks = c(-2, -1, 0, 1, 2, 3),
+                     sec.axis = dup_axis()) +
+  coord_flip() +
+  theme_std(base_size = 14) +
+  theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
+        legend.position = 'none',
+        axis.line.x = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  labs(x = '', y = 'log ODDS')
+
+
+
+
+
+
+
+
+
+
 
 
 
