@@ -322,13 +322,6 @@ cbio(samples_TP53mut_loy)
 
 
 
-
-clean()
-gc()
-.rs.restartR()
-
-
-
 clinical_glm$Mut_Count = NULL
 clinical_glm$TMB = NULL
 # clinical_glm$MSI_TYPE = NULL
