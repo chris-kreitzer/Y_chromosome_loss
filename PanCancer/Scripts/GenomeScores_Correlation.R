@@ -12,6 +12,7 @@
 ## revision: 01/10/2023
 ## revision: 01/12/2023
 ## revision: 01/13/2023
+## revision: 01/20/2023
 ## chris-kreitzer
 
 
@@ -208,24 +209,25 @@ gc()
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 
 genome_scores = data.frame()
-for(i in unique(cohort$CANCER_TYPE_ritika)){
+for(i in unique(cohort$CANCER_TYPE)){
   type = i
-  Aneuploidy_score = mean(x = cohort$AS_score[which(cohort$CANCER_TYPE_ritika == i)], na.rm = T)
-  Loss_score = mean(x = cohort$losses_n[which(cohort$CANCER_TYPE_ritika == i)], na.rm = T)
-  FGA_score = mean(x = cohort$fraction_cna[which(cohort$CANCER_TYPE_ritika == i)], na.rm = T)
-  n_loy = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE_ritika == i & cohort$classification %in% c('complete_loss', 'partial_loss', 'relative_loss'))])
-  fraction_LOY = n_loy / length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE_ritika == i)])
+  Aneuploidy_score = mean(x = cohort$AS_score[which(cohort$CANCER_TYPE == i)], na.rm = T)
+  Loss_score = mean(x = cohort$losses_n[which(cohort$CANCER_TYPE == i)], na.rm = T)
+  FGA_score = mean(x = cohort$fraction_cna[which(cohort$CANCER_TYPE == i)], na.rm = T)
+  n_loy = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE == i & cohort$classification %in% c('complete_loss', 'partial_loss', 'relative_loss'))])
+  fraction_LOY = n_loy / length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE == i)])
   out = data.frame(CancerType = type,
                    Aneuploidy_score = Aneuploidy_score,
                    Loss_score = Loss_score,
                    FGA_score = FGA_score,
-                   n = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE_ritika == i)]),
+                   n = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE == i)]),
                    n_loy = n_loy,
                    fraction_LOY = fraction_LOY*100)
   genome_scores = rbind(genome_scores, out)
 }
-genome_scores = genome_scores[!genome_scores$CancerType %in% c('Ovary/Fallopian Tube (OVARY)', 'Vulva/Vagina (VULVA)'), ]
-write.table(genome_scores, file = 'Data/05_Association/gene_level/GenomeScores.txt', sep = '\t', row.names = F)
+
+genome_scores = genome_scores[genome_scores$CancerType %in% ctypes_keep, ]
+write.table(genome_scores, file = 'Data/05_Mutation/011823/GenomeScores_correlation.txt', sep = '\t', row.names = F)
 
 
 ##-------
@@ -236,18 +238,17 @@ Aneuploidy_correlation = ggplot(genome_scores,
                                 aes(x = fraction_LOY, 
                                     y = Aneuploidy_score)) +
   geom_point(data = genome_scores, aes(size = n), shape = 20) +
-  scale_size_continuous(breaks = c(50, 100, 500, 1000, 1500, 3000),
-                        labels = c(50, 100, 500, 1000, 1500, '>1500'),
-                        name = 'n/CancerType') +
+  scale_size(breaks = c(100, 500, 1000, 3000), range = c(0, 8),
+             labels = c(100, 500, 1000, '>1500')) +
   scale_x_continuous(expand = c(0.01, 0)) +
-  geom_text_repel(aes(label = CancerType), size = 3) +
-  stat_smooth(method = lm) +
-  #stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
+  geom_text_repel(aes(label = CancerType), 
+                  size = as_points(8), point.padding = as_points(1)) +
+  stat_smooth(method = lm)  +
   theme_std(base_size = 14, base_line_size = 1) + 
   theme(aspect.ratio = 1) +
-  labs(y = 'Average # of chr. arms gained & lost', x = 'Fraction LOY')
+  labs(y = 'Average # of chr. arms gained & lost', x = 'Fraction LOY', size = 'n patients')
 
-Aneuploidy_correlation
+Aneuploidy_correlation = Aneuploidy_correlation + stat_cor(method = "spearman", label.x = 5, label.y = 30)
 
 
 ##-------
@@ -258,18 +259,18 @@ Loss_correlation = ggplot(genome_scores,
                           aes(x = fraction_LOY, 
                               y = Loss_score)) +
   geom_point(data = genome_scores, aes(size = n), shape = 20) +
-  scale_size_continuous(breaks = c(50, 100, 500, 1000, 1500, 3000),
-                        labels = c(50, 100, 500, 1000, 1500, '>1500'),
-                        name = 'n/CancerType') +
+  scale_size(breaks = c(100, 500, 1000, 3000), range = c(0, 8),
+             labels = c(100, 500, 1000, '>1500')) +
   scale_x_continuous(expand = c(0.01, 0)) +
-  geom_text_repel(aes(label = CancerType), size = 3) +
+  geom_text_repel(aes(label = CancerType), 
+                  size = as_points(8), point.padding = as_points(1)) +
   stat_smooth(method = lm) +
-  #stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
   theme_std(base_size = 14, base_line_size = 1) + 
   theme(aspect.ratio = 1) +
-  labs(y = 'Average # of chr. arms lost', x = 'Fraction of male tumors with LOY')
+  labs(y = 'Average # of chr. arms lost', x = 'Fraction LOY', size = 'n patients')
 
-Loss_correlation
+Loss_correlation = Loss_correlation + stat_cor(method = "spearman", label.x = 5, label.y = 20)
+ggsave_golden(filename = 'Figures_original/ArmsLost_LOY_Correlation.pdf', plot = Loss_correlation, width = 12)
 
 
 ##-------
@@ -280,20 +281,20 @@ FGA_correlation = ggplot(genome_scores,
                          aes(x = fraction_LOY, 
                              y = FGA_score)) +
   geom_point(data = genome_scores, aes(size = n), shape = 20) +
-  scale_size_continuous(breaks = c(50, 100, 500, 1000, 1500, 3000),
-                        labels = c(50, 100, 500, 1000, 1500, '>1500'),
-                        name = 'n/CancerType') +
+  scale_size(breaks = c(100, 500, 1000, 3000), range = c(0, 8),
+             labels = c(100, 500, 1000, '>1500')) +
   scale_x_continuous(expand = c(0.01, 0)) +
-  geom_text_repel(aes(label = CancerType), size = 3) +
+  geom_text_repel(aes(label = CancerType), 
+                  size = as_points(8), point.padding = as_points(1)) +
   stat_smooth(method = lm) +
-  #stat_smooth(method = loess, fullrange = FALSE, alpha = 0.1, span = 10) +
   theme_std(base_size = 14, base_line_size = 1) + 
   theme(aspect.ratio = 1) +
-  labs(y = 'Average Fraction Genome Altered', x = 'Fraction of male tumors with LOY')
+  labs(y = 'Average Fraction Genome Altered', x = 'Fraction LOY', size = 'n patients')
+  
+FGA_correlation = FGA_correlation + stat_cor(method = 'spearman', label.x = 5, label.y = 0.7)
 
-FGA_correlation
-
-Aneuploidy_correlation / Loss_correlation / FGA_correlation
+GenomeScore_Correlation = Aneuploidy_correlation + theme(legend.position = 'none') + FGA_correlation
+ggsave_golden(filename = 'Figures_original/GenomeScore_Correlation.pdf', plot = GenomeScore_Correlation, width = 16)
 
 
 ##----------------+
