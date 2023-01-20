@@ -357,68 +357,111 @@ ggsave(filename = 'Figures_original/Fraction_Y_loss_WGD.pdf', plot = WGD_LOY_plo
 ## it seems like that MSI instable 
 ## tumors show a tendency for 
 ## retaining the Y chromosome
+## - work with QC TRUE samples
+## - work with Indeterminate, instable, and stable types
 ##----------------+ 
+clean()
+gc()
+.rs.restartR()
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+clinical_glm = cohort[,c('SAMPLE_ID', 'CANCER_TYPE', 'QC', 'classification', 'MSI_SCORE', 'MSI_TYPE')]
+clinical_glm$classification[which(clinical_glm$classification %in% c('complete_loss', 'partial_loss', 'relative_loss'))] = 'LOY'
+clinical_glm$classification[which(clinical_glm$classification %in% c('wt', 'partial_gain', 'gain_loss', 'gain'))] = 'nonLOY'
 clinical_glm$MSI_TYPE = as.character(as.factor(clinical_glm$MSI_TYPE))
 clinical_glm$CANCER_TYPE = as.character(as.factor(clinical_glm$CANCER_TYPE))
-MSI_out = data.frame()
-for(i in unique(clinical_glm$CANCER_TYPE)){
-  try({
-    da = clinical_glm[which(clinical_glm$CANCER_TYPE == i), ]
-    Y.stable = table(da$Y_call[which(da$MSI_TYPE == 'Stable')])[[2]] / sum(table(da$Y_call[which(da$MSI_TYPE == 'Stable')]))
-    Y.instable = table(da$Y_call[which(da$MSI_TYPE == 'Instable')])[[2]] / sum(table(da$Y_call[which(da$MSI_TYPE == 'Instable')]))
-    show = ifelse(Y.stable > Y.instable, 'yes', 'no')
-    out = data.frame(CancerType = i,
-                     Type = c('Stable', 'Instable'),
-                     prop = c(Y.stable, Y.instable),
-                     n = c(nrow(da[which(da$MSI_TYPE == 'Stable'), ]),
-                           nrow(da[which(da$MSI_TYPE == 'Instable'), ])),
-                     show = rep(show, 2))
-    MSI_out = rbind(MSI_out, out)
-  })
-}
+colnames(clinical_glm)[4] = 'Y_call'
+clinical_glm = clinical_glm[which(clinical_glm$MSI_TYPE %in% c('Instable', 'Stable')), ]
+clinical_glm = clinical_glm[!is.na(clinical_glm$MSI_SCORE), ]
+clinical_glm$MSI_TYPE = factor(clinical_glm$MSI_TYPE, levels = c('Instable', 'Stable'))
 
-MSI_out = MSI_out[MSI_out$CancerType != 'Thyroid Cancer', ]
-MSI_out = MSI_out[MSI_out$CancerType != 'Soft Tissue Sarcoma', ]
-MSI_out = MSI_out[MSI_out$CancerType != 'Pancreatic Cancer', ]
+##-------
+## Can we use MSISensor
+## for categorization
+##-------
+MSIsensor_plot = ggplot(clinical_glm, aes(x = MSI_TYPE, y = MSI_SCORE, color = MSI_TYPE)) +
+  geom_quasirandom(shape = 16, size = 0.75, alpha = 0.75) +
+  stat_summary(fun.y = mean,
+               fun.ymin = function(x) quantile(x, .25),
+               fun.ymax = function(x) quantile(x, .75),
+               geom = 'errorbar', width = 0.1) +
+  stat_summary_bin(geom = 'point', fun.y = 'mean', shape = 21, color = 'black', fill = 'white') + 
+  scale_color_manual(values = c('Instable' = 'springgreen4',
+                                'Stable' = 'grey75')) +
+  geom_hline(yintercept = 10, linetype = 'dashed', color = 'grey35', linewidth = 0.35) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  scale_x_discrete(labels = c(paste0('MSI\n(n=', length(unique(clinical_glm$SAMPLE_ID[which(clinical_glm$MSI_TYPE == 'Instable')])),')'),
+                              paste0('MSS\n(n=', length(unique(clinical_glm$SAMPLE_ID[which(clinical_glm$MSI_TYPE == 'Stable')])),')'))) +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 2,
+        legend.position = 'none') +
+  labs(x = '', y = 'MSIsensor score', color = '')
+
+ggsave_golden(filename = 'Figures_original/MSISensor.pdf', plot = MSIsensor_plot, width = 7)
+
+
+##----------------+
+## Tumor Types with both
+## MSI and MSS
+##----------------+
+clinical_glm_msi = clinical_glm[which(clinical_glm$CANCER_TYPE %in% c('Ampullary Cancer', 'Anal Cancer', 'Appendiceal Cancer',
+                                                                      'Bladder Cancer', 'Cancer of Unknown Primary', 'Colorectal Cancer',
+                                                                      'Esophagogastric Cancer', 'Glioma', 'Head and Neck Cancer', 'Hepatobiliary Cancer',
+                                                                      'Melanoma', 'Non-Small Cell Lung Cancer', 'Pancreatic Cancer', 'Prostate Cancer', '
+                                                                      Skin Cancer, Non-Melanoma', 'Small Bowel Cancer', 'Small Cell Lung Cancer',
+                                                                      'Soft Tissue Sarcoma', 'Thyroid Cancer')), ]
+clinical_glm_msi = clinical_glm_msi[!is.na(clinical_glm_msi$Y_call), ]
+clinical_glm_msi = clinical_glm_msi[which(clinical_glm_msi$CANCER_TYPE %in% c('Bladder Cancer', 'Colorectal Cancer', 'Esophagogastric Cancer',
+                                                                              'Glioma', 'Non-Small Cell Lung Cancer', 'Prostate Cancer')), ]
+
+MSI_LOY_plot = ggplot(clinical_glm_msi, aes(x = Y_call, y = MSI_SCORE, color = MSI_TYPE)) +
+  geom_quasirandom(width = 0.25) +
+  facet_wrap(~CANCER_TYPE, nrow = 1, scales = 'fixed') +
+  stat_compare_means(comparisons = list(c('LOY', 'nonLOY')),
+                     method = 'wilcox.test', label = 'p.signif', hide.ns = T, label.y = 47) +
+  scale_color_manual(values = c('Instable' = 'springgreen4',
+                                'Stable' = 'grey75')) +
+  geom_vline(xintercept = 2.5, linetype = 'dashed', linewidth = 0.25) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  theme_std(base_size = 14) +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(size = rel(0.8), margin = margin(), angle = 0, hjust = 0.5),
+        panel.spacing = unit(0, "pt"),
+        legend.position = 'top',
+        aspect.ratio = 1) +
+  labs(x = '', y = 'MSIsensor score', color = '')
+  
+ggsave_golden(filename = 'Figures_original/MSI_LOY_association.pdf', plot = MSI_LOY_plot, width = 16)  
+
+
+# MSI_out = data.frame()
+# for(i in unique(clinical_glm$CANCER_TYPE)){
+#   try({
+#     da = clinical_glm[which(clinical_glm$CANCER_TYPE == i), ]
+#     Y.stable = table(da$Y_call[which(da$MSI_TYPE == 'Stable')])[[2]] / sum(table(da$Y_call[which(da$MSI_TYPE == 'Stable')]))
+#     Y.instable = table(da$Y_call[which(da$MSI_TYPE == 'Instable')])[[2]] / sum(table(da$Y_call[which(da$MSI_TYPE == 'Instable')]))
+#     show = ifelse(Y.stable > Y.instable, 'yes', 'no')
+#     out = data.frame(CancerType = i,
+#                      Type = c('Stable', 'Instable'),
+#                      prop = c(Y.stable, Y.instable),
+#                      n = c(nrow(da[which(da$MSI_TYPE == 'Stable'), ]),
+#                            nrow(da[which(da$MSI_TYPE == 'Instable'), ])),
+#                      show = rep(show, 2))
+#     MSI_out = rbind(MSI_out, out)
+#   })
+# }
 
 #' Visualization
-MSI.plot = ggplot(MSI_out, aes(x = Type, y = prop, label = CancerType)) +
-  geom_text_repel(aes(label = CancerType), hjust = 1) +
-  geom_hline(yintercept = seq(0.2, 0.6, 0.2), color = 'grey85', size = 0.2) +
-  geom_line(aes(group = CancerType), size = 0.35) +
-  geom_point() +
-  theme_std(base_size = 14) +
-  theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
-        aspect.ratio = 1) +
-  labs(x = 'MSI Type', y = 'Fraction LOY')
-
-ggsave_golden(filename = 'Figures_original/MSI_Type_Y.loss.pdf', plot = MSI.plot, width = 6)
-
-
-## MSI_TYPE unstable show generally 
-## decreased FGA and hence, 
-## Y-chromosome loss can be explained by FGA again; 
-
-#' A) Colorectal Cancer
-Colorectal = clinical_glm[which(clinical_glm$CANCER_TYPE == 'Colorectal Cancer'), ]
-Colorectal = Colorectal[which(Colorectal$MSI_TYPE %in% c('Stable', 'Instable')), ]
-
-
-boxplot(Colorectal$FGA ~ Colorectal$MSI_TYPE,
-        main = 'Colorectal Cancer',
-        xlab = 'MSI-Type',
-        ylab = 'FGA')
-
-t.test(Colorectal$FGA ~ Colorectal$MSI_TYPE)
-
-
-#' out
-
-
-
-
-
-
+# MSI.plot = ggplot(MSI_out, aes(x = Type, y = prop, label = CancerType)) +
+#   geom_text_repel(aes(label = CancerType), hjust = 1) +
+#   geom_hline(yintercept = seq(0.2, 0.6, 0.2), color = 'grey85', size = 0.2) +
+#   geom_line(aes(group = CancerType), size = 0.35) +
+#   geom_point() +
+#   theme_std(base_size = 14) +
+#   theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
+#         aspect.ratio = 1) +
+#   labs(x = 'MSI Type', y = 'Fraction LOY')
+# 
+# ggsave_golden(filename = 'Figures_original/MSI_Type_Y.loss.pdf', plot = MSI.plot, width = 6)
 
 
 #' out
