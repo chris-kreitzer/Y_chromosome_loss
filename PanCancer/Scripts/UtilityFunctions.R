@@ -41,7 +41,7 @@ Cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 ## Cancer-types to include
 ##----------------+
 ctypes = table(Cohort$CANCER_TYPE)
-ctypes_keep = names(ctypes[which((ctypes / length(unique(Cohort$SAMPLE_ID)) * 100) > 0.3)])
+ctypes_keep = names(ctypes[which((ctypes / length(unique(Cohort$SAMPLE_ID)) * 100) > 0.2)])
 
 
 
