@@ -13,7 +13,7 @@
 clean()
 gc()
 setup(working.path = '~/Documents/MSKCC/10_MasterThesis/')
-source('Scripts/UtilityFunctions.R')
+source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
 
 
 ## Libraries and input data
@@ -50,13 +50,13 @@ clinical_glm = cohort[,c('SAMPLE_ID', 'ploidy', 'classification', 'purity', 'CAN
 CancerTypes_considered = names(which(table(clinical_glm$CANCER_TYPE) / sum(table(clinical_glm$CANCER_TYPE)) > 0.01))
 clinical_glm = clinical_glm[which(clinical_glm$CANCER_TYPE %in% CancerTypes_considered), ]
 clinical_glm$CANCER_TYPE = as.factor(as.character(clinical_glm$CANCER_TYPE))
-clinical_glm$Age_Sequencing = as.integer(as.character(clinical_glm$Age_Sequencing))
+clinical_glm$Age_Sequencing = as.numeric(as.character(clinical_glm$Age_Sequencing))
 clinical_glm$SAMPLE_TYPE = as.factor(as.character(clinical_glm$SAMPLE_TYPE))
 clinical_glm$MSI_TYPE = as.factor(as.character(clinical_glm$MSI_TYPE))
 clinical_glm$MSI_TYPE = factor(clinical_glm$MSI_TYPE, levels = c('Stable', 'Instable', 'Indeterminate', 'Do not report'))
-clinical_glm$genome_doubled[which(clinical_glm$genome_doubled == TRUE)] = 1
-clinical_glm$genome_doubled[which(clinical_glm$genome_doubled == FALSE)] = 0
-clinical_glm$genome_doubled = as.factor(clinical_glm$genome_doubled)
+# clinical_glm$genome_doubled[which(clinical_glm$genome_doubled == TRUE)] = 1
+# clinical_glm$genome_doubled[which(clinical_glm$genome_doubled == FALSE)] = 0
+# clinical_glm$genome_doubled = as.factor(clinical_glm$genome_doubled)
 
 
 ##----------------+
