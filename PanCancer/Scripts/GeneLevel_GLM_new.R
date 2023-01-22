@@ -538,16 +538,53 @@ for(i in unique(GOI)){
 }
 
 
+##----------------+
+## Fisher Test on PanCancer
+##----------------+
+all_Fisher = PanCancer
+all_Fisher$one_sided_fisher_fisher_p.value = NA
+for(i in 1:nrow(all_Fisher)){
+  print(i)
+  all_Fisher$one_sided_fisher_fisher_p.value[i] = fisher.test(matrix(c(all_Fisher$LOY_1Mut[i], 
+                                                                       all_Fisher$WT_oneMut[i],
+                                                                       all_Fisher$LOY_wt[i],
+                                                                       all_Fisher$WT_wt[i]), ncol = 2), 
+                                                              alternative = 'greater')$p.value
+}
+
+all_Fisher$FDR = p.adjust(all_Fisher$one_sided_fisher_fisher_p.value, method = 'fdr')
+all_Fisher$log10p = -log10(all_Fisher$one_sided_fisher_fisher_p.value)
+all_Fisher$FDR_pass = ifelse(all_Fisher$FDR <0.1, 'plot', 'not')
+
+
+#' PanCancer
+PanCancer_plot = ggplot(all_Fisher, 
+                        aes(x = cohort, 
+                            y = log10p, 
+                            color = FDR_pass)) +
+  geom_jitter(width = 0.2) +
+  scale_color_manual(values = c('not' = 'grey55',
+                                'plot' = 'red'),
+                     name = '') +
+  geom_text_repel(aes(label = ifelse(FDR_pass == 'plot', gene, '')), 
+                  max.overlaps = 90, position = position_dodge(width = 0.4)) +
+  coord_flip() +
+  scale_y_continuous(position = 'right', expand = c(0.01, 0), limits = c(0, 80)) +
+  theme_std(base_size = 14) +
+  theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
+        legend.position = 'none',
+        axis.text.y = element_text(angle = 90, size = 16, hjust = 0.5),
+        axis.ticks.y = element_blank()) +
+  labs(x = '', y = '-log10(p-value)')
+
+PanCancer_plot
+
+geneLevel_all = PanCancer_plot/cancerTypes + plot_layout(heights = c(0.15, 1))
 
 
 
 
-
-
-
-
-
-
+View(all_Fisher)
 
 
 
