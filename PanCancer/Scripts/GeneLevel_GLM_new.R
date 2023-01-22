@@ -479,15 +479,91 @@ ggplot(gene_glm,
 
 
 
-
-
-
-
-
-
 ##----------------+
 ## Fishers exact test
 ##----------------+
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+data_gam = readRDS('Data/05_Mutation/data_gam.rds')
+data_gam = data_gam$GAM_Analysis
+
+cancer_type_list = unique(cohort$CANCER_TYPE)
+cohort_samples = unique(cohort$SAMPLE_ID)
+
+cohort$Y_call = ifelse(cohort$classification %in% c('complete_loss', 'relative_loss', 'partial_loss'), 'Y_chrom_loss', 'intact_Y_chrom')
+
+##----------------+
+## GOI: which genes to keep
+##----------------+
+GOI = unique(colnames(data_gam))
+GOI = GOI[!GOI %in% 'sample']
+
+
+##----------------+
+## populate alteration
+## matrix;
+##----------------+
+PanCancer = data.frame()
+for(i in unique(GOI)){
+  try({
+    loss_n = table(cohort$Y_call)['Y_chrom_loss'][[1]]
+    wt_n = table(cohort$Y_call)['intact_Y_chrom'][[1]]
+    gene = i
+    print(gene)
+    cancer = 'PanCancer'
+    gene_index = which(colnames(data_gam) == i)
+    Muts = data_gam[, c(1, gene_index)]
+    
+    #' LOY with at least 1 mut
+    LOY_oneMut = length(intersect(cohort$SAMPLE_ID[which(cohort$Y_call == 'Y_chrom_loss')],
+                                  Muts$sample[which(Muts[,2] != 0)]))
+    
+    #' LOY with no Mutation
+    LOY_wt = loss_n - LOY_oneMut
+    
+    #' WT tumor with at least 1 mutation
+    WT_oneMut = length(intersect(cohort$SAMPLE_ID[which(cohort$Y_call == 'intact_Y_chrom')],
+                                 Muts$sample[which(Muts[,2] != 0)]))
+    
+    #' WT tumor with no Mutation
+    WT_noMut = wt_n - WT_oneMut
+    
+    out = data.frame(cohort = cancer,
+                     gene = gene,
+                     LOY_1Mut = LOY_oneMut,
+                     LOY_wt = LOY_wt,
+                     WT_oneMut = WT_oneMut,
+                     WT_wt = WT_noMut)
+    PanCancer = rbind(PanCancer, out)
+  })
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 top20 = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/04_Loss/IMPACT_Y_loss_incidences_top20.txt', sep = '\t')
 oncoKB = read.csv('Data/signedOut/data_mutations_extended.oncokb.txt', sep = '\t')
 cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
