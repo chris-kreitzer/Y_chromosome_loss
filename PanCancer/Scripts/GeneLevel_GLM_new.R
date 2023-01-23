@@ -432,24 +432,26 @@ for(i in 1:length(log_results_df)){
   } else next
 }
 
-log_results_df = log_results_df[-c(4011, 6447, 12546, 14062, 20090, 23532, 23601, 26121)]
+log_results_df = Filter(function(x) length(x) > 1, log_results_df)
 log_results_df = do.call("rbind.fill", log_results_df)
 log_results_df$p_adj = p.adjust(log_results_df$p_value, method = "fdr")
 log_results_df = log_results_df[!is.na(log_results_df$p_adj), ]
-log_results_df = log_results_df[!log_results_df$variable %in% '(Intercept)', ]
+log_results_df = log_results_df[which(log_results_df$variable == 'Y_call'), ]
 
-write.table(x = log_results_df, file = 'Data/05_Mutation/011823/GLM_gene_level_full_out.txt', sep = '\t')
+write.table(x = log_results_df, file = 'Data/05_Mutation/011823/GLM_gene_level_full_out.txt', sep = '\t', quote = F, row.names = F)
 
 
 ##----------------+
 ## Visualization;
 ##----------------+
-gene_glm = log_results_df[which(log_results_df$p_adj <= 0.05 & log_results_df$variable == 'Y_call'), ]
+gene_glm = log_results_df[which(log_results_df$p_adj <= 0.05 & 
+                                  log_results_df$estimate > -15 & 
+                                  log_results_df$estimate < 15), ]
 length_genes = length(unique(gene_glm$gene))
-ggplot(gene_glm, 
-       aes(x = gene, 
-           y = estimate, 
-           label = cancer_type)) +
+gene_glm_plot = ggplot(gene_glm, 
+                       aes(x = gene, 
+                           y = estimate, 
+                           label = cancer_type)) +
   geom_pointrange(aes(ymin = estimate - std_err,
                       ymax = estimate + std_err),
                   size = 0.75,
@@ -457,10 +459,10 @@ ggplot(gene_glm,
                   fatten = 4) +
   geom_hline(yintercept = 0, linetype = 'dashed', color = 'grey35', size = 0.25) +
   geom_vline(xintercept = seq(1.5, length_genes, 1), linetype = 'dashed', color = 'grey35', size = 0.4) +
-  geom_text_repel(aes(label = cancer_type), color = 'black', size = 3) +
-  scale_y_continuous(expand = c(0, 0),
-                     limits = c(-3, 4),
-                     breaks = c(-2, -1, 0, 1, 2, 3),
+  geom_text_repel(aes(label = cancer_type), color = 'black', size = 4) +
+  scale_y_continuous(expand = c(0.1, 0),
+                     limits = c(-5, 5),
+  #                   breaks = c(-2, -1, 0, 1, 2, 3),
                      sec.axis = dup_axis()) +
   coord_flip() +
   theme_std(base_size = 14) +
@@ -470,6 +472,10 @@ ggplot(gene_glm,
         axis.line.y = element_blank(),
         axis.ticks.y = element_blank()) +
   labs(x = '', y = 'log ODDS')
+
+gene_glm_plot
+
+ggsave_golden(filename = 'Figures_original/GeneLevel_CancerTypes_out.pdf', plot = gene_glm_plot, width = 16)
 
 
 
