@@ -216,9 +216,8 @@ cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 clinical_glm = cohort[,c('SAMPLE_ID', 'QC', 'ploidy', 'classification', 'purity', 'CANCER_TYPE', 'MSI_TYPE',
                          'MSI_SCORE', 'Age_Sequencing', 'IMPACT_TMB_SCORE', 'MUTATION_COUNT', 'SAMPLE_TYPE',
                          'genome_doubled', 'fraction_cna')]
-clinical_glm$classification[which(clinical_glm$classification == 'complete_loss')] = 1
-clinical_glm$classification[which(clinical_glm$classification %in% c('relative_loss', 'partial_loss',
-                                                                     'wt', 'gain', 'gain_loss', 'partial_gain'))] = 0
+clinical_glm$classification[which(clinical_glm$classification %in% c('complete_loss', 'partial_loss', 'relative_loss'))] = 1
+clinical_glm$classification[which(clinical_glm$classification %in% c('wt', 'gain', 'gain_loss', 'partial_gain'))] = 0
 clinical_glm = clinical_glm[!is.na(clinical_glm$classification), ]
 colnames(clinical_glm) = c('sample', 'QC', 'ploidy', 'Y_call', 'purity', 'CANCER_TYPE', 'MSI_TYPE', 
                            'MSI_SCORE', 'Age', 'TMB', 'Mut_Count', 'SAMPLE_TYPE', 'WGD', 'FGA')
@@ -246,6 +245,7 @@ TMB_LOY_All = ggplot(clinical_glm, aes(x = Y_call, y = log10(TMB))) +
         panel.border = element_rect(fill = NA, linewidth = 1.5),
         legend.position = 'top') +
   labs(x = '', y = 'Mutational burden (log10)')
+
 
 #' CancerType specific
 TMB_LOY_plot = ggplot(clinical_glm, aes(x = Y_call, y = log10(TMB))) +
@@ -324,13 +324,14 @@ cbio(samples_TP53mut_loy)
 # Run logistic regression if:
 ## 1. gene has at least 1 mutant and at least 1 wild type
 ## 2. gene has alteration frequency of >= 0.03
+clean()
+gc()
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 clinical_glm = cohort[,c('SAMPLE_ID', 'QC', 'ploidy', 'classification', 'purity', 'CANCER_TYPE', 'MSI_TYPE',
                          'MSI_SCORE', 'Age_Sequencing', 'IMPACT_TMB_SCORE', 'MUTATION_COUNT', 'SAMPLE_TYPE',
                          'genome_doubled', 'fraction_cna')]
-clinical_glm$classification[which(clinical_glm$classification == 'complete_loss')] = 1
-clinical_glm$classification[which(clinical_glm$classification %in% c('relative_loss', 'partial_loss',
-                                                                     'wt', 'gain', 'gain_loss', 'partial_gain'))] = 0
+clinical_glm$classification[which(clinical_glm$classification %in% c('relative_loss', 'partial_loss','complete_loss'))] = 1
+clinical_glm$classification[which(clinical_glm$classification %in% c('wt', 'gain', 'gain_loss', 'partial_gain'))] = 0
 clinical_glm = clinical_glm[!is.na(clinical_glm$classification), ]
 colnames(clinical_glm) = c('sample', 'QC', 'ploidy', 'Y_call', 'purity', 'CANCER_TYPE', 'MSI_TYPE', 
                            'MSI_SCORE', 'Age', 'TMB', 'Mut_Count', 'SAMPLE_TYPE', 'WGD', 'FGA')
@@ -380,7 +381,7 @@ logistic_reg_fun = function(data_frame, gene, cancer_type){
                                   gene = gene, 
                                   cancer_type = cancer_type, 
                                   comments = "No Mutations in this gene") 
-    } else if (length(which(data_frame[, gene] == 1)) / nrow(data_frame) < 0.03) {
+    } else if (length(which(data_frame[, gene] == 1)) / nrow(data_frame) < 0.0001) {
       log_results_df = data.frame(variable = "Not Tested",
                                   gene = gene, 
                                   cancer_type = cancer_type, 
@@ -412,7 +413,6 @@ gene_list = colnames(clinical_glm)[10:ncol(clinical_glm)]
 gene_list = gene_list[!gene_list %in% c('TP53_Status')]
 # gene_list = gene_list[!gene_list %in% c('TP53', "HLA-A_Deletion", "HLA-B_Deletion", "NKX2-1_Amplification", "NKX3-1_Deletion")]
 cancer_type_list = ctypes_keep
-
 
 # Expand table for gene list and cancer list (get every combo)
 gene_cancer_df = expand.grid(gene_list, cancer_type_list)
@@ -470,10 +470,6 @@ ggplot(gene_glm,
         axis.line.y = element_blank(),
         axis.ticks.y = element_blank()) +
   labs(x = '', y = 'log ODDS')
-
-
-
-
 
 
 
@@ -554,6 +550,9 @@ for(i in 1:nrow(all_Fisher)){
 all_Fisher$FDR = p.adjust(all_Fisher$one_sided_fisher_fisher_p.value, method = 'fdr')
 all_Fisher$log10p = -log10(all_Fisher$one_sided_fisher_fisher_p.value)
 all_Fisher$FDR_pass = ifelse(all_Fisher$FDR < 0.01, 'plot', 'not')
+LOY_enriched_all = all_Fisher[which(all_Fisher$gene %in% all_Fisher$gene[which(all_Fisher$LOY_1Mut > all_Fisher$WT_oneMut & all_Fisher$FDR_pass == 'plot')]), ]
+View(LOY_enriched_all)
+write.table(x = all_Fisher, file = 'Data/05_Mutation/011823/PanCancer_Fisher_enrichment.txt', sep = '\t', row.names = F, quote = F)
 
 
 ##----------------+
@@ -569,13 +568,13 @@ PanCancer_plot = ggplot(all_Fisher,
                                 'plot' = 'red'),
                      name = '') +
   geom_text_repel(aes(label = ifelse(FDR_pass == 'plot', gene, '')), 
-                  max.overlaps = 200, 
+                  max.overlaps = 100, 
                   position = position_dodge(width = 0.1)) +
   coord_flip() +
   scale_y_continuous(position = 'right', 
                      expand = c(0.01, 0)) +
   theme_std(base_size = 14) +
-  theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
+  theme(panel.border = element_rect(fill = NA, linewidth = 2, color = 'black'),
         legend.position = 'none',
         axis.text.y = element_text(angle = 90, size = 16, hjust = 0.5),
         axis.ticks.y = element_blank()) +
@@ -654,48 +653,31 @@ cancerTypes = ggplot(Fisher_gene, aes(x = cohort,
                                       y = log10p, 
                                       color = FDR_pass)) +
   geom_jitter(width = 0.2, size = 1) +
-  scale_color_manual(values = c('not' = 'grey35',
+  scale_color_manual(values = c('not' = 'grey75',
                                 'plot' = 'red'),
                      name = '') +
-  geom_text_repel(aes(label = ifelse(FDR_pass == 'plot', gene, '')), color = 'black', size = 2, max.overlaps = 30) +
+  geom_text_repel(aes(label = ifelse(FDR_pass == 'plot', gene, '')), 
+                  color = 'black', 
+                  size = 2, 
+                  max.overlaps = 50,
+                  position = position_dodge(width = 0.1)) +
   coord_flip() +
   geom_vline(xintercept = seq(1.5, 55, 1), linetype = 'dashed', color = 'grey35', size = 0.4) +
-  scale_y_continuous(position = 'right', expand = c(0.01, 0), limits = c(0, 19)) +
+  scale_y_continuous(position = 'right', 
+                     expand = c(0.01, 0)) +
   theme_std(base_size = 14) +
-  theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
+  theme(panel.border = element_rect(fill = NA, linewidth = 2, color = 'black'),
         legend.position = 'none') +
   labs(x = '', y = '-log10(p-value)')
 
 
 cancerTypes
 
-
-
-
-
-
-
-
-#' PanCancer
-PanCancer_plot = ggplot(all_Fisher[all_Fisher$cohort == 'PanCancer', ], 
-                        aes(x = cohort, y = log10p, color = FDR_pass)) +
-  geom_jitter(width = 0.2) +
-  scale_color_manual(values = c('not' = 'grey55',
-                                'plot' = 'red'),
-                     name = '') +
-  geom_text_repel(aes(label = ifelse(FDR_pass == 'plot', gene, '')), 
-                  max.overlaps = 300, position = position_dodge(width = 0.2)) +
-  coord_flip() +
-  scale_y_continuous(position = 'right', expand = c(0.01, 0)) +
-  theme_std(base_size = 14) +
-  theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
-        legend.position = 'none',
-        axis.text.y = element_text(angle = 90, size = 16, hjust = 0.5),
-        axis.ticks.y = element_blank()) +
-  labs(x = '', y = '-log10(p-value)')
-
-
-geneLevel_all = PanCancer_plot/cancerTypes + plot_layout(heights = c(0.15, 1))
+##----------------+
+## combine the plots
+##----------------+
+geneLevel_all = PanCancer_plot / cancerTypes + plot_layout(heights = c(0.15, 1))
+ggsave_golden(filename = 'Figures_original/FISHER_geneLevel_all.pdf', plot = geneLevel_all, width = 18)
 
 
 #' out
