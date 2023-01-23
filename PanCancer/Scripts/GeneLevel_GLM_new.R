@@ -317,165 +317,7 @@ cbio(samples_TP53mut_loy)
 
 
 
-##----------------+
-## run gene-wise glm
-##----------------+
-# Filter for gene then for cancer type
-# Run logistic regression if:
-## 1. gene has at least 1 mutant and at least 1 wild type
-## 2. gene has alteration frequency of >= 0.03
-clean()
-gc()
-cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
-clinical_glm = cohort[,c('SAMPLE_ID', 'QC', 'ploidy', 'classification', 'purity', 'CANCER_TYPE', 'MSI_TYPE',
-                         'MSI_SCORE', 'Age_Sequencing', 'IMPACT_TMB_SCORE', 'MUTATION_COUNT', 'SAMPLE_TYPE',
-                         'genome_doubled', 'fraction_cna')]
-clinical_glm$classification[which(clinical_glm$classification %in% c('relative_loss', 'partial_loss','complete_loss'))] = 1
-clinical_glm$classification[which(clinical_glm$classification %in% c('wt', 'gain', 'gain_loss', 'partial_gain'))] = 0
-clinical_glm = clinical_glm[!is.na(clinical_glm$classification), ]
-colnames(clinical_glm) = c('sample', 'QC', 'ploidy', 'Y_call', 'purity', 'CANCER_TYPE', 'MSI_TYPE', 
-                           'MSI_SCORE', 'Age', 'TMB', 'Mut_Count', 'SAMPLE_TYPE', 'WGD', 'FGA')
-data_gam = readRDS('Data/05_Mutation/data_gam.rds')
-data_gam = data_gam$GAM_Analysis
 
-##----------------+
-## Merging
-##----------------+
-clinical_glm = merge(clinical_glm, data_gam, by.x = 'sample', by.y = 'sample', all.x = T)
-clinical_glm$QC = NULL
-clinical_glm$TMB = NULL
-clinical_glm$Mut_Count = NULL
-clinical_glm$SAMPLE_TYPE = NULL
-clinical_glm$MSI_SCORE = NULL
-clinical_glm$Age = as.numeric(as.character(clinical_glm$Age))
-clinical_glm$Y_call = as.integer(as.character(clinical_glm$Y_call))
-
-##-------
-## TP53 status fixed variable;
-##-------
-clinical_glm$TP53_Status = ifelse(clinical_glm$TP53_Deletion == 1, 1,
-                                  ifelse(clinical_glm$TP53_fusion == 1, 1,
-                                         ifelse(clinical_glm$TP53_mut == 1, 1,
-                                                ifelse(clinical_glm$TP53_intragenic == 1, 1, 0))))
-
-clinical_glm$TP53_Deletion = NULL
-clinical_glm$TP53_mut = NULL
-clinical_glm$TP53_fusion = NULL
-clinical_glm$TP53_intragenic = NULL
-
-
-##----------------+
-## Gene-wise GLM;
-##----------------+
-# Filter for gene then for cancer type
-# Run logistic regression if:
-## 1. gene has at least 1 mutant and at least 1 wild type
-## 2. gene has alteration frequency of >= 0.03
-logistic_reg_fun = function(data_frame, gene, cancer_type){
-  try({
-    data_frame = data_frame[is.na(data_frame[, gene]) == F &
-                              data_frame[, "CANCER_TYPE"] == cancer_type, ]
-    if (length(which(data_frame[, gene] == 1)) == 0 | 
-        length(which(data_frame[, gene] == 0)) == 0){
-      log_results_df = data.frame(variable = "Not Tested",
-                                  gene = gene, 
-                                  cancer_type = cancer_type, 
-                                  comments = "No Mutations in this gene") 
-    } else if (length(which(data_frame[, gene] == 1)) / nrow(data_frame) < 0.0001) {
-      log_results_df = data.frame(variable = "Not Tested",
-                                  gene = gene, 
-                                  cancer_type = cancer_type, 
-                                  comments = "Mutation frequency <3%") 
-    } else { 
-      formula = as.formula(paste0(gene, "~ Y_call + ploidy + FGA + purity + TP53_Status + MSI_TYPE"))
-      log_results = glm(formula, data = data_frame, family = binomial)
-      log_results_df = as.data.frame(summary(log_results)$coefficients)
-      log_results_df$variable = row.names(log_results_df)
-      log_results_df$gene = gene
-      log_results_df$cancer_type = cancer_type
-      colnames(log_results_df)[1:4] = c("estimate", "std_err", "z_value", "p_value")
-      conf_df = as.data.frame(confint.default(log_results))
-      conf_df$variable = row.names(conf_df)
-      log_results_df = left_join(log_results_df, conf_df, by = "variable")
-      log_results_df = log_results_df[c(5,7,6,1:4,8,9)]
-      print(gene)
-      print(cancer_type)
-      return(log_results_df)
-    }
-  })
-}
-
-##----------------+
-## Set gene list and 
-## cancer type list
-##----------------+
-gene_list = colnames(clinical_glm)[10:ncol(clinical_glm)]
-gene_list = gene_list[!gene_list %in% c('TP53_Status')]
-# gene_list = gene_list[!gene_list %in% c('TP53', "HLA-A_Deletion", "HLA-B_Deletion", "NKX2-1_Amplification", "NKX3-1_Deletion")]
-cancer_type_list = ctypes_keep
-
-# Expand table for gene list and cancer list (get every combo)
-gene_cancer_df = expand.grid(gene_list, cancer_type_list)
-gene_cancer_df =  gene_cancer_df %>%
-  mutate_if(is.factor, as.character)
-
-
-# Run logistic regression
-log_results_df = mapply(logistic_reg_fun,
-                         gene = gene_cancer_df$Var1,
-                         cancer_type = gene_cancer_df$Var2,
-                         MoreArgs = list(data_frame = clinical_glm),
-                         SIMPLIFY = FALSE)
-for(i in 1:length(log_results_df)){
-  if(class(log_results_df[[i]]) != 'data.frame'){
-    print(i)
-  } else next
-}
-
-log_results_df = Filter(function(x) length(x) > 1, log_results_df)
-log_results_df = do.call("rbind.fill", log_results_df)
-log_results_df$p_adj = p.adjust(log_results_df$p_value, method = "fdr")
-log_results_df = log_results_df[!is.na(log_results_df$p_adj), ]
-log_results_df = log_results_df[which(log_results_df$variable == 'Y_call'), ]
-
-write.table(x = log_results_df, file = 'Data/05_Mutation/011823/GLM_gene_level_full_out.txt', sep = '\t', quote = F, row.names = F)
-
-
-##----------------+
-## Visualization;
-##----------------+
-gene_glm = log_results_df[which(log_results_df$p_adj <= 0.05 & 
-                                  log_results_df$estimate > -15 & 
-                                  log_results_df$estimate < 15), ]
-length_genes = length(unique(gene_glm$gene))
-gene_glm_plot = ggplot(gene_glm, 
-                       aes(x = gene, 
-                           y = estimate, 
-                           label = cancer_type)) +
-  geom_pointrange(aes(ymin = estimate - std_err,
-                      ymax = estimate + std_err),
-                  size = 0.75,
-                  position = position_dodge2(padding = 2, width = 0.75), 
-                  fatten = 4) +
-  geom_hline(yintercept = 0, linetype = 'dashed', color = 'grey35', size = 0.25) +
-  geom_vline(xintercept = seq(1.5, length_genes, 1), linetype = 'dashed', color = 'grey35', size = 0.4) +
-  geom_text_repel(aes(label = cancer_type), color = 'black', size = 4) +
-  scale_y_continuous(expand = c(0.1, 0),
-                     limits = c(-5, 5),
-  #                   breaks = c(-2, -1, 0, 1, 2, 3),
-                     sec.axis = dup_axis()) +
-  coord_flip() +
-  theme_std(base_size = 14) +
-  theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
-        legend.position = 'none',
-        axis.line.x = element_blank(),
-        axis.line.y = element_blank(),
-        axis.ticks.y = element_blank()) +
-  labs(x = '', y = 'log ODDS')
-
-gene_glm_plot
-
-ggsave_golden(filename = 'Figures_original/GeneLevel_CancerTypes_out.pdf', plot = gene_glm_plot, width = 16)
 
 
 
@@ -641,10 +483,10 @@ Fisher_gene$one_sided_fisher_fisher_p.value = NA
 for(i in 1:nrow(Fisher_gene)){
   print(i)
   Fisher_gene$one_sided_fisher_fisher_p.value[i] = fisher.test(matrix(c(Fisher_gene$LOY_1Mut[i], 
-                                                                       Fisher_gene$WT_oneMut[i],
-                                                                       Fisher_gene$LOY_wt[i],
-                                                                       Fisher_gene$WT_wt[i]), ncol = 2), 
-                                                              alternative = 'greater')$p.value
+                                                                        Fisher_gene$WT_oneMut[i],
+                                                                        Fisher_gene$LOY_wt[i],
+                                                                        Fisher_gene$WT_wt[i]), ncol = 2), 
+                                                               alternative = 'greater')$p.value
 }
 
 Fisher_gene$FDR = p.adjust(Fisher_gene$one_sided_fisher_fisher_p.value, method = 'fdr')
@@ -684,6 +526,173 @@ cancerTypes
 ##----------------+
 geneLevel_all = PanCancer_plot / cancerTypes + plot_layout(heights = c(0.15, 1))
 ggsave_golden(filename = 'Figures_original/FISHER_geneLevel_all.pdf', plot = geneLevel_all, width = 18)
+
+
+
+
+
+##----------------+
+## run gene-wise glm
+##----------------+
+# Filter for gene then for cancer type
+# Run logistic regression if:
+## 1. gene has at least 1 mutant and at least 1 wild type
+## 2. gene has alteration frequency of >= 0.03
+clean()
+gc()
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+clinical_glm = cohort[,c('SAMPLE_ID', 'QC', 'ploidy', 'classification', 'purity', 'CANCER_TYPE', 'MSI_TYPE',
+                         'MSI_SCORE', 'Age_Sequencing', 'IMPACT_TMB_SCORE', 'MUTATION_COUNT', 'SAMPLE_TYPE',
+                         'genome_doubled', 'fraction_cna')]
+clinical_glm$classification[which(clinical_glm$classification %in% c('relative_loss', 'partial_loss','complete_loss'))] = 1
+clinical_glm$classification[which(clinical_glm$classification %in% c('wt', 'gain', 'gain_loss', 'partial_gain'))] = 0
+clinical_glm = clinical_glm[!is.na(clinical_glm$classification), ]
+colnames(clinical_glm) = c('sample', 'QC', 'ploidy', 'Y_call', 'purity', 'CANCER_TYPE', 'MSI_TYPE', 
+                           'MSI_SCORE', 'Age', 'TMB', 'Mut_Count', 'SAMPLE_TYPE', 'WGD', 'FGA')
+data_gam = readRDS('Data/05_Mutation/data_gam.rds')
+data_gam = data_gam$GAM_Analysis
+
+##----------------+
+## Merging
+##----------------+
+clinical_glm = merge(clinical_glm, data_gam, by.x = 'sample', by.y = 'sample', all.x = T)
+clinical_glm$QC = NULL
+clinical_glm$TMB = NULL
+clinical_glm$Mut_Count = NULL
+clinical_glm$SAMPLE_TYPE = NULL
+clinical_glm$MSI_SCORE = NULL
+clinical_glm$Age = as.numeric(as.character(clinical_glm$Age))
+clinical_glm$Y_call = as.integer(as.character(clinical_glm$Y_call))
+
+##-------
+## TP53 status fixed variable;
+##-------
+clinical_glm$TP53_Status = ifelse(clinical_glm$TP53_Deletion == 1, 1,
+                                  ifelse(clinical_glm$TP53_fusion == 1, 1,
+                                         ifelse(clinical_glm$TP53_mut == 1, 1,
+                                                ifelse(clinical_glm$TP53_intragenic == 1, 1, 0))))
+
+clinical_glm$TP53_Deletion = NULL
+clinical_glm$TP53_mut = NULL
+clinical_glm$TP53_fusion = NULL
+clinical_glm$TP53_intragenic = NULL
+
+
+##----------------+
+## Gene-wise GLM;
+##----------------+
+# Filter for gene then for cancer type
+# Run logistic regression if:
+## 1. gene has at least 1 mutant and at least 1 wild type
+## 2. gene has alteration frequency of >= 0.03
+logistic_reg_fun = function(data_frame, gene, cancer_type){
+  try({
+    data_frame = data_frame[is.na(data_frame[, gene]) == F &
+                              data_frame[, "CANCER_TYPE"] == cancer_type, ]
+    if (length(which(data_frame[, gene] == 1)) == 0 | 
+        length(which(data_frame[, gene] == 0)) == 0){
+      log_results_df = data.frame(variable = "Not Tested",
+                                  gene = gene, 
+                                  cancer_type = cancer_type, 
+                                  comments = "No Mutations in this gene") 
+    } else if (length(which(data_frame[, gene] == 1)) / nrow(data_frame) < 0.0001) {
+      log_results_df = data.frame(variable = "Not Tested",
+                                  gene = gene, 
+                                  cancer_type = cancer_type, 
+                                  comments = "Mutation frequency <3%") 
+    } else { 
+      formula = as.formula(paste0(gene, "~ Y_call + ploidy + FGA + purity + TP53_Status + MSI_TYPE"))
+      log_results = glm(formula, data = data_frame, family = binomial)
+      log_results_df = as.data.frame(summary(log_results)$coefficients)
+      log_results_df$variable = row.names(log_results_df)
+      log_results_df$gene = gene
+      log_results_df$cancer_type = cancer_type
+      colnames(log_results_df)[1:4] = c("estimate", "std_err", "z_value", "p_value")
+      conf_df = as.data.frame(confint.default(log_results))
+      conf_df$variable = row.names(conf_df)
+      log_results_df = left_join(log_results_df, conf_df, by = "variable")
+      log_results_df = log_results_df[c(5,7,6,1:4,8,9)]
+      print(gene)
+      print(cancer_type)
+      return(log_results_df)
+    }
+  })
+}
+
+##----------------+
+## Set gene list and 
+## cancer type list
+##----------------+
+gene_list = colnames(clinical_glm)[10:ncol(clinical_glm)]
+gene_list = gene_list[!gene_list %in% c('TP53_Status')]
+# gene_list = gene_list[!gene_list %in% c('TP53', "HLA-A_Deletion", "HLA-B_Deletion", "NKX2-1_Amplification", "NKX3-1_Deletion")]
+cancer_type_list = ctypes_keep
+
+# Expand table for gene list and cancer list (get every combo)
+gene_cancer_df = expand.grid(gene_list, cancer_type_list)
+gene_cancer_df =  gene_cancer_df %>%
+  mutate_if(is.factor, as.character)
+
+
+# Run logistic regression
+log_results_df = mapply(logistic_reg_fun,
+                         gene = gene_cancer_df$Var1,
+                         cancer_type = gene_cancer_df$Var2,
+                         MoreArgs = list(data_frame = clinical_glm),
+                         SIMPLIFY = FALSE)
+for(i in 1:length(log_results_df)){
+  if(class(log_results_df[[i]]) != 'data.frame'){
+    print(i)
+  } else next
+}
+
+log_results_df = Filter(function(x) length(x) > 1, log_results_df)
+log_results_df = do.call("rbind.fill", log_results_df)
+log_results_df$p_adj = p.adjust(log_results_df$p_value, method = "fdr")
+log_results_df = log_results_df[!is.na(log_results_df$p_adj), ]
+log_results_df = log_results_df[which(log_results_df$variable == 'Y_call'), ]
+
+write.table(x = log_results_df, file = 'Data/05_Mutation/011823/GLM_gene_level_full_out.txt', sep = '\t', quote = F, row.names = F)
+
+
+##----------------+
+## Visualization;
+##----------------+
+gene_glm = log_results_df[which(log_results_df$p_adj <= 0.05 & 
+                                  log_results_df$estimate > -15 & 
+                                  log_results_df$estimate < 15), ]
+length_genes = length(unique(gene_glm$gene))
+gene_glm_plot = ggplot(gene_glm, 
+                       aes(x = gene, 
+                           y = estimate, 
+                           label = cancer_type)) +
+  geom_pointrange(aes(ymin = estimate - std_err,
+                      ymax = estimate + std_err),
+                  size = 0.75,
+                  position = position_dodge2(padding = 2, width = 0.75), 
+                  fatten = 4) +
+  geom_hline(yintercept = 0, linetype = 'dashed', color = 'grey35', size = 0.25) +
+  geom_vline(xintercept = seq(1.5, length_genes, 1), linetype = 'dashed', color = 'grey35', size = 0.4) +
+  geom_text_repel(aes(label = cancer_type), color = 'black', size = 4) +
+  scale_y_continuous(expand = c(0.1, 0),
+                     limits = c(-5, 5),
+  #                   breaks = c(-2, -1, 0, 1, 2, 3),
+                     sec.axis = dup_axis()) +
+  coord_flip() +
+  theme_std(base_size = 14) +
+  theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
+        legend.position = 'none',
+        axis.line.x = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  labs(x = '', y = 'log ODDS')
+
+gene_glm_plot
+
+ggsave_golden(filename = 'Figures_original/GeneLevel_CancerTypes_out.pdf', plot = gene_glm_plot, width = 16)
+
+
+
 
 
 #' out
