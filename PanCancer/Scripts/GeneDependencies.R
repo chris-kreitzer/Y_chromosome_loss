@@ -70,15 +70,92 @@ wt = c('wt', 'gain', 'partial_gain')
 ## - for Kidney Cancer there is no CNA event recorded 
 ## - for FEMALES on the X-chromosome
 ##----------------+
-female_cna = dmp_facets_gene[which(dmp_facets_gene$sample %in% femaleReno), ]
-female_muts = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% femaleReno), ]
+
+##----------------+
+## Automatisation 
+##----------------+
+clean()
+gc()
+.rs.restartR()
+setup('~/Documents/MSKCC/10_MasterThesis/')
+source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
+source('~/Documents/GitHub/MSKCC/Scripts/Allelic_Status_by_gene.R')
+
+allFemaleSamples_df = read.csv('Data/06_Sex_Disparity/AllFemale.tsv', sep = '\t')
+dmp_facets_gene = data.table::fread('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/msk_impact_facets_annotated.gene_level.txt.gz')
+dmp_facets_gene$sample = substr(x = dmp_facets_gene$sample, start = 1, stop = 17)
+dmp_muts = data.table::fread('Data/signedOut/data_mutations_extended.oncokb.txt.gz', sep = '\t') 
+
+EXIT = c('ATRX', 'EIF1AX', 'KDM6A', 'KDM5C', 'ZRSR2')
+nonExit = c('AMER1', 'AR', 'ARAF', 'BCOR', 'BTK', 'CRLF2', 'GATA1', 'MED12', 'RBM10', 'SH2D1A', 'STAG2', 'XIAP', 'PHF6')
+chrX_genes = union(EXIT, nonExit)
+
+female_out = data.frame()
+for(i in unique(ctypes_keep)){
+  try({
+    cancer = i
+    print(i)
+    female_samples = unique(allFemaleSamples_df[which(allFemaleSamples_df$Cancer.Type == i), 'Sample.ID'])
+    female_cna = as.data.frame(dmp_facets_gene[which(dmp_facets_gene$sample %in% female_samples), ])
+    female_muts = as.data.frame(dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% female_samples), ])
+    
+    for(j in unique(chrX_genes)){
+      gene = j
+      print(j)
+      allelic_status_f = allelic_status(samples = female_samples,
+                                        gene = j,
+                                        copy_number_data = female_cna,
+                                        mutation_data = female_muts)
+      allelic_status_f = allelic_status_f[!duplicated(allelic_status_f), ]
+      allelic_status_f = allelic_status_f[!allelic_status_f$allelic_call %in% c('ambiguous:FacetsFilter', 'check Facets fit'), ]
+      
+      nowt = length(allelic_status_f$id[which(allelic_status_f$mutation == 'none' & 
+                                                allelic_status_f$cna_AI_n == 0)])
+      
+      nomut = length(allelic_status_f$id[which(allelic_status_f$mutation == 'none' & 
+                                                 allelic_status_f$cna_AI_n != 0)])
+      
+      yeswt = length(allelic_status_f$id[which(allelic_status_f$mutation != 'none' & 
+                                                 allelic_status_f$cna_AI_n == 0)])
+      
+      yesmut = length(allelic_status_f$id[which(allelic_status_f$mutation != 'none' & 
+                                                  allelic_status_f$cna_AI_n != 0)])
+      
+      ##' assess significance
+      ODDS = fisher.test(matrix(c(nowt, nomut, yeswt, yesmut), ncol = 2))$estimate[[1]]
+      p.value = fisher.test(matrix(c(nowt, nomut, yeswt, yesmut), ncol = 2))$p.value
+      
+      out = data.frame(Cancer = cancer,
+                       cohort = 'female',
+                       gene = gene,
+                       biallelic_n = yesmut,
+                       mono_mutation = yeswt,
+                       mono_cna = nomut,
+                       total = length(unique(allelic_status_f$id)),
+                       ODDS = ODDS,
+                       p.value = p.value)
+      
+      female_out = rbind(female_out, out)
+    }
+    rm(female_samples, female_cna, female_muts, allelic_status_f)
+  })
+}
+ctypes_keep
+
+
+
+
+
+female_cna = as.data.frame(dmp_facets_gene[which(dmp_facets_gene$sample %in% femaleReno), ])
+female_muts = as.data.frame(dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% femaleReno), ])
+
 dmp_facets_gene = as.data.frame(dmp_facets_gene)
 dmp_muts = as.data.frame(dmp_muts)
 
 xx = allelic_status(samples = femaleReno, 
-                    gene = 'KDM5C', 
-                    copy_number_data = dmp_facets_gene,
-                    mutation_data = dmp_muts,
+                    gene = 'EIF1AX', 
+                    copy_number_data = female_cna,
+                    mutation_data = female_muts,
                     print_progress = NULL)
 
 AI_female_Reno = xx
@@ -86,10 +163,21 @@ AI_female_Reno = xx
 AI_female_Reno = AI_female_Reno[!duplicated(AI_female_Reno), ]
 AI_female_Reno = AI_female_Reno[!AI_female_Reno$allelic_call %in% c('ambiguous:FacetsFilter', 'check Facets fit'), ]
 
-View(AI_female_Reno)
+nowt = length(allelic_status_f$id[which(allelic_status_f$mutation == 'none' & 
+                                        allelic_status_f$cna_AI_n == 0)])
 
+nmut = length(allelic_status_f$id[which(allelic_status_f$mutation == 'none' & 
+                                        allelic_status_f$cna_AI_n != 0)])
 
+ywt = length(allelic_status_f$id[which(allelic_status_f$mutation != 'none' & 
+                                       allelic_status_f$cna_AI_n == 0)])
 
+ymut = length(allelic_status_f$id[which(allelic_status_f$mutation != 'none' & 
+                                        allelic_status_f$cna_AI_n != 0)])
+a = fisher.test(matrix(c(nowt,nmut,ywt,ymut), ncol = 2))
+
+a$p.value
+a$estimate[[1]]
 
 ##----------------+
 ## male Renal Cell Carcinoma
