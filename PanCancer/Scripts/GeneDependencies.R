@@ -2,7 +2,9 @@
 ## Paralogue chrX - chrY
 ## interactions; 
 ## biallelic VS monoallelic 
-## inactivations
+## inactivations;
+## enrichment for biallelic loss might be 
+## an indication of TSG of the Y chromosome
 ##----------------+
 ##
 ## start: 01/24/2023
@@ -16,14 +18,22 @@ gc()
 .rs.restartR()
 setwd('~/Documents/MSKCC/10_MasterThesis/')
 source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
+source('~/Documents/GitHub/MSKCC/Scripts/Allelic_Status_by_gene.R')
+
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+allFemaleSamples_df = read.csv('Data/06_Sex_Disparity/AllFemale.tsv', sep = '\t')
+allFemaleSamples = unique(allFemaleSamples_df$Sample.ID)
+downsample = union(unique(cohort$SAMPLE_ID), unique(allFemaleSamples))
 
 dmp_facets_gene = data.table::fread('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/msk_impact_facets_annotated.gene_level.txt.gz')
 dmp_facets_gene$sample = substr(x = dmp_facets_gene$sample, start = 1, stop = 17)
+dmp_facets_gene = dmp_facets_gene[which(dmp_facets_gene$sample %in% downsample), ]
 dmp_muts = data.table::fread('Data/signedOut/data_mutations_extended.oncokb.txt.gz', sep = '\t') 
+dmp_muts = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% downsample), ]
 dmp_cna = data.table::fread('Data/signedOut/data_CNA.oncokb.txt.gz', sep = '\t')
-cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 data_gam = readRDS('Data/05_Mutation/data_gam.rds')
 data_gam = data_gam$GAM_Analysis
+
 
 femaleReno = read.csv('Data/06_Sex_Disparity/FemaleRenoSamples.tsv', sep = '\t')
 femaleReno = unique(femaleReno$Sample.ID)
@@ -32,9 +42,13 @@ femaleReno = unique(femaleReno$Sample.ID)
 ##----------------+
 ## EXITS genes:
 ## and non EXITS genes
+## Loss definitions
 ##----------------+
 EXIT = c('ATRX', 'EIF1AX', 'KDM6A', 'KDM5C', 'ZRSR2')
 nonExit = c('AMER1', 'AR', 'ARAF', 'BCOR', 'BTK', 'CRLF2', 'GATA1', 'MED12', 'RBM10', 'SH2D1A', 'STAG2', 'XIAP', 'PHF6')
+loss = c('complete_loss', 'gain_loss', 'relative_loss', 'partial_loss')
+wt = c('wt', 'gain', 'partial_gain')
+
 
 
 ##----------------+
@@ -56,14 +70,23 @@ nonExit = c('AMER1', 'AR', 'ARAF', 'BCOR', 'BTK', 'CRLF2', 'GATA1', 'MED12', 'RB
 ## - for Kidney Cancer there is no CNA event recorded 
 ## - for FEMALES on the X-chromosome
 ##----------------+
-female_muts = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% femaleReno & dmp_muts$Chromosome == 'X'), ]
-female_cna = dmp_facets_gene[which(dmp_facets_gene$sample %in% femaleReno & dmp_facets_gene$chrom == 23), ]
+female_cna = dmp_facets_gene[which(dmp_facets_gene$sample %in% femaleReno), ]
+female_muts = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% femaleReno), ]
+dmp_facets_gene = as.data.frame(dmp_facets_gene)
+dmp_muts = as.data.frame(dmp_muts)
 
 xx = allelic_status(samples = femaleReno, 
                     gene = 'KDM5C', 
-                    copy_number_data = female_cna,
-                    mutation_data = female_muts)
-xx = xx[!xx$allelic_call %in% c('ambiguous:FacetsFilter', 'check Facets fit'), ]
+                    copy_number_data = dmp_facets_gene,
+                    mutation_data = dmp_muts,
+                    print_progress = NULL)
+
+AI_female_Reno = xx
+
+AI_female_Reno = AI_female_Reno[!duplicated(AI_female_Reno), ]
+AI_female_Reno = AI_female_Reno[!AI_female_Reno$allelic_call %in% c('ambiguous:FacetsFilter', 'check Facets fit'), ]
+
+View(AI_female_Reno)
 
 
 
