@@ -72,7 +72,7 @@ wt = c('wt', 'gain', 'partial_gain')
 ##----------------+
 
 ##----------------+
-## Automatisation 
+## Automatization 
 ##----------------+
 clean()
 gc()
@@ -140,6 +140,7 @@ for(i in unique(ctypes_keep)){
     rm(female_samples, female_cna, female_muts, allelic_status_f)
   })
 }
+
 ctypes_keep
 
 
