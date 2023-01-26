@@ -141,105 +141,103 @@ for(i in unique(ctypes_keep)){
   })
 }
 
+setdiff(ctypes_keep, unique(female_out$Cancer))
+
+nsc = unique(allFemaleSamples_df$Sample.ID[which(allFemaleSamples_df$Cancer.Type == 'Colorectal Cancer')])
+
+
+
+
+##----------------+
+## same approach for male
+## samples;
+##----------------+
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 ctypes_keep
+male_out = data.frame()
+for(i in unique(ctypes_keep)){
+  try({
+    print(i)
+    cancer = i
+    male_samples = unique(cohort[which(cohort$CANCER_TYPE == i), 'SAMPLE_ID'])
+    male_muts = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% male_samples), ]
+    male_cna = dmp_cna[which(dmp_cna$SAMPLE_ID %in% male_samples), ]
+    male_dmp_cna = dmp_facets_gene[which(dmp_facets_gene$sample %in% male_samples), ]
+    
+    
+    
+    for(j in unique(male_samples)){
+      for(k in unique(chrX_genes)){
+        print(k)
+        if(j %in% male_muts$Tumor_Sample_Barcode &
+           length(male_muts$Tumor_Sample_Barcode[which(male_muts$Tumor_Sample_Barcode == j & male_muts$Hugo_Symbol == k)]) != 0){
+          sample = j
+          chrX_mut = male_muts$ONCOGENIC[which(male_muts$Tumor_Sample_Barcode == j & male_muts$Hugo_Symbol == k)]
+          gene = k
+        } else {
+          sample = j
+          chrX_mut = 'wt'
+          gene = k
+        }
+        
+        if(j %in% male_cna$SAMPLE_ID &
+           length(male_cna$SAMPLE_ID[which(male_cna$SAMPLE_ID == j & male_cna$HUGO_SYMBOL == k)]) != 0){
+          sample = j
+          chrX_cna = male_cna$ALTERATION[which(male_cna$SAMPLE_ID == j & male_cna$HUGO_SYMBOL == k)]
+          gene = k
+        } else {
+          sample = j
+          chrX_cna = 'wt'
+          gene = k
+        }
+        
+        if(j %in% male_dmp_cna$sample &
+           length(male_dmp_cna$sample[which(male_dmp_cna$sample == j & male_dmp_cna$gene == k)]) != 0){
+          sample = j
+          chrX_gene = male_dmp_cna$cn_state[which(male_dmp_cna$sample == j & male_dmp_cna$gene == k)]
+          chrX_gene_filter = male_dmp_cna$filter[which(male_dmp_cna$sample == j & male_dmp_cna$gene == k)]
+          gene = k
+        } else {
+          sample = j
+          chrX_gene = 'wt'
+          chrX_gene_filter = 'NA'
+          gene = k
+        }
+        
+        out = data.frame(cancer = i,
+                         sample = sample,
+                         chrX_mut = chrX_mut,
+                         chrX_cna = chrX_cna,
+                         chrX_gene = chrX_gene,
+                         chrX_gene_filter = chrX_gene_filter,
+                         gene = gene)
+        
+        male_out = rbind(male_out, out)
+      }
+    }
+    rm(male_dmp_cna, male_cna, male_muts, male_samples)
+  })
+}
+
+xx = male_out
+xx$chrX_gene = ifelse(xx$chrX_gene_filter %in% c('suppress_segment_too_large', 'suppress_large_homdel', 'suppress_likely_unfocal_large_gain'),  'wt', xx$chrX_gene)
 
 
+View(xx)
 
+write.table(x = male_out, file = '~/Desktop/male.out.txt', sep = '\t', row.names = F, quote = F)
+write.table(x = female_out, file = '~/Desktop/female.out.txt', sep = '\t', row.names = F, quote = F)
 
-
-female_cna = as.data.frame(dmp_facets_gene[which(dmp_facets_gene$sample %in% femaleReno), ])
-female_muts = as.data.frame(dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% femaleReno), ])
-
-dmp_facets_gene = as.data.frame(dmp_facets_gene)
-dmp_muts = as.data.frame(dmp_muts)
-
-xx = allelic_status(samples = femaleReno, 
-                    gene = 'EIF1AX', 
-                    copy_number_data = female_cna,
-                    mutation_data = female_muts,
-                    print_progress = NULL)
-
-AI_female_Reno = xx
-
-AI_female_Reno = AI_female_Reno[!duplicated(AI_female_Reno), ]
-AI_female_Reno = AI_female_Reno[!AI_female_Reno$allelic_call %in% c('ambiguous:FacetsFilter', 'check Facets fit'), ]
-
-nowt = length(allelic_status_f$id[which(allelic_status_f$mutation == 'none' & 
-                                        allelic_status_f$cna_AI_n == 0)])
-
-nmut = length(allelic_status_f$id[which(allelic_status_f$mutation == 'none' & 
-                                        allelic_status_f$cna_AI_n != 0)])
-
-ywt = length(allelic_status_f$id[which(allelic_status_f$mutation != 'none' & 
-                                       allelic_status_f$cna_AI_n == 0)])
-
-ymut = length(allelic_status_f$id[which(allelic_status_f$mutation != 'none' & 
-                                        allelic_status_f$cna_AI_n != 0)])
-a = fisher.test(matrix(c(nowt,nmut,ywt,ymut), ncol = 2))
-
-a$p.value
-a$estimate[[1]]
-
-##----------------+
-## male Renal Cell Carcinoma
-##----------------+
-maleReno = unique(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE == 'Renal Cell Carcinoma')])
-maleReno_cna = dmp_cna[which(dmp_cna$SAMPLE_ID %in% maleReno), ]
 
 
 ##' male mutations
 maleReno_muts = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% maleReno & dmp_muts$Hugo_Symbol == 'KDM5C'), c('Hugo_Symbol', 'ONCOGENIC', 'Tumor_Sample_Barcode')]
 maleReno_cna = dmp_cna[which(dmp_cna$SAMPLE_ID %in% maleReno & dmp_cna$HUGO_SYMBOL == 'KDM5C'), c('SAMPLE_ID', 'HUGO_SYMBOL', 'ALTERATION')]
 
-maleReno_gene = dmp_facets_gene[which(dmp_facets_gene$sample %in% maleReno & dmp_facets_gene$gene == 'KDM5C'), c('sample', 'gene', 'cn_state', 'filter')]
-maleReno_gene = maleReno_gene[which(maleReno_gene$filter %in% c('PASS', 'RESCUE')), ]
-head(maleReno_gene)
 
-alll = data.frame()
-for(i in unique(maleReno)){
-  print(i)
-  if(i %in% dmp_muts$Tumor_Sample_Barcode & 
-     length(dmp_muts$Tumor_Sample_Barcode[which(dmp_muts$Tumor_Sample_Barcode == i & dmp_muts$Hugo_Symbol == 'KDM5C')]) != 0){
-    sample = i
-    chrX_mut = dmp_muts$ONCOGENIC[which(dmp_muts$Tumor_Sample_Barcode == i & dmp_muts$Hugo_Symbol == 'KDM5C')]
-    gene = 'KDM5C'
-  } else {
-    sample = i
-    chrX_mut = 'wt'
-    gene = 'KDM5C'
-  }
-  
-  if(i %in% dmp_cna$SAMPLE_ID &
-     length(dmp_cna$SAMPLE_ID[which(dmp_cna$SAMPLE_ID == i & dmp_cna$HUGO_SYMBOL == 'KDM5C')]) != 0){
-    sample = i
-    chrX_cna = dmp_cna$ALTERATION[which(dmp_cna$SAMPLE_ID == i & dmp_cna$HUGO_SYMBOL == 'KDM5C')]
-    gene = 'KDM5C'
-  } else {
-    sample = i
-    chrX_cna = 'wt'
-    gene = 'KDM5C'
-  }
-  
-  if(i %in% dmp_facets_gene$sample &
-     length(dmp_facets_gene$sample[which(dmp_facets_gene$sample == i & dmp_facets_gene$gene == 'KDM5C')]) != 0){
-    sample = i
-    chrX_gene = dmp_facets_gene$cn_state[which(dmp_facets_gene$sample == i & dmp_facets_gene$gene == 'KDM5C')]
-    chrX_gene_filter = dmp_facets_gene$filter[which(dmp_facets_gene$sample == i & dmp_facets_gene$gene == 'KDM5C')]
-    gene = 'KDM5C'
-  } else {
-    sample = i
-    chrX_gene = 'wt'
-    chrX_gene_filter = 'NA'
-    gene = 'KDM5C'
-  }
-  out = data.frame(sample = sample,
-                   chrX_mut = chrX_mut,
-                   chrX_cna = chrX_cna,
-                   chrX_gene = chrX_gene,
-                   chrX_gene_filter = chrX_gene_filter,
-                   gene = gene)
-  alll = rbind(alll, out)
-}
+
+
+
 
 alll$chrX_gene = ifelse(alll$chrX_gene_filter == 'suppress_segment_too_large', 'wt', alll$chrX_gene)
 alll$chrX_gene = ifelse(alll$chrX_gene != 'HOMDEL', 'wt', alll$chrX_gene)
