@@ -5,10 +5,14 @@
 ## inactivations;
 ## enrichment for biallelic loss might be 
 ## an indication of TSG of the Y chromosome
+## 
+## Tendency for two-hit event (indicative of TSG)
+## male VS female
 ##----------------+
 ##
 ## start: 01/24/2023
 ## revision: 01/25/2023
+## revision: 01/26/2023
 ## 
 ## chris-kreitzer
 
@@ -279,5 +283,90 @@ for(i in unique(yy$cancer)){
 ##-------
 male_summary$p_adj = p.adjust(p = male_summary$p.value, method = 'fdr')
 write.table(male_summary, file = 'Data/06_Sex_Disparity/Male_biallelicEnrichment.txt', sep = '\t', row.names = F, quote = F)
+
+
+
+##----------------+
+## Visualization and post
+## EDA; especially for CRLF2
+##----------------+
+fema = rbind(male_summary, female_out)
+
+fema_long = data.frame()
+for(i in unique(fema$Cancer)){
+  try({
+    dataset = fema[which(fema$Cancer == i), ]
+    dataset = dataset[!dataset$gene %in% 'PHF6', ]
+    data_long = spread(dataset[,c('Cancer', 'cohort', 'gene', 'ODDS')], key = cohort, value = ODDS)
+    data_long = do.call(data.frame,lapply(data_long, function(x) replace(x, is.infinite(x), 0)))
+    print(head(data_long))
+    fema_long = rbind(fema_long, data_long)
+  })
+}
+
+fema_long = merge(fema_long, fema[which(fema$cohort == 'male'), c('Cancer', 'gene', 'p_adj')],
+                  by.x = c('Cancer', 'gene'), by.y = c('Cancer', 'gene'), all.x = T)
+fema_long$plot = ifelse(fema_long$p_adj < 0.05, 'plot', 'noplot')
+write.table(fema_long, file = 'Data/06_Sex_Disparity/Female_Male_summary.txt', sep = '\t', row.names = F, quote = F)
+
+
+plot_fema_all = list()
+for(i in unique(fema_long$Cancer)){
+  max_m = ceiling(max(fema_long$male[which(fema_long$Cancer == i)]))
+  
+  plot_fema = ggplot(fema_long[which(fema_long$Cancer == i), ], 
+                     aes(x = male, y = female, 
+                         label = gene, color = plot)) +
+    geom_point() +
+    geom_text_repel(size = 2.5, max.overlaps = 50) +
+    scale_color_manual(values = c('plot' = 'red',
+                                  'noplot' = 'darkgrey')) +
+    scale_y_continuous(limits = c(0, max_m)) +
+    scale_x_continuous(limits = c(0, max_m)) +
+    geom_abline(slope = 1, intercept = 0, 
+                linetype = 'dashed', color = 'darkgrey', size = theme_get()$line$size) +
+    theme_std(base_size = 14) +
+    theme(aspect.ratio = 1,
+          legend.position = 'none') +
+    labs(title = i, x = 'male [ODDS]', y = 'female [ODDS]')
+  plot_fema_all[[i]] = plot_fema
+}
+
+ggsave_golden(filename = 'Figures_original/ODDS_fema_SoftSarcoma.pdf', plot = plot_fema_all$`Soft Tissue Sarcoma`, width = 6)
+
+
+
+
+##----------------+
+## check CRLF2 in Renal Cell Carcinoma
+##----------------+
+## CRLF2 deletions are enriched in 
+## - Soft Tissue Sarcoma
+## - Bladder Cancer
+## - Prostate Cancer
+## 
+## We also see strong enrichment of biallelic
+## losses (enrichment) in males compared to females
+## - maybe that's indicative of a TSG?
+##
+## Start with Renal Cell Carcinomas:
+
+cohort = readRDS()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
