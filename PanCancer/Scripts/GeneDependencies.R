@@ -141,16 +141,19 @@ for(i in unique(ctypes_keep)){
   })
 }
 
-setdiff(ctypes_keep, unique(female_out$Cancer))
 
-nsc = unique(allFemaleSamples_df$Sample.ID[which(allFemaleSamples_df$Cancer.Type == 'Colorectal Cancer')])
+##-------
+## adjust p value and
+## save the output
+female_out$p_adj = p.adjust(p = female_out$p.value, method = 'fdr')
+write.table(female_out, file = 'Data/06_Sex_Disparity/Female_biallelicEnrichment.txt', sep = '\t', quote = F, row.names = F)
 
 
 
 
 ##----------------+
 ## same approach for male
-## samples;
+## tumor samples;
 ##----------------+
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 ctypes_keep
@@ -221,72 +224,60 @@ for(i in unique(ctypes_keep)){
 
 xx = male_out
 xx$chrX_gene = ifelse(xx$chrX_gene_filter %in% c('suppress_segment_too_large', 'suppress_large_homdel', 'suppress_likely_unfocal_large_gain'),  'wt', xx$chrX_gene)
+xx = xx[!duplicated(xx), ]
+xx$chrX_gene = ifelse(xx$chrX_gene == 'HOMDEL', 'HOMDEL', 'wt')
+xx$chrX = ifelse(xx$chrX_mut == xx$chrX_cna & xx$chrX_mut == xx$chrX_gene, 'wt', 'mono')
+
+yy = merge(xx, cohort[,c('SAMPLE_ID', 'classification')], by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
+yy = yy[!duplicated(yy), ]
+colnames(yy)[9] = 'chrY'
+yy$chrY = ifelse(yy$chrY %in% c('complete_loss', 'relative_loss', 'partial_loss', 'gain_loss'), 'loss', 'wt')
 
 
-View(xx)
-
-write.table(x = male_out, file = '~/Desktop/male.out.txt', sep = '\t', row.names = F, quote = F)
-write.table(x = female_out, file = '~/Desktop/female.out.txt', sep = '\t', row.names = F, quote = F)
-
-
-
-##' male mutations
-maleReno_muts = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% maleReno & dmp_muts$Hugo_Symbol == 'KDM5C'), c('Hugo_Symbol', 'ONCOGENIC', 'Tumor_Sample_Barcode')]
-maleReno_cna = dmp_cna[which(dmp_cna$SAMPLE_ID %in% maleReno & dmp_cna$HUGO_SYMBOL == 'KDM5C'), c('SAMPLE_ID', 'HUGO_SYMBOL', 'ALTERATION')]
-
-
-
-
-
-
-alll$chrX_gene = ifelse(alll$chrX_gene_filter == 'suppress_segment_too_large', 'wt', alll$chrX_gene)
-alll$chrX_gene = ifelse(alll$chrX_gene != 'HOMDEL', 'wt', alll$chrX_gene)
-alll$chrX = ifelse(alll$chrX_mut == alll$chrX_cna & alll$chrX_mut == alll$chrX_gene, 'wt', 'mono')
-
-yy = merge(alll, cohort[,c('SAMPLE_ID', 'classification')],
-           by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
-                   
-View(yy)
-
-xx = female_cna[which(female_cna$sample %in% EXIT_female_reno), ]
-
-
-
-n_EXIT_female_reno = length(unique(female_muts$Tumor_Sample_Barcode[which(female_muts$Hugo_Symbol %in% EXIT)]))
-EXIT_female_reno = unique(female_muts$Tumor_Sample_Barcode[which(female_muts$Hugo_Symbol %in% EXIT)])
-n_nonEXIT_female_reno = length(unique(female_muts$Tumor_Sample_Barcode[which(female_muts$Hugo_Symbol %in% nonExit)]))
-nonEXIT_female_reno = unique(female_muts$Tumor_Sample_Barcode[which(female_muts$Hugo_Symbol %in% nonExit)])
-
-length(intersect(femaleReno, unique(female_cna$sample)))
-
-
-
-fcna = dmp_cna[which(dmp_cna$SAMPLE_ID %in% femaleReno), ]
-View(fcna)
-
-
-female_CNA = dmp_facets_gene[which(dmp_facets_gene$sample %in% femaleReno), ]
-female_CNA = female_CNA[which(female_CNA$gene == 'KDM5C'), ]
-female_CNA = female_CNA[,c('sample', 'gene', 'seg_start', 'seg_end', 'tcn.em', 'lcn.em', 'mcn', 'cn_state', 'filter')]
-female_muts = female_muts[which(female_muts$Hugo_Symbol == 'KDM5C'), ]
-rm(dmp_facets_gene, dmp_muts)
-gc()
+male_summary = data.frame()
+for(i in unique(yy$cancer)){
+  data_sub = yy[which(yy$cancer == i), ]
+  for(j in unique(data_sub$gene)){
+    Cancer = i
+    print(Cancer)
+    gene = j
+    
+    nowt = length(data_sub$sample[which(data_sub$gene == j & data_sub$chrX == 'wt' &
+                                          data_sub$chrY == 'wt')])
+    
+    nomut = length(data_sub$sample[which(data_sub$gene == j & data_sub$chrX == 'wt' &
+                                           data_sub$chrY != 'wt')])
+    
+    yeswt = length(data_sub$sample[which(data_sub$gene == j & data_sub$chrX == 'mono' &
+                                           data_sub$chrY == 'wt')])
+    
+    yesmut = length(data_sub$sample[which(data_sub$gene == j & data_sub$chrX == 'mono' &
+                                            data_sub$chrY == 'loss')])
+    
+    ##' assess significance
+    ODDS = fisher.test(matrix(c(nowt, nomut, yeswt, yesmut), ncol = 2))$estimate[[1]]
+    p.value = fisher.test(matrix(c(nowt, nomut, yeswt, yesmut), ncol = 2))$p.value
+    
+    out = data.frame(Cancer = Cancer,
+                     cohort = 'male',
+                     gene = gene,
+                     biallelic_n = yesmut,
+                     mono_mutation = yeswt,
+                     mono_cna = nomut,
+                     total = length(unique(data_sub$sample)),
+                     ODDS = ODDS,
+                     p.value = p.value)
+    
+    male_summary = rbind(male_summary, out)
+  }
+  rm(data_sub, nowt, nomut, yeswt, yesmut, ODDS, p.value)
+}
 
 
 ##-------
-## sample intersect:
+## adjust p-value and save output
 ##-------
-female_samples = union(unique(female_CNA$sample), unique(female_muts$Tumor_Sample_Barcode))
-female_allelic_status_KDM5C = allelic_status(samples = female_samples, 
-                                             gene = 'KDM5C',
-                                             copy_number_data = female_CNA, 
-                                             mutation_data = female_muts)
+male_summary$p_adj = p.adjust(p = male_summary$p.value, method = 'fdr')
+write.table(male_summary, file = 'Data/06_Sex_Disparity/Male_biallelicEnrichment.txt', sep = '\t', row.names = F, quote = F)
 
-female_allelic_status_KDM5C = female_allelic_status_KDM5C[which(female_allelic_status_KDM5C$allelic_call %in% c('wildtype', 'monoallelic', 'biallelic')), ]
 
-ftable = as.data.frame(table(female_allelic_status_KDM5C$allelic_call))
-
-ggplot(ftable, aes(x = 1, y = Freq, fill = Var1)) +
-  geom_bar(position = 'fill', stat = 'identity')
-
-  
