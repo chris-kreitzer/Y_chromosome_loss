@@ -350,8 +350,89 @@ ggsave_golden(filename = 'Figures_original/ODDS_fema_SoftSarcoma.pdf', plot = pl
 ## - maybe that's indicative of a TSG?
 ##
 ## Start with Renal Cell Carcinomas:
+setwd('~/Documents/MSKCC/10_MasterThesis/')
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+male_Reno = unique(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE == 'Renal Cell Carcinoma')])
+dmp_muts = data.table::fread('Data/signedOut/data_mutations_extended.oncokb.txt.gz', sep = '\t') 
+EXIT = c('EIF1AX', 'KDM6A', 'KDM5C', 'ZRSR2')
+nonExit = c('ATRX', 'AMER1', 'AR', 'ARAF', 'BCOR', 'BTK', 'CRLF2', 'GATA1', 'MED12', 'RBM10', 'SH2D1A', 'STAG2', 'XIAP', 'PHF6')
+Y_homologue = c('EIF1AX', 'KDM5C', 'KDM6A')
+chrX_genes = union(EXIT, nonExit)
 
-cohort = readRDS()
+##' manual check of chrX alterations (n=15 genes)
+
+#' mono mutation on any X
+reno_X_muts = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% male_Reno), ]
+reno_X_muts = reno_X_muts[which(reno_X_muts$Hugo_Symbol %in% chrX_genes), ]
+reno_X_muts_samples = unique(reno_X_muts$Tumor_Sample_Barcode)
+
+
+#' mono cna on any X
+remaining_males = male_Reno[!male_Reno %in% reno_X_muts_samples]
+
+dmp_facets_gene = data.table::fread('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/msk_impact_facets_annotated.gene_level.txt.gz')
+dmp_facets_gene$sample = substr(x = dmp_facets_gene$sample, start = 1, stop = 17)
+
+reno_cna = dmp_facets_gene[which(dmp_facets_gene$sample %in% remaining_males), ]
+reno_cna = reno_cna[which(reno_cna$gene %in% chrX_genes), ]
+reno_cna = reno_cna[!reno_cna$filter %in% c('suppress_segment_too_large', 'suppress_large_homdel'), ]
+
+reno_x_cna_samples = unique(reno_cna$sample[which(reno_cna$cn_state == 'HOMDEL')])
+
+
+#' wt on any X
+reno_X_wt = male_Reno[!male_Reno %in% union(reno_X_muts_samples, reno_x_cna_samples)]
+
+
+#' compile
+reno_X_muts_samples
+chrX_genes
+Y_homologue
+
+muts_out = data.frame()
+for(i in unique(reno_X_muts_samples)){
+  mu = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode == i), ]
+  for(j in unique(chrX_genes)){
+    if(j %in% mu$Hugo_Symbol){
+      gene = j
+      oncogenic = paste(mu$ONCOGENIC[which(mu$Hugo_Symbol == j)], collapse = '')
+      n = length(mu$Hugo_Symbol[which(mu$Hugo_Symbol == j)])
+    } else {
+      gene = j
+      oncogenic = NA
+      n = NA
+    }
+    out = data.frame(sample = i,
+                     gene = gene,
+                     alteration = oncogenic,
+                     n = n)
+    muts_out = rbind(muts_out, out)
+  }
+}
+
+all_out = data.frame()
+for(i in unique(muts_out$sample)){
+  exit = muts_out[which(muts_out$sample == i & muts_out$gene %in% EXIT), ]
+  if(any(!is.na(exit$alteration))){
+    EXIT_mut = 1
+  } else {
+    EXIT_mut = 0
+  }
+  homo = muts_out[which(muts_out$sample == i & muts_out$gene %in% Y_homologue), ]
+  if(any(!is.na(homo$alteration))){
+    homo_mut = 1
+  } else {
+    homo_mut = 0
+  }
+  out = rbind(muts_out[which(muts_out$sample == i), ],
+              data.frame(sample = i,
+                         gene = c('EXIT', 'Y_homologue'),
+                         alteration = c(EXIT_mut, homo_mut),
+                         n = c(EXIT_mut, homo_mut)))
+  all_out = rbind(all_out, out)
+              
+}
+
 
 
 
