@@ -439,18 +439,88 @@ for(i in unique(muts_out$sample)){
 ##----------------+
 ## CNA; n = 13 samples
 ##----------------+
+reno_cna_short = reno_cna[which(reno_cna$sample %in% reno_x_cna_samples), c('sample', 'gene', 'cn_state', 'filter')]
+reno_cna_short$cn_state = ifelse(reno_cna_short$cn_state == 'HOMDEL', 'Oncogenic', NA)
+colnames(reno_cna_short)[3] = 'alteration'
+colnames(reno_cna_short)[4] = 'n'
+
+all_cna = data.frame()
+for(i in unique(reno_cna_short$sample)){
+  exit = reno_cna_short[which(reno_cna_short$sample == i & reno_cna_short$gene %in% EXIT), ]
+  if(any(!is.na(exit$alteration))){
+    EXIT_mut = 1
+  } else {
+    EXIT_mut = 0
+  }
+  homo = reno_cna_short[which(reno_cna_short$sample == i & reno_cna_short$gene %in% Y_homologue), ]
+  if(any(!is.na(homo$alteration))){
+    homo_mut = 1
+  } else {
+    homo_mut = 0
+  }
+  out = rbind(reno_cna_short[which(reno_cna_short$sample == i), ],
+              data.frame(sample = i,
+                         gene = c('EXIT', 'Y_homologue'),
+                         alteration = c(EXIT_mut, homo_mut),
+                         n = c(EXIT_mut, homo_mut)))
+  all_cna = rbind(all_cna, out)
+}
 
 
 
+##----------------+
+## wt cases
+##----------------+
+wt_out = data.frame()
+for(i in unique(reno_X_wt)){
+  out = data.frame(sample = i,
+                   gene = c(chrX_genes, 'EXIT', 'Y_homologue'),
+                   alteration = NA,
+                   n = NA)
+  wt_out = rbind(wt_out, out)
+}
 
 
+##----------------+
+## male reno cohort X
+maleRenoX = rbind(all_out, all_cna, wt_out)
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+
+maleRenoX = merge(maleRenoX, cohort[,c('SAMPLE_ID', 'classification')], by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
+maleRenoX$classification = ifelse(maleRenoX$classification %in% c('complete_loss', 'gain_loss', 'partial_loss'), 'loss', 'wt')
+colnames(maleRenoX)[5] = 'chrY'
+
+reno_out = data.frame()
+for(i in unique(maleRenoX$gene)){
+  gene = i
+  
+  nowt = length(maleRenoX$sample[which(maleRenoX$gene == i & is.na(maleRenoX$alteration) &
+                                         maleRenoX$chrY == 'wt')])
+  
+  nomut = length(maleRenoX$sample[which(maleRenoX$gene == i & is.na(maleRenoX$alteration) &
+                                          maleRenoX$chrY == 'loss')])
+  
+  yeswt = length(maleRenoX$sample[which(maleRenoX$gene == i & !is.na(maleRenoX$alteration) &
+                                          maleRenoX$chrY == 'wt')])
+  
+  yesmut = length(maleRenoX$sample[which(maleRenoX$gene == i & !is.na(maleRenoX$alteration) &
+                                           maleRenoX$chrY == 'loss')])
+  
+  ##' assess significance
+  ODDS = fisher.test(matrix(c(nowt, nomut, yeswt, yesmut), ncol = 2))$estimate[[1]]
+  p.value = fisher.test(matrix(c(nowt, nomut, yeswt, yesmut), ncol = 2))$p.value
+  
+  out = data.frame(gene = gene,
+                   nowt = nowt,
+                   nomut = nomut,
+                   yeswt = yeswt,
+                   yesmut = yesmut,
+                   ODDS = ODDS,
+                   p.value = p.value)
+  reno_out = rbind(reno_out, out)
+}
+
+write.table(reno_out, file = 'Data/06_Sex_Disparity/Male_RenalCellCarcinoma_Fisher.txt', sep = '\t', row.names = F, quote = F)
 
 
-
-
-
-
-
-
-
-
+#' out
