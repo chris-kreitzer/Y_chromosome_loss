@@ -13,6 +13,7 @@
 ## start: 01/24/2023
 ## revision: 01/25/2023
 ## revision: 01/26/2023
+## revision: 01/27/2023
 ## 
 ## chris-kreitzer
 
@@ -359,8 +360,9 @@ nonExit = c('ATRX', 'AMER1', 'AR', 'ARAF', 'BCOR', 'BTK', 'CRLF2', 'GATA1', 'MED
 Y_homologue = c('EIF1AX', 'KDM5C', 'KDM6A')
 chrX_genes = union(EXIT, nonExit)
 
-##' manual check of chrX alterations (n=15 genes)
 
+
+##' manual check of chrX alterations (n=18 genes)
 #' mono mutation on any X
 reno_X_muts = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% male_Reno), ]
 reno_X_muts = reno_X_muts[which(reno_X_muts$Hugo_Symbol %in% chrX_genes), ]
@@ -434,8 +436,9 @@ for(i in unique(muts_out$sample)){
 }
 
 
-
-
+##----------------+
+## CNA; n = 13 samples
+##----------------+
 
 
 
