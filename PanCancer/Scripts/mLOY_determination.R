@@ -15,6 +15,8 @@ gc()
 .rs.restartR()
 setwd('~/Documents/MSKCC/10_MasterThesis/')
 source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
+library(cowplot)
+library(jmuOutlier)
 
 
 ##----------------+
@@ -83,47 +85,59 @@ loy_ratio = function(id, data){
 
 y = lapply(unique(xx$id), function(x) loy_ratio(id = x, data = xx))
 y = data.table::rbindlist(y)
+colnames(y) = c('id', 'Y_Autosome_ratio', 'Y_RefDepth_ratio', 'chromosome22_ratio', 'X_Autosome_ratio')
+y = na.omit(y)
+write.table(x = y, file = 'Data/03_Mosaicism/SeqRatios_IMPACT.txt', sep = '\t', row.names = F, quote = F)
 
 
 ##----------------+
-## expected ploidies:
+## expected ploidy:
 ## correction factor
 ##----------------+
 par(mfrow = c(1,2))
-plot(density(y$c22),
+plot(density(y$chromosome22_ratio),
      yaxt = 'n',
      ylab = '',
      xlab = '',
      main = '',
-     lwd = 1.5)
+     lwd = 1.5,
+     xlim = c(0, 2))
 box(lwd = 2)
 mtext(text = 'Density', side = 2, line = 1)
-mtext(text = 'DNA concentration [target chr./full genome]', side = 1, line = 2)
+mtext(text = 'DNA concentration [target chr./autosomes]', side = 1, line = 2)
 mtext(text = 'Chromosome 22', side = 3, line = 0.5, adj = 0)
 
-plot(density(y$ratio),
+plot(density(y$Y_Autosome_ratio),
      yaxt = 'n',
      ylab = '',
      xlab = '',
      main = '',
-     lwd = 1.5)
+     lwd = 1.5,
+     xlim = c(0, 1))
 box(lwd = 2)
 mtext(text = 'Density', side = 2, line = 1)
-mtext(text = 'DNA concentration [target chr./full genome]', side = 1, line = 2)
+mtext(text = 'DNA concentration [target chr./autosomes]', side = 1, line = 2)
 mtext(text = 'Chromosome Y', side = 3, line = 0.5, adj = 0)
 # save: (device size): 8.61 x 3.82
 
-y$E22 = y$c22 * 2
+
+##----------------+
+## correction factor
+## - for autosomes (chr22)
+## - for the Y-chromosome
+## - for the X-chromosome
+##----------------+
+y$E22 = y$chromosome22_ratio * 2
 density.chromo22 = density(y$E22, na.rm = T)
 density.max22 = density.chromo22$x[which.max(density.chromo22$y)]
 correction_factor22 = density.max22 - 2
 
-y$EY = y$ratio * 2
+y$EY = y$Y_Autosome_ratio * 2
 density.chromoY = density(y$EY, na.rm = T)
 density.maxY = density.chromoY$x[which.max(density.chromoY$y)]
 correction_factorY = density.maxY - 1
 
-y$EX = y$X_ratio * 2
+y$EX = y$X_Autosome_ratio * 2
 density.chromoX = density(y$EX, na.rm = T)
 density.maxX = density.chromoX$x[which.max(density.chromoX$y)]
 correction_factorX = density.maxX - 1
@@ -135,26 +149,28 @@ y$OX = abs(y$EX - correction_factorX)
 
 ## plot: observed vs corrected
 par(mfrow = c(2,2))
-plot(density(y$c22),
+plot(density(y$chromosome22_ratio),
      yaxt = 'n',
      ylab = '',
      xlab = '',
      main = '',
-     lwd = 1.5)
+     lwd = 1.5,
+     xlim = c(0, 2))
 box(lwd = 2)
 mtext(text = 'Density', side = 2, line = 1)
-mtext(text = 'DNA concentration [target chr./full genome]', side = 1, line = 2)
+mtext(text = 'DNA concentration [target chr./autosomes]', side = 1, line = 2)
 mtext(text = 'Chromosome 22: observed', side = 3, line = 0.5, adj = 0)
 
-plot(density(y$ratio),
+plot(density(y$Y_Autosome_ratio),
      yaxt = 'n',
      ylab = '',
      xlab = '',
      main = '',
-     lwd = 1.5)
+     lwd = 1.5,
+     xlim = c(0, 1))
 box(lwd = 2)
 mtext(text = 'Density', side = 2, line = 1)
-mtext(text = 'DNA concentration [target chr./full genome]', side = 1, line = 2)
+mtext(text = 'DNA concentration [target chr./autosomes]', side = 1, line = 2)
 mtext(text = 'Chromosome Y: observed', side = 3, line = 0.5, adj = 0)
 
 plot(density(y$O22),
@@ -162,7 +178,8 @@ plot(density(y$O22),
      ylab = '',
      xlab = '',
      main = '',
-     lwd = 1.5)
+     lwd = 1.5,
+     xlim = c(0, 4))
 box(lwd = 2)
 mtext(text = 'Density', side = 2, line = 1)
 mtext(text = 'Ploidy', side = 1, line = 2)
@@ -173,7 +190,8 @@ plot(density(y$OY),
      ylab = '',
      xlab = '',
      main = '',
-     lwd = 1.5)
+     lwd = 1.5,
+     xlim = c(0, 2))
 box(lwd = 2)
 mtext(text = 'Density', side = 2, line = 1)
 mtext(text = 'Ploidy', side = 1, line = 2)
@@ -182,35 +200,47 @@ mtext(text = 'Chromosome Y: corrected', side = 3, line = 0.5, adj = 0)
 # save: (device size): 8.61 x 5
 
 
-##----------------+
-## determine 99% CI cutoff
-##----------------+
-y$seq = seq(1, nrow(y), 1)
 
+##----------------+
+## determine the cut-off
+## through percentiles; 
+## and the surrounding 95% CI
+## (lower 2.5% percentile)
+##----------------+
+lower_cutoff = quantileCI(x = y$OY, probs = 0.025, conf.level = .95)
+lower = lower_cutoff[1]
+
+##-------
+## Plot
+y$seq = seq(1, nrow(y), 1)
 jitter = ggplot(y, aes(x = OY, y = seq)) +
-  geom_jitter(shape = 17, size = 0.7) +
-  geom_vline(xintercept = quantile(y$OY, probs = 0.01)[[1]], col = 'red', linewidth = 0.75) +
-  geom_vline(xintercept = quantile(y$OY, probs = 0.99)[[1]], col = 'red', linewidth = 0.75) +
+  geom_jitter(shape = 17, size = 0.5) +
+  geom_vline(xintercept = lower, col = '#a22231', linewidth = 0.75, linetype = 'dashed') +
+  #geom_vline(xintercept = quantile(y$OY, probs = 0.99)[[1]], col = 'red', linewidth = 0.75) +
+  theme_std(base_size = 14, base_line_size = 0.2) +
   theme(panel.background = element_blank(),
         panel.border = element_rect(fill = NA, linewidth = 1.5),
-        axis.text.x = element_text(size = 10, colour = 'black'),
         axis.text.y = element_blank(),
-        axis.ticks.y = element_blank()) +
+        axis.ticks.y = element_blank(),
+        plot.margin = unit(x = c(0,0,0,0), units = 'mm')) +
   labs(y = 'Individuals', x = 'Ploidy')
 
 histo = ggplot(y, aes(x = OY, y = ..density..)) +
   geom_histogram(bins = 400, col = 'black', fill = 'black') +
-  geom_vline(xintercept = quantile(y$OY, probs = 0.01)[[1]], col = 'red', linewidth = 0.75) +
-  geom_vline(xintercept = quantile(y$OY, probs = 0.99)[[1]], col = 'red', linewidth = 0.75) +
+  geom_vline(xintercept = lower, col = '#a22231', linewidth = 0.75, linetype = 'dashed') +
+  #geom_vline(xintercept = quantile(y$OY, probs = 0.99)[[1]], col = 'red', linewidth = 0.75) +
+  theme_std(base_size = 14, base_line_size = 0.2) +
   theme(panel.background = element_blank(),
         panel.border = element_rect(fill = NA, linewidth = 1.5),
         axis.text.x = element_blank(),
         axis.title = element_blank(),
         axis.ticks.x = element_blank(),
         axis.text.y = element_blank(),
-        axis.ticks.y = element_blank())
+        axis.ticks.y = element_blank(),
+        plot.margin = unit(x = c(0, 0, 0, 0), units = 'mm'))
 
-plot_grid(histo, jitter, nrow = 2, rel_heights = c(1,5), align = 'hv')
+plot_grid(histo, jitter, nrow = 2, rel_heights = c(1,3), align = 'hv')
+
 # save: (custom device)
 
 
