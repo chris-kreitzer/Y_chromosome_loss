@@ -1,18 +1,20 @@
 ##----------------+
-## MADSEQ; downstream
-## analysis; identification
-## of mLOY
+## MADSEQ; script to assess read-depth at Y 
+## Detection of mosaic loss of the Y-chromosome
+## downstream analysis; 
 ##----------------+
 
 ## start: 12/09/2022
 ## revision: 12/12/2022
+## revision: 01/27/2023
+## 
 ## chris-kreitzer
 
 clean()
 gc()
 .rs.restartR()
-
 setwd('~/Documents/MSKCC/10_MasterThesis/')
+source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
 
 
 ##----------------+
@@ -22,7 +24,7 @@ setwd('~/Documents/MSKCC/10_MasterThesis/')
 ##----------------+
 IMPACT = read.csv('Data/00_CohortData/IMPACT_dataFreeze_07.13.22.txt', sep = '\t')
 IMPACT_mLOY = IMPACT[!is.na(IMPACT$Normal_bam), ]
-mLOY_files = list.files('Data/03_Mosaicism/Normalized2/Normalized/', full.names = T)
+mLOY_files = list.files('Data/03_Mosaicism/NormalizedDepth/', full.names = T)
 mLOY_files_short = substr(x = basename(mLOY_files), start = 1, stop = 17)
 length(intersect(mLOY_files_short, IMPACT_mLOY$SAMPLE_ID))
 length(intersect(mLOY_files_short, IMPACT_mLOY$SAMPLE_ID)) == length(mLOY_files)
@@ -39,7 +41,7 @@ length(intersect(mLOY_files_short, IMPACT_mLOY$SAMPLE_ID)) == length(mLOY_files)
 ## calculate read-depth 
 ## ratio
 ##----------------+
-mLOY_files = list.files('Data/03_Mosaicism/Normalized2/Normalized/', full.names = T)
+mLOY_files = list.files('Data/03_Mosaicism/NormalizedDepth/', full.names = T)
 read_mLOY = function(data){
   print(data)
   name = substr(basename(data), start = 1, stop = 17)
@@ -53,6 +55,8 @@ read_mLOY = function(data){
 x = lapply(unique(mLOY_files), function(x) read_mLOY(data = x))
 x = data.table::rbindlist(x)
 xx = as.data.frame(x)
+
+
 
 ##----------------+
 ## Downstream anlysis
