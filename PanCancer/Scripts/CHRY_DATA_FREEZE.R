@@ -15,9 +15,13 @@
 ## revision: 12/02/2022
 ## revision: 12/07/2022
 ## revision: 01/08/2023
+## revision: 01/28/2023
+## 
 ## chris-kreitzer
 
-## TODO: add WES validation cohort:
+## TODO: 
+## - Which samples to include in final analysis
+## - WES validation cohort:
 
 
 clean()
@@ -287,109 +291,31 @@ saveRDS(Cohort071322, file = 'Data/00_CohortData/Cohort_071322.rds')
 ## Mosaic annotation: 
 ## start: 08/24/2022
 ## revision: 12/13/2022
+## revision: 01/28/2023
 ##----------------+
-cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
-clinical = cohort$IMPACT_clinicalAnnotation
-IMPACT_LOY = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/IMPACT_LOY.txt', sep = '\t')
-
-
-all_out = data.frame()
-for(i in 1:nrow(clinical)){
-  if(clinical$SAMPLE_ID[i] %in% IMPACT_LOY$sample.id){
-    sample = clinical$SAMPLE_ID[i]
-    mLRR_Y = IMPACT_LOY$corrected.CN[which(IMPACT_LOY$sample.id == clinical$SAMPLE_ID[i])]
-    LOY = IMPACT_LOY$LOY[which(IMPACT_LOY$sample.id == clinical$SAMPLE_ID[i])]
+cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
+mLOY_files = list.files('~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/NormalizedDepth/')
+mLOY_files = substr(mLOY_files, start = 1, stop = 17)
+cohort$mLOY_file = NA
+for(i in unique(mLOY_files)){
+  if(i %in% cohort$SAMPLE_ID){
+    cohort$mLOY_file[which(cohort$SAMPLE_ID == i)] = 'yes'
   } else {
-    sample = clinical$SAMPLE_ID[i]
-    mLRR_Y = 'N/A'
-    LOY = 'N/A'
+    cohort$mLOY_file[which(cohort$SAMPLE_ID == i)] = 'no'
   }
-  out = data.frame(sample = sample,
-                   mLRR_Y = mLRR_Y,
-                   LOY = LOY)
-  all_out = rbind(all_out, out)
 }
 
-all_out = all_out[!duplicated(all_out$sample), ]
-all_out = merge(all_out, clinical[,c('SAMPLE_ID', 'MSI_TYPE', 'AGE_AT_WHICH_SEQUENCING_WAS_REPORTED_(YEARS)',
-                                     'OVERALL_SURVIVAL_STATUS', 'OVERALL_SURVIVAL_(MONTHS)')],
-                by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
-colnames(all_out)[5] = 'Age_Sequencing'
-colnames(all_out)[6] = 'OS_Status'
-colnames(all_out)[7] = 'OS_months'
-
-#' fetch and save
-cohort = list(IMPACT_cohort = cohort$IMPACT_cohort,
-              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
-              IMPACT_LOY = all_out)
-saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
+cohort$Study_include = NA
+saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
 
 
 
 
-##-----------------
-## Chromosome Y loss
-##-----------------
-cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
-IMPACT = cohort$IMPACT_cohort
-LOY = cohort$IMPACT_LOY
-IMPACT = merge(IMPACT, LOY[,c('sample', 'LOY')], by.x = 'SAMPLE_ID', by.y = 'sample', all.x = T)
-
-cohort = list(IMPACT_cohort = IMPACT,
-              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
-              IMPACT_LOY = cohort$IMPACT_LOY)
-saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
 
 
-##-----------------
-## data merge
-##-----------------
-cohort = readRDS(file = 'Data/signedOut/Cohort_07132022.rds')
-impact = cohort$IMPACT_cohort
-clinical = cohort$IMPACT_clinicalAnnotation
-
-impact = merge(impact, clinical[, c('SAMPLE_ID', 'CANCER_TYPE', 'CANCER_TYPE_DETAILED')], by = 'SAMPLE_ID', all.x = T)
-
-LOY = cohort$IMPACT_binaryY_call
-impact = merge(impact, LOY[,c('sample.id', 'Y_call')], by.x = 'SAMPLE_ID', by.y = 'sample.id', all.x = T)
-
-Cohort = list(IMPACT_cohort = impact,
-              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
-              IMPACT_LOY = cohort$IMPACT_LOY,
-              IMPACT_binaryY_call = cohort$IMPACT_binaryY_call)
-
-saveRDS(Cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
 
 
-##-----------------
-## precise Y-status classification
-##-----------------
-cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
-QC_true = cohort$IMPACT_binaryY_call$sample.id
-Y_CNA = read.csv('Data/04_Loss/Categorial_Classification_Y.txt', sep = '\t')
-Y_CNA = Y_CNA[which(Y_CNA$sample %in% QC_true), ]
 
-Cohort = list(IMPACT_cohort = cohort$IMPACT_cohort,
-              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
-              IMPACT_LOY = cohort$IMPACT_LOY,
-              IMPACT_binaryY_call = cohort$IMPACT_binaryY_call,
-              IMPACT_Y_classification_final = Y_CNA)
-
-saveRDS(Cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
-
-
-##----------------+
-## Genome-alteration annotation
-##----------------+
-cohort = readRDS('Data/signedOut/Cohort_07132022.rds')
-Cohort = list(IMPACT_cohort = cohort$IMPACT_cohort,
-              IMPACT_clinicalAnnotation = cohort$IMPACT_clinicalAnnotation,
-              IMPACT_LOY = cohort$IMPACT_LOY,
-              IMPACT_binaryY_call = cohort$IMPACT_binaryY_call,
-              IMPACT_Y_classification_final = cohort$IMPACT_Y_classification_final,
-              IMPACT_ARM_level_changes = arm_changes_full_cohort)
-
-saveRDS(Cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/signedOut/Cohort_07132022.rds')
 
 
 
