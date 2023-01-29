@@ -325,9 +325,6 @@ saveRDS(object = cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/00_Cohor
 
 
 
-
-
-
 #######################################
 #######################################
 #' prepare TCGA data

@@ -8,8 +8,8 @@
 
 ## TODO:
 #' map the final samples; rather than full cohort
-#' go with GI tract (Bastien); rather than cancer 
-#' type detailed
+#' go with GI tract (Bastien); 
+#' rather than cancer type detailed
 
 install.packages("treemapify")
 library(treemapify)
