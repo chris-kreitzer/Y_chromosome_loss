@@ -259,66 +259,105 @@ write.table(x = y, file = 'Data/03_Mosaicism/IMPACT_mLOY_summary.txt', sep = '\t
 ## Association studies;
 ## Age
 ##----------------+ 
-IMPACT = read.csv('Data/00_CohortData/IMPACT_dataFreeze_07.13.22.txt', sep = '\t')
-IMPACT = IMPACT[!IMPACT$Age_Sequencing %in% c('0', '1', '2', '3', '4', '5', '6', '7'), ]
-IMPACT = IMPACT[!is.na(IMPACT$Age_Sequencing), ]
+IMPACT = readRDS('Data/00_CohortData/Cohort_071322.rds')
+# IMPACT = IMPACT[which(IMPACT$Study_include == 'yes'), ]
 IMPACT$Age_Sequencing = as.integer(as.character(IMPACT$Age_Sequencing))
-
-LOY_Age = merge(y, IMPACT[, c('SAMPLE_ID', 'Age_Sequencing')], by.x = 'id', by.y = 'SAMPLE_ID', all.x = T)
+IMPACT = IMPACT[!is.na(IMPACT$Age_Sequencing), ]
+IMPACT = IMPACT[!is.na(IMPACT$OY), ]
 
 
 ## Visualization
-intercept = summary(lm(LOY_Age$OY ~ LOY_Age$Age_Sequencing))[[4]][1]
-slope = summary(lm(LOY_Age$OY ~ LOY_Age$Age_Sequencing))[[4]][2]
-p.value = summary(lm(LOY_Age$OY ~ LOY_Age$Age_Sequencing))[[4]][8]
+intercept = summary(lm(IMPACT$OY ~ IMPACT$Age_Sequencing))[[4]][1]
+slope = summary(lm(IMPACT$OY ~ IMPACT$Age_Sequencing))[[4]][2]
+p.value = summary(lm(IMPACT$OY ~ IMPACT$Age_Sequencing))[[4]][8]
 
-Y_chromosome = ggplot(LOY_Age, aes(x = Age_Sequencing, y = OY)) +
-  geom_jitter(size = 0.2) +
+Y_chromosome = ggplot(IMPACT, 
+                      aes(x = Age_Sequencing, 
+                          y = OY)) +
+  geom_jitter(shape = 17, size = 0.5) +
   scale_y_continuous(limits = c(0.5, 1.5),
                      breaks = c(0.5, 1, 1.5)) +
-  scale_x_continuous(expand = c(0.01, 0.05),
-                     breaks = seq(10, 90, 10)) +
+  scale_x_continuous(expand = c(0.01, 0.01),
+                     limits = c(18, 90), 
+                     breaks = seq(20, 90, 10)) +
   geom_smooth(method = 'lm') +
+  theme_std(base_size = 14) +
   theme(panel.background = element_blank(),
         panel.border = element_rect(fill = NA, 
-                                    linewidth = 2),
-        axis.text = element_text(size = 12, 
-                                 color = 'black')) +
+                                    linewidth = 2)) +
   annotate(geom = 'text',
-           x = 20,
+           x = 25,
            y = 1.40,
-           label = paste0('y = ', round(intercept, 3), round(slope, 3), '\np: ', round(p.value, 3)),
+           label = paste0('y = ', ceiling(intercept), round(slope, 4), '\np: ', round(p.value, 3)),
            size = 5.0) +
-  labs(x = 'Age [reported at sequencing]', y = 'Chromosome Y ploidy', title = 'MSK-IMPACT: Ploidy decrease with age')
+  labs(x = 'Age [reported at sequencing]', y = 'Chromosome Y ploidy')
 
 Y_chromosome
 
 
-## X-chromosome
-intercept = summary(lm(LOY_Age$OX ~ LOY_Age$Age_Sequencing))[[4]][1]
-slope = summary(lm(LOY_Age$OX ~ LOY_Age$Age_Sequencing))[[4]][2]
-p.value = summary(lm(LOY_Age$OX ~ LOY_Age$Age_Sequencing))[[4]][8]
+##----------------+
+## different visualization
+##----------------+
+mLOY_Age_plot = ggplot(IMPACT, aes(x = mLOY, y = Age_Sequencing)) +
+  geom_violin(width = .75) + 
+  geom_quasirandom(alpha = 0.2, 
+                   width = 0.2) +
+  stat_summary(fun.y = "mean",
+               geom = "crossbar", 
+               mapping=aes(ymin=..y.., ymax=..y..), 
+               width = 0.5, 
+               position = position_dodge(),
+               show.legend = FALSE,
+               color = 'darkgrey') +
+  scale_y_continuous(expand = c(0.01, 0),
+                     limits = c(18, 92)) +
+  scale_x_discrete(labels = c('no (n=20712)', 'yes (n=484)')) +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 1,
+        panel.border = element_rect(fill = NA, linewidth = 2)) +
+  stat_compare_means(label = 'p.format', label.y = 88, label.x = 1.3) +
+  labs(x = 'mosaic loss of chromosome Y', y = 'Age [reported at sequencing]')
 
-X_chromosome = ggplot(LOY_Age, aes(x = Age_Sequencing, y = OX)) +
-  geom_jitter(size = 0.2) +
-  scale_y_continuous(limits = c(0.5, 1.5),
-                     breaks = c(0.5, 1, 1.5)) +
-  scale_x_continuous(expand = c(0.01, 0.05),
-                     breaks = seq(10, 90, 10)) +
-  geom_smooth(method = 'lm') +
-  theme(panel.background = element_blank(),
-        panel.border = element_rect(fill = NA, 
-                                    linewidth = 2),
-        axis.text = element_text(size = 12, 
-                                 color = 'black')) +
-  annotate(geom = 'text',
-           x = 20,
-           y = 1.40,
-           label = paste0('y = ', round(intercept, 3), round(slope, 3), '\np: ', round(p.value, 3)),
-           size = 5.0) +
-  labs(x = 'Age [reported at sequencing]', y = 'Chromosome Y ploidy', title = 'MSK-IMPACT: Ploidy decrease with age')
+ggsave_golden(filename = 'Figures_original/mLOY_Age.pdf', plot = mLOY_Age_plot, width = 6.5)
 
-X_chromosome
+
+
+
+
+##----------------+
+## X-chromosome as
+## an test variable; should not decay with age
+##----------------+
+# cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+# mloy = read.csv('Data/03_Mosaicism/IMPACT_mLOY_summary.txt', sep = '\t')
+# x = merge(cohort, mloy[,c('id', 'OX')], by.x = 'SAMPLE_ID', by.y = 'id', all.x = T)
+# x = x[!is.na(x$Age_Sequencing), ]
+# x$Age_Sequencing = as.integer(as.character(x$Age_Sequencing))
+# 
+# intercept = summary(lm(x$OX ~ x$Age_Sequencing))[[4]][1]
+# slope = summary(lm(x$OX ~ x$Age_Sequencing))[[4]][2]
+# p.value = summary(lm(x$OX ~ x$Age_Sequencing))[[4]][8]
+# 
+# X_chromosome = ggplot(x, aes(x = Age_Sequencing, y = OX)) +
+#   geom_jitter(shape = 17, size = 0.5) +
+#   scale_y_continuous(limits = c(0.5, 1.5),
+#                      breaks = c(0.5, 1, 1.5)) +
+#   scale_x_continuous(expand = c(0.01, 0.05),
+#                      breaks = seq(10, 90, 10)) +
+#   geom_smooth(method = 'lm') +
+#   theme(panel.background = element_blank(),
+#         panel.border = element_rect(fill = NA, 
+#                                     linewidth = 2),
+#         axis.text = element_text(size = 12, 
+#                                  color = 'black')) +
+#   annotate(geom = 'text',
+#            x = 20,
+#            y = 1.40,
+#            label = paste0('y = ', round(intercept, 3), round(slope, 3), '\np: ', round(p.value, 3)),
+#            size = 5.0) +
+#   labs(x = 'Age [reported at sequencing]', y = 'Chromosome Y ploidy', title = 'MSK-IMPACT: Ploidy decrease with age')
+# 
+# X_chromosome
 
 
 #' out
