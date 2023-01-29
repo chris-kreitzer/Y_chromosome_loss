@@ -294,19 +294,22 @@ saveRDS(Cohort071322, file = 'Data/00_CohortData/Cohort_071322.rds')
 ## revision: 01/28/2023
 ##----------------+
 cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
-mLOY_files = list.files('~/Documents/MSKCC/10_MasterThesis/Data/03_Mosaicism/NormalizedDepth/')
-mLOY_files = substr(mLOY_files, start = 1, stop = 17)
-cohort$mLOY_file = NA
-for(i in unique(mLOY_files)){
-  if(i %in% cohort$SAMPLE_ID){
-    cohort$mLOY_file[which(cohort$SAMPLE_ID == i)] = 'yes'
-  } else {
-    cohort$mLOY_file[which(cohort$SAMPLE_ID == i)] = 'no'
-  }
-}
+mLOY_df = read.csv('Data/03_Mosaicism/IMPACT_mLOY_summary.txt', sep = '\t')
+cohort = merge(cohort, mLOY_df[,c('id', 'OY', 'mLOY')], by.x = 'SAMPLE_ID', by.y = 'id', all.x = T)
+cohort$mLOY[which(cohort$mLOY == 'no_mLOY')] = 'no'
+cohort$mLOY[which(cohort$mLOY == 'mLOY')] = 'yes'
 
-cohort$Study_include = NA
 saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
+
+
+
+##----------------+
+## Further exclusion factors
+## - Cancer of unknown primaries
+## - Patients <18y
+##----------------+
+
+
 
 
 

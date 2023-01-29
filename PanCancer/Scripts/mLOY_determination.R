@@ -244,14 +244,15 @@ plot_grid(histo, jitter, nrow = 2, rel_heights = c(1,3), align = 'hv')
 # save: (custom device)
 
 
+
 ##----------------+
 ## cut-off threshold
 ##----------------+
-lower_cutoff = quantile(y$OY, probs = 0.01)[[1]]
-upper_cutoff = quantile(y$OY, probs = 0.99)[[1]]
-y$mLOY = ifelse(y$OY < lower_cutoff, 'mLOY', 'no_mLOY')
+lower = quantileCI(x = y$OY, probs = 0.025, conf.level = .95)[1]
+y$mLOY = ifelse(y$OY < lower, 'mLOY', 'no_mLOY')
+write.table(x = y, file = 'Data/03_Mosaicism/IMPACT_mLOY_summary.txt', sep = '\t', row.names = F, quote = F)
 
-# 1% mLOY
+
 
 
 ##----------------+
