@@ -308,10 +308,16 @@ saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Coh
 ## - Cancer of unknown primaries
 ## - Patients <18y
 ##----------------+
-
-
-
-
+cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
+cohort$Age_Sequencing = as.integer(as.character(cohort$Age_Sequencing))
+cohort$Study_include[which(cohort$Age_Sequencing < 18)] = 'no'
+cohort$Study_include[which(cohort$CANCER_TYPE == 'Cancer of Unknown Primary')] = 'no'
+cohort$Study_include[which(cohort$QC == FALSE)] = 'no'
+cohort$Study_include[which(cohort$mLOY == 'yes')] = 'no'
+cohort$Study_include[is.na(cohort$Normal_bam)] = 'no'
+cohort$Study_include[is.na(cohort$Study_include)] = 'yes'
+cohort = cohort[, c(1:36,38,39,37)]
+saveRDS(object = cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
 
 
 
