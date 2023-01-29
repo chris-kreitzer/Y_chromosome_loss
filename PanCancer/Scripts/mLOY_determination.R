@@ -127,6 +127,7 @@ mtext(text = 'Chromosome Y', side = 3, line = 0.5, adj = 0)
 ## - for the Y-chromosome
 ## - for the X-chromosome
 ##----------------+
+y = read.csv('Data/03_Mosaicism/SeqRatios_IMPACT.txt', sep = '\t')
 y$E22 = y$chromosome22_ratio * 2
 density.chromo22 = density(y$E22, na.rm = T)
 density.max22 = density.chromo22$x[which.max(density.chromo22$y)]
@@ -212,11 +213,13 @@ lower = lower_cutoff[1]
 
 ##-------
 ## Plot
+##-------
 y$seq = seq(1, nrow(y), 1)
 jitter = ggplot(y, aes(x = OY, y = seq)) +
   geom_jitter(shape = 17, size = 0.5) +
+  scale_x_continuous(limits = c(0.5, 1.5),
+                     breaks = c(0.5, 1, 1.5)) +
   geom_vline(xintercept = lower, col = '#a22231', linewidth = 0.75, linetype = 'dashed') +
-  #geom_vline(xintercept = quantile(y$OY, probs = 0.99)[[1]], col = 'red', linewidth = 0.75) +
   theme_std(base_size = 14, base_line_size = 0.2) +
   theme(panel.background = element_blank(),
         panel.border = element_rect(fill = NA, linewidth = 1.5),
@@ -228,7 +231,8 @@ jitter = ggplot(y, aes(x = OY, y = seq)) +
 histo = ggplot(y, aes(x = OY, y = ..density..)) +
   geom_histogram(bins = 400, col = 'black', fill = 'black') +
   geom_vline(xintercept = lower, col = '#a22231', linewidth = 0.75, linetype = 'dashed') +
-  #geom_vline(xintercept = quantile(y$OY, probs = 0.99)[[1]], col = 'red', linewidth = 0.75) +
+  scale_x_continuous(limits = c(0.5, 1.5),
+                     breaks = c(0.5, 1, 1.5)) +
   theme_std(base_size = 14, base_line_size = 0.2) +
   theme(panel.background = element_blank(),
         panel.border = element_rect(fill = NA, linewidth = 1.5),
@@ -239,7 +243,9 @@ histo = ggplot(y, aes(x = OY, y = ..density..)) +
         axis.ticks.y = element_blank(),
         plot.margin = unit(x = c(0, 0, 0, 0), units = 'mm'))
 
-plot_grid(histo, jitter, nrow = 2, rel_heights = c(1,3), align = 'hv')
+jitter_histo = plot_grid(histo, jitter, nrow = 2, rel_heights = c(1,3), align = 'hv')
+ggsave_golden(filename = 'Figures_original/mLOY_determination.pdf', plot = jitter_histo, width = 8)
+
 
 # save: (custom device)
 
@@ -313,15 +319,17 @@ mLOY_Age_plot = ggplot(IMPACT, aes(x = mLOY, y = Age_Sequencing)) +
                      limits = c(18, 92)) +
   scale_x_discrete(labels = c('no (n=20712)', 'yes (n=484)')) +
   theme_std(base_size = 14) +
-  theme(aspect.ratio = 1,
-        panel.border = element_rect(fill = NA, linewidth = 2)) +
+  theme(
+        panel.border = element_rect(fill = NA, linewidth = 2),
+        plot.margin = unit(x = c(0, 0, 0, 0), units = 'mm')) +
   stat_compare_means(label = 'p.format', label.y = 88, label.x = 1.3) +
   labs(x = 'mosaic loss of chromosome Y', y = 'Age [reported at sequencing]')
 
 ggsave_golden(filename = 'Figures_original/mLOY_Age.pdf', plot = mLOY_Age_plot, width = 6.5)
 
 
-
+Figure1C = plot_grid(jitter_histo, mLOY_Age_plot, ncol = 1, align = 'v', axis = 'l')
+ggsave_golden(filename = 'Figures_original/Figure1C.pdf', plot = Figure1C, width = 10)
 
 
 ##----------------+
