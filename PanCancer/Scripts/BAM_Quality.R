@@ -13,12 +13,16 @@
 ## revision: 06/28/2022
 ## revision: 07/13/2022
 ## revision: 12/14/2022
+## revision: 01/30/2023
 ## 
 ## chris-kreitzer
 
 
+setwd('~/Documents/MSKCC/10_MasterThesis/')
+source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
 library(Rsamtools)
 library(data.table)
+library(dplyr)
 
 
 Masterfile = read.csv('~/Master/IMPACT_dataFreeze_07.13.22.txt', sep = '\t')
@@ -141,5 +145,44 @@ MAPQ_BWA = lapply(unique(Masterfile$Normal_bam), function(x) bam_quality_check(f
 MAPQ_BWA = data.table::rbindlist(MAPQ_BWA)
 
 write.table(MAPQ_BWA, file = '~/Master/MAPQ_BWA.txt', sep = '\t', row.names = F, quote = F)
+
+
+
+##----------------+
+## Visualization
+##----------------+
+MAPQ_BWA = read.csv('Data/01_Coverage_Depth/013023/MAPQ_BWA.txt', sep = '\t')
+genes_retained = read.csv('Data/01_Coverage_Depth/BAM_quality_summary.txt', sep = '\t')
+MAPQ_BWA = MAPQ_BWA[which(MAPQ_BWA$gene %in% genes_retained$gene), ]
+
+
+BAM_quality_summary = MAPQ_BWA %>%
+  group_by(gene) %>% 
+  summarize(mean_mapq = mean(mapq, na.rm = T),
+            sd_mapq = sd(mapq, na.rm = T))
+
+BAM_quality_summary = BAM_quality_summary[order(BAM_quality_summary$mean_mapq, decreasing = T), ]
+BAM_quality_summary$gene = factor(BAM_quality_summary$gene, levels = BAM_quality_summary$gene)
+
+BAM_quality_plot = ggplot(BAM_quality_summary, aes(x = gene, y = mean_mapq)) +
+  geom_point() +
+  geom_pointrange(aes(ymin = mean_mapq - sd_mapq, ymax = mean_mapq + sd_mapq)) +
+  geom_hline(yintercept = seq(20, 60, 20), linetype = 'dashed', color = 'grey35', size = 0.2) +
+  theme_std(base_size = 14, base_line_size = 1) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = '', y = 'BWA-MAPQ')
+
+ggsave(filename = 'Figures_original/BAM_quality.pdf', plot = BAM_quality_plot, device = 'pdf', width = 8)
+
+
+
+
+
+
+
+
+
+
+
 
 #' out
