@@ -325,7 +325,7 @@ mLOY_Age_plot = ggplot(IMPACT, aes(x = mLOY, y = Age_Sequencing)) +
                color = 'darkgrey') +
   scale_y_continuous(expand = c(0.01, 0),
                      limits = c(18, 92)) +
-  scale_x_discrete(labels = c('no (n=20712)', 'yes (n=484)')) +
+  scale_x_discrete(labels = c('no (n=20712)', 'yes (n=491)')) +
   theme_std(base_size = 14) +
   theme(
         panel.border = element_rect(fill = NA, linewidth = 2),
@@ -336,8 +336,8 @@ mLOY_Age_plot = ggplot(IMPACT, aes(x = mLOY, y = Age_Sequencing)) +
 ggsave_golden(filename = 'Figures_original/mLOY_Age.pdf', plot = mLOY_Age_plot, width = 6.5)
 
 
-Figure1C = plot_grid(jitter_histo, mLOY_Age_plot, ncol = 1, align = 'v', axis = 'l')
-ggsave_golden(filename = 'Figures_original/Figure1C.pdf', plot = Figure1C, width = 10)
+Figure1C = plot_grid(Y_chromosome, mLOY_Age_plot, ncol = 1, align = 'v', axis = 'l')
+ggsave_golden(filename = 'Figures_original/Figure1C.pdf', plot = Figure1C, width = 8)
 
 
 ##----------------+
