@@ -7,6 +7,7 @@
 ## start: 12/09/2022
 ## revision: 12/12/2022
 ## revision: 01/27/2023
+## revision: 01/30/2023
 ## 
 ## chris-kreitzer
 
@@ -294,16 +295,23 @@ Y_chromosome = ggplot(IMPACT,
   annotate(geom = 'text',
            x = 25,
            y = 1.40,
-           label = paste0('y = ', ceiling(intercept), round(slope, 4), '\np: ', round(p.value, 3)),
+           label = paste0('y = ', ceiling(intercept), round(slope, 4), '\np: ', round(p.value, 4)),
            size = 5.0) +
   labs(x = 'Age [reported at sequencing]', y = 'Chromosome Y ploidy')
 
 Y_chromosome
+ggsave_golden(filename = 'Figures_original/mLRR-Y_Age_correlation.pdf', plot = Y_chromosome, width = 8)
 
 
 ##----------------+
 ## different visualization
 ##----------------+
+mLOY_CI = quantileCI(x = Cohort$Age_Sequencing[which(Cohort$mLOY_file == 'yes' & Cohort$mLOY == 'yes' & !is.na(Cohort$Age_Sequencing))], 
+                     probs = 0.5, conf.level = .95)
+nonLOY_CI = quantileCI(x = Cohort$Age_Sequencing[which(Cohort$mLOY_file == 'yes' & Cohort$mLOY == 'no' & !is.na(Cohort$Age_Sequencing))], 
+                     probs = 0.5, conf.level = .95)
+
+
 mLOY_Age_plot = ggplot(IMPACT, aes(x = mLOY, y = Age_Sequencing)) +
   geom_violin(width = .75) + 
   geom_quasirandom(alpha = 0.2, 
