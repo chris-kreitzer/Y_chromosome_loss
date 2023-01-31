@@ -3,6 +3,9 @@
 ## calls with WES sequenced
 ## samples; using CnLR as surrogate
 ## for binary Y-chromosome calls;
+## - further check FacetsY: the method
+## - on KIRC TCGA samples
+## - confirmed via RNA-Seq experiments
 ##----------------+ 
 ## 
 ## Start (revision): 08/30/2021
@@ -10,6 +13,7 @@
 ## revision: 08/21/2022
 ## revision: 12/16/2022
 ## revision: 01/30/2023
+## revision: 01/31/23
 ##
 ## chris-kreitzer
 
@@ -201,12 +205,125 @@ ggsave_golden(filename = '~/Documents/MSKCC/10_MasterThesis/Figures_original/Met
 
 
 
-##-----------------
+##----------------+
 ## SAMPLE OUTLIER:
-##-----------------
+##----------------+
 # P-0019114-T01-IM6
 # P-0037069-T01-IM6
 # P-0047344-T01-IM6
+##----------------+
+
+
+##----------------+
+## Method validation on 
+## TCGA, KIRC cases;
+## validation through RNA-seq
+##----------------+
+TCGA_cohort = read.csv('Data/02_Method_Validation/TCGA/TCGA_all_CNAfits_out.txt', sep = '\t')
+KIRC_cna = TCGA_cohort[which(TCGA_cohort$type == 'KIRC'), ]
+mRNA = read.csv('Data/02_Method_Validation/TCGA/KIRC_TCGA_mRNA.txt', sep = '\t')
+mRNA$SAMPLE_ID = substr(x = mRNA$SAMPLE_ID, start = 1, stop = 12)
+mRNA$STUDY_ID = NULL
+
+TCGA_KIRC = merge(KIRC_cna[,c('bcr_patient_barcode', 'Y_call', 'ploidy', 'purity')],
+                  mRNA[,c('SAMPLE_ID', 'KDM5D', 'EIF1AX', 'DDX3Y', 'UTY', 'VHL', 'KDM5C')],
+                  by.x = 'bcr_patient_barcode', by.y = 'SAMPLE_ID', all.x = T)
+
+TCGA_KIRC = TCGA_KIRC[complete.cases(TCGA_KIRC), ]
+TCGA_KIRC$KDM5D = log2(TCGA_KIRC$KDM5D+1)
+TCGA_KIRC$KDM5C = log2(TCGA_KIRC$KDM5C+1)
+TCGA_KIRC$EIF1AX = log2(TCGA_KIRC$EIF1AX+1)
+TCGA_KIRC$DDX3Y = log2(TCGA_KIRC$DDX3Y+1)
+TCGA_KIRC$UTY = log2(TCGA_KIRC$UTY+1)
+TCGA_KIRC$VHL = log2(TCGA_KIRC$VHL+1)
+
+
+##-------
+## Visualization
+##-------
+vhl = ggplot(TCGA_KIRC, aes(y = VHL, x = Y_call)) +
+  geom_quasirandom(width = 0.25, alpha = 0.45) +
+  stat_summary(fun.y = "median", geom = "crossbar", size = 0.5, color = 'black', width = 0.35) +
+  stat_summary(fun.y = "median", geom = "point", size = 3, color = 'red') +
+  stat_compare_means(label.x = 1.3,
+                     label.y = 10.5) +
+  scale_x_discrete(labels = c('chrY wt', 'LOY')) +
+  scale_y_continuous(expand = c(0.01, 0),
+                     limits = c(6, 11)) +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 1,
+        plot.title = element_text(size = 10),
+        panel.border = element_rect(fill = NA, linewidth = 2)) +
+  labs(x = '', y = 'mRNA expression (log2)', title = 'von Hippel-Lindau tumor suppressor, VHL')
+  
+#' KDM5C
+kdm5c = ggplot(TCGA_KIRC, aes(y = KDM5C, x = Y_call)) +
+  geom_quasirandom(width = 0.25, alpha = 0.45) +
+  stat_summary(fun.y = "median", geom = "crossbar", size = 0.5, color = 'black', width = 0.35) +
+  stat_summary(fun.y = "median", geom = "point", size = 3, color = 'red') +
+  stat_compare_means(label.x = 1.3,
+                     label.y = 12.5) +
+  scale_x_discrete(labels = c('chrY wt', 'LOY')) +
+  scale_y_continuous(expand = c(0.01, 0),
+                     limits = c(8, 13)) +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 1,
+        plot.title = element_text(size = 10),
+        panel.border = element_rect(fill = NA, linewidth = 2)) +
+  labs(x = '', y = '', title = 'Lysine Demethylase 5C, KDM5C')
+
+
+##-------
+## chrY genes:
+kdm5d = ggplot(TCGA_KIRC, aes(y = KDM5D, x = Y_call)) +
+  geom_quasirandom(width = 0.25, alpha = 0.45) +
+  stat_summary(fun.y = "median", geom = "crossbar", size = 0.5, color = 'black', width = 0.35) +
+  stat_summary(fun.y = "median", geom = "point", size = 3, color = 'red') +
+  stat_compare_means(label.x = 1.3,
+                     label.y = 12.5) +
+  scale_x_discrete(labels = c('chrY wt', 'LOY')) +
+  scale_y_continuous(expand = c(0.01, 0),
+                     limits = c(6, 13)) +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 1,
+        plot.title = element_text(size = 10),
+        panel.border = element_rect(fill = NA, linewidth = 2)) +
+  labs(x = '', y = '', title = 'Lysine Demethylase 5D, KDM5D')
+
+
+ddx3y = ggplot(TCGA_KIRC, aes(y = DDX3Y, x = Y_call)) +
+  geom_quasirandom(width = 0.25, alpha = 0.45) +
+  stat_summary(fun.y = "median", geom = "crossbar", size = 0.5, color = 'black', width = 0.35) +
+  stat_summary(fun.y = "median", geom = "point", size = 3, color = 'red') +
+  stat_compare_means(label.x = 1.3,
+                     label.y = 12.5) +
+  scale_x_discrete(labels = c('chrY wt', 'LOY')) +
+  scale_y_continuous(expand = c(0.01, 0),
+                     limits = c(6, 13)) +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 1,
+        plot.title = element_text(size = 10),
+        panel.border = element_rect(fill = NA, linewidth = 2)) +
+  labs(x = '', y = '', title = 'DEAD-Box Helicase 3 Y-Linked, DDX3Y')
+
+
+uty = ggplot(TCGA_KIRC, aes(y = UTY, x = Y_call)) +
+  geom_quasirandom(width = 0.25, alpha = 0.45) +
+  stat_summary(fun.y = "median", geom = "crossbar", size = 0.5, color = 'black', width = 0.35) +
+  stat_summary(fun.y = "median", geom = "point", size = 3, color = 'red') +
+  stat_compare_means(label.x = 1.3,
+                     label.y = 10.5) +
+  scale_x_discrete(labels = c('chrY wt', 'LOY')) +
+  scale_y_continuous(expand = c(0.01, 0),
+                     limits = c(6, 11)) +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 1,
+        plot.title = element_text(size = 10),
+        panel.border = element_rect(fill = NA, linewidth = 2)) +
+  labs(x = '', y = '', title = 'Ubiquitously Transcribed Tetratricopeptide\nRepeat Containing, Y-Linked, UTY')
+
+grid_p = vhl + kdm5c + kdm5d + ddx3y + uty + plot_layout(ncol = 5)
+ggsave_golden(filename = 'Figures_original/TCGA_mRNA_confirmation.pdf', plot = grid_p, width = 19)
 
 
 
