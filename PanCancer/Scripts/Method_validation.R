@@ -9,19 +9,20 @@
 ## revision: 07/26/2022
 ## revision: 08/21/2022
 ## revision: 12/16/2022
-
+## revision: 01/30/2023
+##
 ## chris-kreitzer
 
 clean()
 gc()
 .rs.restartR()
 set.seed(100)
-setwd('~/Documents/GitHub/Y_chromosome_loss/PanCancer')
-source('Scripts/UtilityFunctions.R')
+setwd('~/Documents/MSKCC/10_MasterThesis/')
+source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
 
 
 ## Input
-WES_cnLR = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/02_Method_Validation/WES_cnLR_out.txt', sep = '\t')
+WES_cnLR = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/02_Method_Validation/WES/WES_Cnlr_Y.txt', sep = '\t')
 IMPACT_cnLR = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/02_Method_Validation/IMPACT_Cnlr_out.txt', sep = '\t')
 WES.IMPACT.ids_df = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/02_Method_Validation/WES_cBio_ID.match.txt', sep = '\t')
 
