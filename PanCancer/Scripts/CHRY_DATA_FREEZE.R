@@ -400,33 +400,3 @@ for(i in 1:nrow(WES_cohort)){
   }
 }
 
-#' add age annotation to MSK-WES;
-cohort = readRDS('Data_out/cohort_data.rds')
-age = cohort$IMPACT.cohort[,c('SAMPLE_ID', 'AGE_AT_SEQ_REPORTED_YEARS')]
-WES_cohort = merge(WES_cohort, age, by.x = 'DMP_Sample_ID', by.y = 'SAMPLE_ID', all.x = T)
-
-
-cohort$WES.cohort = WES_cohort
-saveRDS(cohort, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
-
-
-#' clinical associations:
-clinical = read.csv('Data_out/sub_clinical.tsv', sep = '\t')
-clinical = clinical[, c('Sample.ID', 'Overall.Survival..Months.', 'Overall.Survival.Status')]
-colnames(clinical) = c('Sample_ID', 'OS', 'OS_Status')
-
-MSK_WES = merge(MSK_WES, clinical, by.x = 'DMP_Sample_ID', by.y = 'Sample_ID', all.x = T)
-cohort$WES.cohort = MSK_WES
-saveRDS(cohort, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
-
-
-#' add IMPACT MOSAIC data to cohort
-cohort = append(cohort, list(IMPACT_age))
-names(cohort)[6] = 'IMPACT.mosaic'
-
-
-#' add IMPACT CLINICAL data to cohort
-cohort = append(cohort, list(clinical))
-names(cohort)[7] = 'IMPACT.clinical'
-saveRDS(cohort, file = '~/Documents/GitHub/Y_chromosome_loss/PanCancer/Data_out/cohort_data.rds')
-
