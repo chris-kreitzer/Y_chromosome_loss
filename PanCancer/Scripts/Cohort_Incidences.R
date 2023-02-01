@@ -16,6 +16,7 @@
 ## revision: 01/08/2023
 ## revision: 01/10/2023
 ## revision: 01/16/2023
+## revision: 02/01/2023
 ## 
 ## chris-kreitzer
 
@@ -28,7 +29,7 @@ source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.
 library(RColorBrewer)
 library(patchwork)
 library(dplyr)
-
+library(cowplot)
 
 ##----------------+
 ## General categories overview;
@@ -42,6 +43,7 @@ library(dplyr)
 ##----------------+
 
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
 
 n = length(unique(cohort$SAMPLE_ID))
 prop_out = data.frame()
@@ -61,7 +63,11 @@ prop_out$category = factor(prop_out$category, levels = rev(c('complete_loss',
                                                              'partial_gain',
                                                              'gain_loss',
                                                              'wt')))
-fraction_Y_loss = ggplot(prop_out, aes(x = arrange, y = fraction, fill = category, label = paste0((round(fraction* 100, 2)), '%'))) +
+fraction_Y_loss = ggplot(prop_out, 
+                         aes(x = arrange, 
+                             y = fraction, 
+                             fill = category, 
+                             label = paste0((round(fraction* 100, 1)), '%'))) +
   geom_bar(stat = 'identity', position = 'fill') +
   geom_text(size = 3, position = position_stack(vjust = 0.5), fontface = 'bold') +
   scale_fill_manual(values = c('wt' = '#D7D8DA',
@@ -85,9 +91,9 @@ ggsave(filename = 'Figures_original/Fraction_Y_loss.pdf', plot = fraction_Y_loss
 
 
 ##----------------+
-## Cancer Types
+## Fraction LOY by 
+## Cancer type
 ##----------------+
-cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 CancerTypes = data.frame()
 for(i in unique(cohort$CANCER_TYPE)){
   total = nrow(cohort)
@@ -104,13 +110,14 @@ for(i in unique(cohort$CANCER_TYPE)){
   }
 }
 
+
 ##----------------+
 CancerTypes = CancerTypes[!is.na(CancerTypes$category), ]
-CancerTypes = CancerTypes[which(CancerTypes$rel_contribution_cohort >= 0.28), ]
-# CancerTypes$cancer = gsub("\\s*\\([^\\)]+\\)", "", CancerTypes$cancer)
-CancerTypes$cancer = paste0(CancerTypes$cancer, ' (n=', CancerTypes$n, ')')
+CancerTypes = CancerTypes[which(CancerTypes$cancer %in% ctypes_keep), ]
+CancerTypes$cancer_n = paste0(CancerTypes$cancer, ' (n=', CancerTypes$n, ')')
 loss = CancerTypes[which(CancerTypes$category %in% c('complete_loss')), ]
 loss = loss[order(loss$fraction), ]
+CancerTypes$cancer_n = factor(CancerTypes$cancer_n, levels = rev(loss$cancer_n))
 CancerTypes$cancer = factor(CancerTypes$cancer, levels = rev(loss$cancer))
 CancerTypes$category = factor(CancerTypes$category, levels = rev(c('complete_loss',
                                                                'relative_loss',
@@ -124,7 +131,7 @@ CancerTypes$category = factor(CancerTypes$category, levels = rev(c('complete_los
 ## Visualization;
 ##----------------+
 Fraction_across_cancerTypes = ggplot(CancerTypes, 
-                                     aes(x = cancer, 
+                                     aes(x = cancer_n, 
                                          y = fraction, 
                                          fill = category, 
                                          label = paste0((round(fraction* 100, 2)), '%'))) +
@@ -158,7 +165,6 @@ CancerTypesDetailed = data.frame()
 for(i in unique(cohort$CANCER_TYPE)){
   data.sub = cohort[which(cohort$CANCER_TYPE == i), ]
   n = length(cohort$SAMPLE_ID[which(cohort$CANCER_TYPE == i)])
-  print(n)
   for(j in unique(data.sub$CANCER_TYPE_DETAILED_ritika)){
     data.sub2 = data.sub[which(data.sub$CANCER_TYPE_DETAILED_ritika == j), ]
     n2 = length(data.sub2$SAMPLE_ID[which(data.sub2$CANCER_TYPE_DETAILED_ritika == j)])
@@ -175,6 +181,7 @@ for(i in unique(cohort$CANCER_TYPE)){
   }
   rm(data.sub, data.sub2, n, fraction)
 }
+
 
 ##-------
 ## Further summary
@@ -195,11 +202,11 @@ CancerTypesDetailed_loss$name = paste0(CancerTypesDetailed_loss$cancerdetailed2,
 ## - 2 sub-types
 ## - 10 cases per sub-type 
 ##-------
-CancerTypesDetailed_loss = CancerTypesDetailed_loss[which(CancerTypesDetailed_loss$n > 10), ]
+CancerTypesDetailed_loss = CancerTypesDetailed_loss[which(CancerTypesDetailed_loss$n >= 10), ]
 names_exclude = sort(table(CancerTypesDetailed_loss$cancer), decreasing = T)
 names_exclude = names(names_exclude[names_exclude > 1])
 CancerTypesDetailed_loss = CancerTypesDetailed_loss[which(CancerTypesDetailed_loss$cancer %in% names_exclude), ]
-
+CancerTypesDetailed_loss$fraction = CancerTypesDetailed_loss$fraction * 100
 
 plot_list = list()
 for(i in unique(CancerTypesDetailed_loss$cancer)){
@@ -208,18 +215,24 @@ for(i in unique(CancerTypesDetailed_loss$cancer)){
     geom_bar(stat = 'identity', color = 'black', fill = 'black') +
     coord_flip() +
     scale_y_continuous(expand = c(0, 0),
-                       limits = c(0, round(max(CancerTypesDetailed_loss$fraction[which(CancerTypesDetailed_loss$cancer == i)]), 1) +0.1),
+                       limits = c(0, round(max(CancerTypesDetailed_loss$fraction[which(CancerTypesDetailed_loss$cancer == i)]), 1) + 1),
                        sec.axis = dup_axis()) +
-    geom_hline(yintercept = seq(0, 1, 0.2), color = 'white', linetype = 'dashed', linewidth = 0.25) +
+    geom_hline(yintercept = seq(0, 100, 20), color = 'white', linetype = 'dashed', linewidth = 0.25) +
     theme_std(base_size = 14) +
     theme(axis.line.x.bottom = element_blank(),
           axis.text.x.bottom = element_blank(),
           axis.ticks.x.bottom = element_blank(),
-          axis.title.x.bottom = element_blank()) +
+          axis.title.x.bottom = element_blank(),
+          plot.margin = unit(c(0,0,0,0), units = 'mm')) +
     labs(x = '', y = 'Percent of cases with LOY', title = i)
   
   plot_list[[i]] = plot_i
 }
+
+for(i in 1:length(plot_list)){
+  ggsave_golden(filename = paste0('Figures_original/CTD_', names(plot_list[i]), '.pdf'), plot = plot_list[[i]], width = 8)
+}
+
 
 ##-------
 ## save individual plot;
@@ -234,7 +247,9 @@ plot_list$`Esophagogastric Cancer` / plot_list$`Renal Cell Carcinoma` / plot_lis
 ## Metastatic or Primary samples
 ##-----------------
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
-cohort_ss = cohort[which(cohort$SAMPLE_TYPE %in% c('Local Recurrence', 'Metastasis', 'Primary')), ]
+cohort_ss = cohort[which(cohort$Study_include == 'yes'), ]
+cohort_ss$SAMPLE_TYPE[which(cohort_ss$SAMPLE_TYPE == 'Local Recurrence')] = 'Primary'
+cohort_ss$SAMPLE_TYPE[which(cohort_ss$SAMPLE_TYPE == 'Unknown')] = 'Metastasis'
 
 prop_out_site = data.frame()
 for(i in unique(cohort_ss$CANCER_TYPE)){
@@ -259,9 +274,16 @@ for(i in unique(cohort_ss$CANCER_TYPE)){
 
 prop_out_site = prop_out_site[!is.na(prop_out_site$category), ]
 prop_out_site = prop_out_site[which(prop_out_site$category == 'complete_loss'), ]
-names_two_sites = table(prop_out_site$cancer)
-names_two_sites = names(names_two_sites[names_two_sites > 1])
-prop_out_site = prop_out_site[which(prop_out_site$cancer %in% names_two_sites), ]
+prop_out_site = prop_out_site[which(prop_out_site$cancer %in% ctypes_keep), ]
+prop_out_site = rbind(prop_out_site, data.frame(cancer = 'CNS Cancer',
+                                                site_sequenced = 'Metastasis',
+                                                category = 'complete_loss',
+                                                fraction = 0,
+                                                total_cancertype = 0,
+                                                n_ss = 0))
+# names_two_sites = table(prop_out_site$cancer)
+# names_two_sites = names(names_two_sites[names_two_sites > 1])
+# prop_out_site = prop_out_site[which(prop_out_site$cancer %in% names_two_sites), ]
 
 
 ##-------
@@ -271,7 +293,9 @@ prop_out_site = prop_out_site[which(prop_out_site$cancer %in% names_two_sites), 
 ##-------
 prop_out_site$lower = ci_lower(n = prop_out_site$n_ss, N = prop_out_site$total_cancertype)
 prop_out_site$upper = ci_upper(n = prop_out_site$n_ss, N = prop_out_site$total_cancertype)
-prop_out_site = prop_out_site[which(prop_out_site$site_sequenced %in% c('Primary', 'Metastasis')), ]
+prop_out_site$lower[which(prop_out_site$cancer == 'CNS Cancer' & prop_out_site$site_sequenced == "Metastasis")] = 0
+prop_out_site$upper[which(prop_out_site$cancer == 'CNS Cancer' & prop_out_site$site_sequenced == "Metastasis")] = 0
+
 prop_out_site$site_sequenced = factor(prop_out_site$site_sequenced, levels = rev(c('Metastasis', 'Primary')))
 for(i in unique(prop_out_site$cancer)){
   prop_out_site$name[which(prop_out_site$cancer == i)] = paste0(prop_out_site$cancer[which(prop_out_site$cancer == i)], 
@@ -285,8 +309,9 @@ for(i in unique(prop_out_site$cancer)){
 ##----------------+
 ## Visualization
 ##----------------+
+prop_out_site$cancer = factor(prop_out_site$cancer, levels = levels(CancerTypes$cancer))
 LOY_site_Sequenced = ggplot(prop_out_site, 
-                            aes(x = name, 
+                            aes(x = cancer, 
                                 y = fraction, 
                                 ymin = lower, 
                                 ymax = upper)) +
@@ -304,14 +329,48 @@ LOY_site_Sequenced = ggplot(prop_out_site,
         aspect.ratio = 0.2) +
   labs(x = NULL, y = '% of tumors with LOY', color = NULL)
 
-LOY_site_Sequenced
-ggsave(filename = 'Figures_original/LOY_CancerSite.pdf', plot = LOY_site_Sequenced, device = 'pdf', width = 14)
+
+##-------
+## All tumors combined
+##-------
+Site_Sequenced_all = ggplot(prop_out_site, aes(x = site_sequenced, y = fraction, 
+                          color = site_sequenced)) +
+  geom_quasirandom(width = 0.25, alpha = 0.95) +
+  stat_summary(fun.y = "mean", geom = "crossbar", size = 0.5, color = 'black', width = 0.35) +
+  stat_summary(fun.y = "mean", geom = "point", size = 3, color = 'red') +
+  stat_compare_means(label.x = 1.2,
+                     label.y = 0.9) +
+  scale_color_manual(values = c('Primary' = '#7c93b5',
+                                'Metastasis' = '#35538c'),
+                     name = 'Site sequenced') + 
+  scale_y_continuous(expand = c(0.01,0),
+                     breaks = seq(0, 1, 0.2),
+                     limits = c(0, 1)) +
+  theme_std(base_size = 14, base_line_size = 1) +
+  theme(aspect.ratio = 2, legend.position = 'none') +
+  labs(x = '', y = paste0('Fraction of samples\n(n=', prop_out$n, ')'))
+
+
+##----------------+
+## combine the two plots
+## LOY rates and Site_sequenced
+##----------------+
+AA = Site_Sequenced_all
+BB = LOY_site_Sequenced + theme(axis.text.x = element_blank())
+CC = fraction_Y_loss + theme(legend.position = 'none')
+DD = Fraction_across_cancerTypes + theme(legend.position = 'bottom') +
+  labs(y = '')
+
+XX = (AA+BB) / (CC+DD)
+ggsave_golden(filename = 'Figures_original/Cohort_Incidences_combined.pdf', plot = XX, width = 21)
 
 
 
-##-----------------
+
+
+##----------------+
 ## Race category
-##-----------------
+##----------------+
 
 # African (AFR), 
 # European (EUR), 

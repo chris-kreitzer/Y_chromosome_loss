@@ -34,15 +34,15 @@ suppressPackageStartupMessages({
 ##----------------+
 ## Current cohort
 ##----------------+
-Cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
-
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort_study = cohort[which(cohort$Study_include == 'yes'), ]
 
 ##----------------+
 ## Cancer-types to include
 ##----------------+
-ctypes = table(Cohort$CANCER_TYPE)
-ctypes_keep = names(ctypes[which((ctypes / length(unique(Cohort$SAMPLE_ID)) * 100) > 0.2)])
-
+ctypes = table(cohort_study$CANCER_TYPE)
+ctypes_keep = names(ctypes[which((ctypes / length(unique(cohort_study$SAMPLE_ID)) * 100) > 0.2)])
+all_ctypes = unique(cohort_study$CANCER_TYPE)
 
 
 ##----------------+ 
