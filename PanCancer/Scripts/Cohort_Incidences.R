@@ -411,8 +411,6 @@ comparison_plot = ggplot(TCGA_MSK,
 ggsave_golden(filename = 'Figures_original/TCGA_MSK_LOY_comparison.pdf', plot = comparison_plot, width = 12)
 
 
-
-
 ##----------------+
 ## Race category
 ##----------------+
@@ -423,14 +421,12 @@ ggsave_golden(filename = 'Figures_original/TCGA_MSK_LOY_comparison.pdf', plot = 
 # Native American (NAM) 
 # and South Asian (SAS), 
 # Ashkenazi Jewish (ASJ) 
-
 Ancestry = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/admixture_results.50k.2021-09-14.txt', sep = '\t')
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 cohort = cohort[which(cohort$Study_include == 'yes'), ]
 Ancestry_short = merge(cohort[,c('Normal_file', 'classification')], Ancestry[,c('Sample', 'ancestry_label')],
                        by.x = 'Normal_file', by.y = 'Sample', all.x = T)
 Ancestry_short = Ancestry_short[!is.na(Ancestry_short$ancestry_label), ]
-
 
 Ancestry_out = data.frame()
 for(i in unique(Ancestry_short$ancestry_label)){
@@ -440,12 +436,15 @@ for(i in unique(Ancestry_short$ancestry_label)){
     fraction = length(data.sub$Normal_file[which(data.sub$classification == j)]) / n
     out = data.frame(ancestry = i,
                      category = j,
-                     fraction = fraction)
+                     fraction = fraction,
+                     n = n)
     Ancestry_out = rbind(Ancestry_out, out)
   }
 }
 
 Ancestry_out = Ancestry_out[!is.na(Ancestry_out$category), ]
+Ancestry_out = Ancestry_out[!Ancestry_out$ancestry %in% 'ADMIX_OTHER', ]
+Ancestry_out$ancestry = paste0(Ancestry_out$ancestry, ' (n=', Ancestry_out$n, ')')
 loss = Ancestry_out[which(Ancestry_out$category %in% c('complete_loss')), ]
 loss = loss[order(loss$fraction), ]
 Ancestry_out$ancestry = factor(Ancestry_out$ancestry, levels = rev(loss$ancestry))
@@ -479,11 +478,14 @@ Ancestry_LOY = ggplot(Ancestry_out,
                      breaks = seq(0, 1, 0.2)) +
   theme_std(base_size = 14, base_line_size = 1) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = '', y = 'Fraction of samples\n(n=14,322)')
+  labs(x = '', y = paste0('Fraction of samples\n(n=', sum(unique(Ancestry_out$n)),')'))
 
-Ancestry_LOY
 
-ggsave(filename = 'Figures_original/Fraction_LOY_Ancestry.pdf', plot = AncestryYloss, device = 'pdf', width = 8)
+ggsave(filename = 'Figures_original/Fraction_LOY_Ancestry.pdf', plot = Ancestry_LOY, device = 'pdf', width = 8)
+
+
+## lm model if there is an difference among the groups
+
 
 
 ##----------------+
@@ -495,10 +497,12 @@ ggsave(filename = 'Figures_original/Fraction_LOY_Ancestry.pdf', plot = AncestryY
 # test = read.csv('Data/04_Loss/IMPACT_copynumber_out.txt', sep = '\t')
 
 
+
 ##-----------------
 ## Association with age;
 ##-----------------
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
 cohort$Y_call = ifelse(cohort$classification %in% c('partial_loss', 'relative_loss', 'complete_loss'), 'LOY', 'nonLOY')
 impact = cohort
 impact$Age_Sequencing = as.integer(impact$Age_Sequencing)
@@ -534,6 +538,8 @@ for(i in seq(15, 90, 5)){
 
 Loss_age$group_plot = paste0(Loss_age$group - 4, '-', Loss_age$group)
 Loss_age$group = factor(Loss_age$group, levels = Loss_age$group)
+Loss_age = Loss_age[-1, ]
+Loss_age$group_plot[1] = '18-20'
 
 ##----------------+ 
 ## Visualization;
