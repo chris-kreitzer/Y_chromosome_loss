@@ -365,6 +365,51 @@ XX = (AA+BB) / (CC+DD)
 ggsave_golden(filename = 'Figures_original/Cohort_Incidences_combined.pdf', plot = XX, width = 21)
 
 
+##----------------+
+## TCGA to MSK cohort comparison
+##----------------+
+TCGA_MSK = read.csv('Data/04_Loss/TCGA_MSK_LOYrates.txt', sep = '\t')
+TCGA_MSK$Fraction_LOY = gsub(pattern = ',', replacement = '\\.', x = TCGA_MSK$Fraction_LOY)
+TCGA_MSK$Fraction_LOY.1 = gsub(pattern = ',', replacement = '\\.', x = TCGA_MSK$Fraction_LOY.1)
+TCGA_MSK$Fraction_LOY = as.numeric(as.character(TCGA_MSK$Fraction_LOY))
+TCGA_MSK$Fraction_LOY.1 = as.numeric(as.character(TCGA_MSK$Fraction_LOY.1))
+TCGA_MSK$name = paste0(TCGA_MSK$TCGA_Abb, ' - ', TCGA_MSK$TumorType_MSKCC, ' (n=', TCGA_MSK$n.1, ')')
+comparison_plot = ggplot(TCGA_MSK,
+                         aes(x = Fraction_LOY.1,
+                             y = Fraction_LOY,
+                             color = name, 
+                             size = n)) +
+  geom_point() +
+  geom_abline(slope = 1, 
+              intercept = 0,
+              linetype = 'dashed',
+              linewidth = 0.35,
+              color = 'grey35') +
+  scale_y_continuous(expand = c(0.01, 0.01),
+                     limits = c(0, 1)) +
+  scale_x_continuous(expand = c(0.01, 0.01),
+                     limits = c(0, 1)) +
+  scale_size_continuous(breaks = c(50, 100, 300, 500), range = c(1,8)) +
+  theme_std(base_size = 14, base_line_size = 0.5) +
+  annotate('text',
+           x = 0.10,
+           y = 0.9,
+           label = paste0('r = ', round(cor.test(TCGA_MSK$Fraction_LOY, TCGA_MSK$Fraction_LOY.1)[[4]][[1]], 2), 
+                          '\np = ', round(cor.test(TCGA_MSK$Fraction_LOY, TCGA_MSK$Fraction_LOY.1)$p.value, 10)),
+           hjust = 0, 
+           vjust = 0,
+           family = 'ArialMT',
+           size = 6) +
+  theme(aspect.ratio = 1,
+        panel.border = element_rect(fill = NA, linewidth = 2),
+        panel.background = element_rect(fill = 'white')) +
+  labs(x = 'Fraction LOY MSKCC',
+       y = 'Fraction LOY TCGA',
+       color = 'TCGA Abbrevation - MSKCC Cancer type',
+       size = 'Sample size: TCGA study')
+
+ggsave_golden(filename = 'Figures_original/TCGA_MSK_LOY_comparison.pdf', plot = comparison_plot, width = 12)
+
 
 
 
@@ -381,6 +426,7 @@ ggsave_golden(filename = 'Figures_original/Cohort_Incidences_combined.pdf', plot
 
 Ancestry = read.csv('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/admixture_results.50k.2021-09-14.txt', sep = '\t')
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
 Ancestry_short = merge(cohort[,c('Normal_file', 'classification')], Ancestry[,c('Sample', 'ancestry_label')],
                        by.x = 'Normal_file', by.y = 'Sample', all.x = T)
 Ancestry_short = Ancestry_short[!is.na(Ancestry_short$ancestry_label), ]
