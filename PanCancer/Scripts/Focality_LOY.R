@@ -15,6 +15,8 @@
 ##
 ## start: 11/07/2022
 ## revision: 01/13/2023
+## revision: 02/02/2023
+## 
 ## chris-kreitzer
 
 
@@ -22,9 +24,9 @@ clean()
 gc()
 .rs.restartR()
 setwd('~/Documents/MSKCC/10_MasterThesis/')
-source('Scripts/UtilityFunctions.R')
-source('Scripts/plot_theme.R')
+source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
 library(patchwork)
+
 
 
 ##----------------+
@@ -32,7 +34,9 @@ library(patchwork)
 ## QC TRUE and FALSE
 ##----------------+
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
 CopyNumberData = read.csv('Data/04_Loss/010523/CopyNumberStates.txt', sep = '\t')
+CopyNumberData = CopyNumberData[which(CopyNumberData$id %in% cohort$SAMPLE_ID), ]
 Categorical_Classification = read.csv('Data/04_Loss/010523/Categorial_Classification_Y.txt', sep = '\t')
 CopyLOY = CopyNumberData[which(CopyNumberData$chrom == 24), ]
 segments_table = table(CopyLOY$id)
@@ -46,16 +50,20 @@ multi_segments = names(segments_table[which(segments_table > 1)])
 Barchart_all = data.frame(x = 1,
                           value = c(length(unique(mono_segments)),
                                     length(unique(multi_segments))),
-                          category = c('1-segment',
-                                       'multi-segments'))
-Barchart_all$category = factor(Barchart_all$category, levels = c('multi-segments', '1-segment'))
+                          category = c('whole-chromosome event',
+                                       'chromosome-arm imbalance'))
+Barchart_all$category = factor(Barchart_all$category, levels = c('chromosome-arm imbalance', 'whole-chromosome event'))
 n = sum(Barchart_all$value)
 
-n_segment_plot = ggplot(Barchart_all, aes(x = x, y = value/n, fill = category, label = paste0((round(value/n* 100, 1)), '%'))) +
+n_segment_plot = ggplot(Barchart_all, 
+                        aes(x = x, 
+                            y = value/n, 
+                            fill = category, 
+                            label = paste0((round(value/n* 100, 1)), '%'))) +
   geom_bar(stat = 'identity', position = 'fill') +
   geom_text(size = 3, position = position_stack(vjust = 0.5), fontface = 'bold') +
-  scale_fill_manual(values = c('1-segment' = '#D7D8DA',
-                               'multi-segments' = '#d0664b'),
+  scale_fill_manual(values = c('whole-chromosome event' = '#D7D8DA',
+                               'chromosome-arm imbalance' = '#d0664b'),
                                name = '') +
   scale_y_continuous(expand = c(0,0),
                      breaks = seq(0, 1, 0.2)) +
@@ -67,27 +75,34 @@ n_segment_plot = ggplot(Barchart_all, aes(x = x, y = value/n, fill = category, l
     labs(x = '', y = paste0('Fraction of samples\n(n=', n, ')'))
 
 
+n_segment_plot
+
 ##-------
-## multi;
+## chromosome-arm imbalance
 ##-------
 multi_cohort = Categorical_Classification[which(Categorical_Classification$sample %in% multi_segments), ]
+multi_cohort$classification[which(multi_cohort$classification == 'complete_loss')] = 'other'
+multi_cohort$classification[which(multi_cohort$classification == 'relative_loss')] = 'other'
+multi_cohort$classification[which(multi_cohort$classification == 'gain')] = 'other'
+multi_cohort$classification[which(multi_cohort$classification == 'wt')] = 'other'
 Barchart_multi = as.data.frame(table(multi_cohort$classification))
 colnames(Barchart_multi) = c('category', 'value')
 Barchart_multi$x = 1
 n_new = sum(Barchart_multi$value)
+Barchart_multi$category = factor(x = Barchart_multi$category, levels = rev(c('partial_loss', 'partial_gain',
+                                                                         'gain_loss', 'other')))
 
-multi_segment_plot = ggplot(Barchart_multi, aes(x = x, y = value/n_new, 
-                           fill = category, 
-                           label = paste0((round(value/n_new* 100, 1)), '%'))) +
+multi_segment_plot = ggplot(Barchart_multi, 
+                            aes(x = x, 
+                                y = value/n_new, 
+                                fill = category, 
+                                label = paste0((round(value/n_new* 100, 1)), '%'))) +
   geom_bar(stat = 'identity', position = 'fill') +
   geom_text(size = 3, position = position_stack(vjust = 0.5), fontface = 'bold') +
-  scale_fill_manual(values = c('wt' = '#D7D8DA',
-                               'complete_loss' = '#0E3F7C',
-                               'partial_loss' = '#00AEC8',
-                               'relative_loss' = '#474089',
-                               'gain' = '#D53833',
-                               'partial_gain' = '#E3CC98',
-                               'gain_loss' = '#f9f8d5'),
+  scale_fill_manual(values = c('other' = '#D7D8DA',
+                               'partial_loss' = '#0E3F7C',
+                               'partial_gain' = '#D53833',
+                               'gain_loss' = '#E3CC98'),
                     name = '') +
   scale_y_continuous(expand = c(0,0),
                      breaks = seq(0, 1, 0.2)) +
@@ -99,6 +114,8 @@ multi_segment_plot = ggplot(Barchart_multi, aes(x = x, y = value/n_new,
   labs(x = '', y = paste0('Fraction of samples\n(n=', n_new, ')'))
 
 
+multi_segment_plot
+
 
 ##-------
 ## multi and
@@ -108,23 +125,36 @@ multi_segment_plot = ggplot(Barchart_multi, aes(x = x, y = value/n_new,
 ##-------
 multi_gain_loss = Categorical_Classification$sample[which(Categorical_Classification$sample %in% multi_segments & Categorical_Classification$classification == 'gain_loss')]
 multi_gain_loss = CopyNumberData[which(CopyNumberData$id %in% multi_gain_loss & CopyNumberData$chrom == 24), c('start', 'end', 'tcn.em', 'id', 'QC')]
-Yp_start = 1
-Centromere = 14000000
+
+Yp_start = 2654800
+Centromere = 10500000
 length_p = Centromere - Yp_start
+Yq_start = 14000000
+Y_end = 28000000
+
+
 multi_gain_loss$arm = NA
 
 for(i in 1:nrow(multi_gain_loss)){
   print(i)
   vec = multi_gain_loss$start[i]:multi_gain_loss$end[i]
   length_vec = length(vec)
-  coverage = sum(vec > Yp_start & vec < Centromere) / length_vec
-  multi_gain_loss$arm[i] = ifelse(coverage > 0.75, 'Yp', 'Yq')
+  coverage_Yp = sum(vec > Yp_start & vec < Centromere) / length_vec
+  coverage_Yq = sum(vec > Yq_start & vec < Y_end) / length_vec
+  arm = ifelse((coverage_Yp - coverage_Yq) > 0.1, 'Yp', 'Yq')
+  multi_gain_loss$arm[i] = arm
 }
+multi_gain_loss$length = multi_gain_loss$end - multi_gain_loss$start
 
-gain_loss = data.frame(x = 'gain_loss',
+gain_loss = data.frame(x = c('gain', 'gain', 'loss', 'loss'),
                        value = c(length(multi_gain_loss$id[which(multi_gain_loss$tcn.em > 0 & multi_gain_loss$arm == 'Yp')]),
-                                 length(multi_gain_loss$id[which(multi_gain_loss$tcn.em > 0 & multi_gain_loss$arm == 'Yq')])),
-                       category = c('Yp', 'Yq'))
+                                 length(multi_gain_loss$id[which(multi_gain_loss$tcn.em > 0 & multi_gain_loss$arm == 'Yq')]),
+                                 length(multi_gain_loss$id[which(multi_gain_loss$tcn.em == 0 & multi_gain_loss$arm == 'Yp')]),
+                                 length(multi_gain_loss$id[which(multi_gain_loss$tcn.em == 0 & multi_gain_loss$arm == 'Yq')])),
+                       category = c('Yp', 'Yq', 'Yp', 'Yq'),
+                       family = 'gain_loss')
+
+
 
 ##-------
 ## partial_gain
@@ -138,14 +168,19 @@ for(i in 1:nrow(partial_gain)){
   print(i)
   vec = partial_gain$start[i]:partial_gain$end[i]
   length_vec = length(vec)
-  coverage = sum(vec > Yp_start & vec < Centromere) / length_vec
-  partial_gain$arm[i] = ifelse(coverage > 0.75, 'Yp', 'Yq')
+  coverage_Yp = sum(vec > Yp_start & vec < Centromere) / length_vec
+  coverage_Yq = sum(vec > Yq_start & vec < Y_end) / length_vec
+  arm = ifelse((coverage_Yp - coverage_Yq) > 0.1, 'Yp', 'Yq')
+  partial_gain$arm[i] = arm
 }
-
-partial_gain_df = data.frame(x = 'partial_gain',
+partial_gain$length = partial_gain$end - partial_gain$start
+partial_gain_df = data.frame(x = c('gain', 'gain', 'wt', 'wt'),
                           value = c(length(partial_gain$id[which(partial_gain$tcn.em > partial_gain$Y_expected & partial_gain$arm == 'Yp')]),
-                                 length(partial_gain$id[which(partial_gain$tcn.em > partial_gain$Y_expected & partial_gain$arm == 'Yq')])),
-                       category = c('Yp', 'Yq'))
+                                 length(partial_gain$id[which(partial_gain$tcn.em > partial_gain$Y_expected & partial_gain$arm == 'Yq')]),
+                                 length(partial_gain$id[which(partial_gain$tcn.em == partial_gain$Y_expected & partial_gain$arm == 'Yp')]),
+                                 length(partial_gain$id[which(partial_gain$tcn.em == partial_gain$Y_expected & partial_gain$arm == 'Yq')])),
+                       category = c('Yp', 'Yq', 'Yp', 'Yq'),
+                       family = 'partial_gain')
 
 
 ##-------
@@ -160,29 +195,41 @@ for(i in 1:nrow(partial_loss)){
   print(i)
   vec = partial_loss$start[i]:partial_loss$end[i]
   length_vec = length(vec)
-  coverage = sum(vec > Yp_start & vec < Centromere) / length_vec
-  partial_loss$arm[i] = ifelse(coverage > 0.75, 'Yp', 'Yq')
+  coverage_Yp = sum(vec > Yp_start & vec < Centromere) / length_vec
+  coverage_Yq = sum(vec > Yq_start & vec < Y_end) / length_vec
+  arm = ifelse((coverage_Yp - coverage_Yq) > 0.1, 'Yp', 'Yq')
+  partial_loss$arm[i] = arm
 }
+partial_loss$length = partial_loss$end - partial_loss$start
 
-partial_loss_df = data.frame(x = 'partial_loss',
+partial_loss_df = data.frame(x = c('loss', 'loss', 'wt', 'wt'),
                              value = c(length(partial_loss$id[which(partial_loss$tcn.em < partial_loss$Y_expected & partial_loss$arm == 'Yp')]),
-                                       length(partial_loss$id[which(partial_loss$tcn.em < partial_loss$Y_expected & partial_loss$arm == 'Yq')])),
-                             category = c('Yp', 'Yq'))
+                                       length(partial_loss$id[which(partial_loss$tcn.em < partial_loss$Y_expected & partial_loss$arm == 'Yq')]),
+                                       length(partial_loss$id[which(partial_loss$tcn.em == partial_loss$Y_expected & partial_loss$arm == 'Yp')]),
+                                       length(partial_loss$id[which(partial_loss$tcn.em == partial_loss$Y_expected & partial_loss$arm == 'Yq')])),
+                             category = c('Yp', 'Yq', 'Yp', 'Yq'),
+                             family = 'partial_loss')
 
 
 Focality_out = rbind(gain_loss, partial_gain_df, partial_loss_df)
+colnames(Focality_out) = c('Event', 'value', 'arm', 'category')
+write.table(x = Focality_out, file = 'Data/04_Loss/Focality_summary.txt', sep = '\t', row.names = F, quote = F)
+
+
 
 
 ##----------------+
 ## Visualization
 ##----------------+
 n_new = length(unique(multi_segments))
-Focality_plot = ggplot(Focality_out, aes(x = x, 
-                         y = value/n_new, 
-                         fill = category)) +
-                         #label = paste0((round(value/n_new* 100, 1)), '%'))) +
+Focality_plot_df = Focality_out[c(1:2, 5:6, 9:10), ]
+
+Focality_plot = ggplot(Focality_plot_df, 
+                       aes(x = category,
+                           y = value/n_new, 
+                           fill = arm,
+                           label = paste0((round(value/n_new* 100, 1)), '%'))) +
   geom_bar(stat = 'identity', position = 'fill') +
-  #geom_hline(yintercept = seq(0, 1, 0.2), linewidth = 0.25, color = 'white', linetype = 'dashed') +
   scale_fill_manual(values = c('Yp' = '#D7D8DA',
                                'Yq' = '#d0664b'),
                     name = '') +
@@ -195,12 +242,24 @@ Focality_plot = ggplot(Focality_out, aes(x = x,
   labs(x = '', y = paste0('Fraction of samples\n(n=', n_new, ')'))
 
 
+
 ##-------
 ## combine + out
 ##-------
 plot_grid = cowplot::plot_grid(plotlist = list(n_segment_plot, multi_segment_plot, Focality_plot), nrow = 1, ncol = 3,
                    align = 'h')
-ggsave_golden(filename = 'Figures_original/Focality_LOY.pdf', plot = plot_grid, width = 14)
+ggsave_golden(filename = 'Figures_original/Focality_chromarm_imbalance.pdf', plot = plot_grid, width = 16)
+
+
+##----------------+
+## prepare data for GISTIC
+## analysis; n = 337
+##----------------+
+MSK_IGV = read.csv('Data/04_Loss/010523/IGV_out.seg', sep = '\t')
+MSK_IGV = MSK_IGV[which(MSK_IGV$ID %in% multi_segments), ]
+write.table(x = MSK_IGV, file = 'Data/04_Loss/SegmentsForGistic.seg', sep = '\t', row.names = F, quote = F)
+
+
 
 
 
