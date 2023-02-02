@@ -1,7 +1,11 @@
-## Visualizatoin of segmentation data
-## 'IGV-like' plot; see Figure Figure 3A from PMID: 35705560
-##
+##----------------+
+## Visualization of segmentation data;
+## similar to IGV; see Figure 3A
+## from PMID: 35705560 as an example
+##----------------+
 ## start: 11/09/2022
+## revision: 02/02/23
+## 
 ## chris-kreitzer
 ##
 ## bug report to: kreitzec@mskcc.org
