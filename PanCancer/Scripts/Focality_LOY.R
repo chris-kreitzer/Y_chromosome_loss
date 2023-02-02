@@ -26,6 +26,7 @@ gc()
 setwd('~/Documents/MSKCC/10_MasterThesis/')
 source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
 library(patchwork)
+library(cowplot)
 
 
 
@@ -264,17 +265,21 @@ write.table(x = MSK_IGV, file = 'Data/04_Loss/SegmentsForGistic.seg', sep = '\t'
 
 
 ##----------------+
-## GISTIC on double segments
+## GISTIC on samples
+## with chromosomal-arm 
+## imbalances
 ##----------------+
-##-------
 ## Modify GISTIC
 ## output; to be plotted
 ##-------
 gene.lookup = read.csv('Data/01_Coverage_Depth/BAM_quality_out.txt', sep = '\t')
 gene.lookup = unique(gene.lookup$gene)
+gene.lookup = gene.lookup[!gene.lookup %in% c('PCDH11Y', 'FAM197Y1', 'CHEK2P1')]
 
-all_output_files = list.files(path = 'Data/04_Loss/GISTIC_results/', full.names = T)
+
+all_output_files = list.files(path = 'Data/04_Loss/GISTIC_020223//', full.names = T)
 all_data_genes = read.csv(file = grep('.thresholded.by_gene.*', all_output_files, value = T), sep = '\t')
+
 
 ## fetch genes from chromosome Y
 sample_gene.lookup = all_data_genes[all_data_genes$Gene.Symbol %in% as.character(gene.lookup),, drop = F]
@@ -284,6 +289,8 @@ sample_gene.lookup = droplevels(sample_gene.lookup[-c(1,2,3),, drop = F])
 sample_gene.lookup$ID = row.names(sample_gene.lookup)
 rownames(sample_gene.lookup) = NULL
 sample_gene.lookup[1:12] = lapply(sample_gene.lookup[1:12], str_trim) 
+sample_gene.lookup[sample_gene.lookup == '-2'] = '-1'
+sample_gene.lookup[sample_gene.lookup == '2'] = 1
 
 all_genes = data.frame()
 for(i in (1:(length(sample_gene.lookup) - 1))){
@@ -303,8 +310,6 @@ fn = factor(xx$gene, levels = xx$gene)
 all_genes$gene = factor(all_genes$gene, levels = levels(fn))
 
 all_genes$Category = as.character(all_genes$Category)
-all_genes$Category = ifelse(all_genes$Category == '2', '1',
-                            ifelse(all_genes$Category == '-2', '-1', all_genes$Category))
 all_genes$Category = factor(all_genes$Category, levels = rev(c('-1', '0', '1')))
 
 
@@ -325,8 +330,8 @@ Genes_GISTIC = ggplot(all_genes,
   theme_std(base_size = 14, base_line_size = 1) +
   labs(x = '', y = 'Fraction')
 
-
 ggsave_golden(filename = 'Figures_original/Genes_GISTIC_alterations.pdf', plot = Genes_GISTIC, width = 6)
+
 
 ## all_lesions.conf.XX
 all_lesions = read.csv(file = grep('.lesions.conf.*', all_output_files, value = T), sep = '\t')
@@ -356,7 +361,7 @@ plot_Gscores_Gistic = ggplot() +
   geom_path(data = subset(gistic, gistic$Type == 'Del'), aes(x = Start, y = G.score), lineend = 'butt', linejoin = 'round', 
             linemitre = 50, linetype = 'solid', linewidth = 1.5, col = 'blue') +
   scale_x_continuous(expand = c(0,0)) +
-  scale_y_continuous(expand = c(0,0), limits = c(0, 0.8)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0, 1)) +
   theme(aspect.ratio = 3, axis.text.x = element_blank()) +
   labs(x = '', y = 'G score') +
   
@@ -370,6 +375,6 @@ plot_Gscores_Gistic = ggplot() +
   panel_border(color = 'black')
 
 plot_Gscores_Gistic
-ggsave_golden(filename = 'Figures_original/GISTIC_scores_Y.pdf', plot = plot_Gscores_Gistic, width = 16)
+ggsave_golden(filename = 'Figures_original/GISTIC_scores_Y.pdf', plot = plot_Gscores_Gistic, width = 17)
 
 #' out
