@@ -6,7 +6,7 @@
 ## AND
 ## 
 ## ##----------------+
-## run GISTIC on n=546 samples
+## run GISTIC on n=337 samples
 ## where we have multiple segments
 ## from the Y-chromosome;
 ## determine whether there is any
@@ -46,7 +46,7 @@ multi_segments = names(segments_table[which(segments_table > 1)])
 
 
 ##-------
-## All;
+## All; chromosomal arm imbalanced cases
 ##-------
 Barchart_all = data.frame(x = 1,
                           value = c(length(unique(mono_segments)),
