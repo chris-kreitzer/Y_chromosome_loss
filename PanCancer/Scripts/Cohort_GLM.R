@@ -1,12 +1,14 @@
 ##----------------+
-## Run GLM model on whole (male) cohort;
-## Which variables influence the LOY probability
+## Run GLM model on MSK-IMPACT cohort
+## Which variables influence the LOY 
 ##----------------+
 ## start: 11/2021
 ## revision: 12/2021
 ## revision: 11/18/2022
 ## revision: 11/21/2022
 ## revision: 01/13/2023
+## revision: 02/03/23
+## 
 ## chris-kreitzer
 
 
@@ -24,6 +26,7 @@ library(rcompanion)
 library(ggplot2)
 library(cowplot)
 
+
 ##-------
 ## TODO:
 ## - QC TRUE and FALSE samples
@@ -31,6 +34,7 @@ library(cowplot)
 
 
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
 
 cohort$classification[which(cohort$classification %in% c('complete_loss', 'relative_loss', 'partial_loss'))] = 1
 cohort$classification[which(cohort$classification %in% c('gain', 'wt', 'partial_gain'))] = 0
@@ -42,8 +46,9 @@ cohort = cohort[!is.na(cohort$classification), ]
 # cohort$classification[which(cohort$sample == 'P-0028409-T01-IM6')] = 1
 # cohort$classification[which(cohort$sample == 'P-0064933-T02-IM7')] = 0
 
-clinical_glm = cohort[,c('SAMPLE_ID', 'ploidy', 'classification', 'purity', 'CANCER_TYPE', 'MSI_TYPE',
+clinical_glm = cohort[,c('SAMPLE_ID', 'classification', 'purity', 'CANCER_TYPE', 'MSI_TYPE',
                          'Age_Sequencing', 'SAMPLE_TYPE', 'genome_doubled', 'fraction_cna')]
+
 
 #' only work with cancer types whose frequency is > 1% in the whole cohort (n = 12,405)
 #' also modify the data frame columns, so that they are properly encoded
@@ -66,7 +71,7 @@ clinical_glm$MSI_TYPE = factor(clinical_glm$MSI_TYPE, levels = c('Stable', 'Inst
 glm_model = clinical_glm[, -which(names(clinical_glm) == "CANCER_TYPE")]
 glm_model = glm_model[!is.na(glm_model$purity), ]
 glm_model$classification = as.integer(as.character(glm_model$classification))
-model_full = glm(classification ~ ploidy+purity+MSI_TYPE+Age_Sequencing+SAMPLE_TYPE+genome_doubled+fraction_cna, data = glm_model, family = binomial)
+model_full = glm(classification ~ purity+MSI_TYPE+Age_Sequencing+SAMPLE_TYPE+genome_doubled+fraction_cna, data = glm_model, family = binomial)
 summary(model_full)
 
 #' check for multicollinearity with car::vif()
