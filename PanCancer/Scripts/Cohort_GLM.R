@@ -46,7 +46,7 @@ cohort = cohort[!is.na(cohort$classification), ]
 # cohort$classification[which(cohort$sample == 'P-0028409-T01-IM6')] = 1
 # cohort$classification[which(cohort$sample == 'P-0064933-T02-IM7')] = 0
 
-clinical_glm = cohort[,c('SAMPLE_ID', 'classification', 'purity', 'CANCER_TYPE', 'MSI_TYPE',
+clinical_glm = cohort[,c('SAMPLE_ID', 'classification','ploidy', 'purity', 'CANCER_TYPE', 'MSI_TYPE',
                          'Age_Sequencing', 'SAMPLE_TYPE', 'genome_doubled', 'fraction_cna')]
 
 
@@ -69,7 +69,7 @@ clinical_glm$genome_doubled = as.integer(clinical_glm$genome_doubled)
 glm_model = clinical_glm[, -which(names(clinical_glm) == "CANCER_TYPE")]
 glm_model = glm_model[!is.na(glm_model$purity), ]
 glm_model$classification = as.integer(as.character(glm_model$classification))
-model_full = glm(classification ~ purity + MSI_TYPE + Age_Sequencing + SAMPLE_TYPE + genome_doubled + fraction_cna, data = glm_model, family = binomial)
+model_full = glm(classification ~ ploidy+purity + MSI_TYPE + Age_Sequencing + SAMPLE_TYPE + genome_doubled + fraction_cna, data = glm_model, family = binomial)
 summary(model_full)
 
 #' check for multicollinearity with car::vif()
@@ -85,6 +85,8 @@ model.vif$Test = model.vif$`GVIF^(1/(2*Df))` ^ 2
 # glm_model = glm_model[,-which(names(glm_model) == 'Mut_Count')]
 # glm_model = glm_model[,-which(names(glm_model) == 'MSI_SCORE')]
 glm_model = glm_model[,-which(names(glm_model) == 'SAMPLE_ID')]
+glm_model$genome_doubled = NULL
+
 model_final = glm(classification ~., data = glm_model, family = binomial(link = 'logit'))
 car::vif(model_final)
 summary(model_final)
@@ -113,7 +115,7 @@ model.vars = model.vars[model.vars$adjusted < 0.05, ]
 model.vars = model.vars[which(model.vars$rn != '(Intercept)'), ]
 model.vars = model.vars[which(model.vars$rn != 'MSI_TYPEIndeterminate'), ]
 model.vars = model.vars[which(model.vars$rn != 'MSI_TYPEDo not report'), ]
-model.vars$rn = c('FGA', 'Purity', 'WGD', 'Age', 'MSI')
+model.vars$rn = c('FGA', 'Purity', 'Ploidy', 'Age', 'MSI')
 
 #' Visualization
 cohort_glm_plot = ggplot(data = model.vars, 
@@ -127,69 +129,19 @@ cohort_glm_plot = ggplot(data = model.vars,
   theme(panel.background = element_blank(),
         panel.border = element_rect(fill = NA, size = 1),
         aspect.ratio = 1,
-        axis.title.x.top = element_blank()) +
-  geom_hline(yintercept = 0) +
+        axis.title.x.top = element_blank(),
+        axis.line = element_blank()) +
+  geom_hline(yintercept = 0, linetype = 'dashed') +
   scale_y_continuous(sec.axis = dup_axis(),
                      limits = c(-2,3.5)) +
-  labs(x = '', y = 'log(odds ratio)')
+  labs(x = '', y = 'log(odds ratio)') +
+  panel_border(size = 2, color = 'black')
 
-
+write.table(x = model.vars, file = 'Data/05_Mutation/Cohort_GLM.txt', sep = '\t', row.names = F)
 ggsave_golden(filename = 'Figures_original/Cohort_GLM_all.pdf', plot = cohort_glm_plot, width = 6)
 
 
 
-##----------------+
-## Investigate the purity
-## category; what there
-##----------------+
-
-## Hypothesis:
-#' The lower the purity, 
-#' the less likely we observe 
-#' a Y-chromosome loss call. 
-library(dplyr)
-
-purity_out = data.frame()
-for(i in seq(0, 0.9, by = 0.1)){
-  try({
-    da = clinical_glm[dplyr::between(x = clinical_glm$purity, left = i, right = i+0.1), ]
-    if(all(da$classification %in% c('0', '1'))){
-      frac = (table(da$classification)[[2]] / sum(table(da$classification))) *100
-      print(frac)
-      out = data.frame(group = i,
-                       n = nrow(da),
-                       frac = frac,
-                       average_age = mean(da$Age_Sequencing, na.rm = T))
-    } else {
-      frac = NA
-      out = data.frame(group = i,
-                       n = nrow(da),
-                       frac = frac,
-                       average_age = mean(da$Age_Sequencing, na.rm = T))
-    }
-    purity_out = rbind(purity_out, out)
-  })
-}
-
-purity_out$group = as.factor(as.numeric(purity_out$group))
-
-#' Visualization
-n.purity = ggplot(purity_out, aes(x = group, y = n)) +
-  geom_bar(stat = 'identity', width = 0.8) +
-  labs(x = '', y = 'cases (n)') + 
-  theme_std(base_size = 14) +
-  theme(axis.text.x = element_blank())
-frac.purity = ggplot(purity_out, aes(x = group, y = frac)) +
-  geom_bar(stat = 'identity', width = 0.8) +
-  scale_x_discrete(labels = c('[0-0.1]', '[0.1-0.2]', '[0.2-0.3]', '[0.3-0.4]', '[0.4-0.5]',
-                              '[0.5-0.6]', '[0.6-0.7]', '[0.7-0.8]', '[0.8-0.9]', '[0.9-1]')) +
-  scale_y_continuous(limits = c(0, 50)) +
-  labs(x = 'purity-group', y = 'Y-chromosome loss [%]') +
-  theme_std(base_size = 14) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-purity_clinical_glm = n.purity / frac.purity
-ggsave_golden('Figures_original/Purity_cases_LOY.pdf', plot = purity_clinical_glm, width = 7)
 
 
 #' out

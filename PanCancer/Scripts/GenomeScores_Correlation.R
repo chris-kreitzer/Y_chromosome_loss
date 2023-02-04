@@ -38,11 +38,8 @@ source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.
 ## - define cancer types to include
 ## - work on QC TRUE samples
 ##----------------+
-
-
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 cohort = cohort[which(cohort$Study_include == 'yes'), ]
-
 
 ##----------------+
 ## purity distribution
@@ -108,14 +105,14 @@ for(i in unique(cohort$CANCER_TYPE)){
 purity_out = purity_out[which(purity_out$cancer %in% ctypes_keep), ]
 purity_summary = purity_out[,c('cancer', 'n', 'median_value')]
 purity_summary = unique(purity_summary)
-# purity_summary$cancer = gsub("\\s*\\([^\\)]+\\)", "", purity_summary$cancer)
 purity_summary = purity_summary[order(purity_summary$median_value, decreasing = F), ]
-fn = factor(unique(purity_summary$cancer), levels = purity_summary$cancer)
+fn = factor(purity_summary$cancer, levels = purity_summary$cancer)
 
 ##-------
 ## Visualization
 ##-------
-Purity.plot = ggplot(purity_out, aes(x = reorder(cancer, median_value), y = value)) +
+Purity.plot = ggplot(purity_out, 
+                     aes(x = reorder(cancer, median_value), y = value)) +
   geom_quasirandom(dodge.width = 0.6, cex = 1, nbins = 50, alpha = 0.5) +
   stat_summary(fun = median, 
                geom = "errorbar", 
@@ -140,11 +137,9 @@ Purity.plot
 ##-------
 ## Add info for LOY
 ##-------
-cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
-cohort = cohort[which(cohort$Study_include == 'yes'), ]
-
 fLOY = data.frame()
 for(i in unique(cohort$CANCER_TYPE)){
+  print(i)
   cancer = i
   #cancer = gsub("\\s*\\([^\\)]+\\)", "", i)
   data.sub = cohort[which(cohort$CANCER_TYPE == i), ]
@@ -152,14 +147,16 @@ for(i in unique(cohort$CANCER_TYPE)){
   n_loss = length(data.sub$SAMPLE_ID[which(data.sub$classification %in% c('complete_loss', 'partial_loss', 'relative_loss'))])
   out = data.frame(cancer = cancer,
                    n = n,
-                   value = n_loss / n * 100)
+                   value = (n_loss / n) * 100)
   fLOY = rbind(fLOY, out)
   rm(data.sub)
 }
 
+fLOY = fLOY[which(fLOY$cancer %in% ctypes_keep), ]
 fLOY$cancer = factor(fLOY$cancer, levels = levels(fn))
 
-fLOY_plot = ggplot(fLOY, aes(x = cancer, y = value)) +
+fLOY_plot = ggplot(fLOY, 
+                   aes(x = cancer, y = value)) +
   geom_bar(stat = 'identity', fill = 'black', color = 'black') +
   geom_hline(yintercept = seq(0, 100, 25), linewidth = 0.25, color = 'grey55', linetype = 'dashed') +
   scale_y_continuous(expand = c(0, 0)) +
@@ -170,6 +167,33 @@ fLOY_plot = ggplot(fLOY, aes(x = cancer, y = value)) +
 
 purity_fLOY = fLOY_plot / Purity.plot
 ggsave_golden(filename = 'Figures_original/Purity_fractionLOY_cancer.pdf', plot = purity_fLOY, width = 12)
+
+
+##----------------+
+## correlation LOY and purity
+##----------------+
+purity_loy = merge(purity_summary, fLOY, by = 'cancer', all.x = T)
+colnames(purity_loy) = c('cancer', 'n_purity', 'median_purity', 'n_loy', 'median_loy')
+
+mpurity_mloy = ggplot(purity_loy, aes(x = median_purity,
+                       y = median_loy,
+                       label = cancer)) +
+  geom_jitter() +
+  geom_text_repel(size = 1.5) +
+  scale_x_continuous(limits = c(0, 1), 
+                     expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 100),
+                     expand = c(0,0)) +
+  geom_abline(intercept = 100, slope = -100, linetype = 'dashed', linewidth = 0.35, color = 'darkgrey') +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 1) +
+  panel_border(color = 'black', size = 1.5) +
+  labs(x = 'median purity', y = 'median LOY') +
+  annotate(geom = 'text', x = 0.85, y = 85, label = expression(paste(rho, ' = -0.49')), size = 6)
+
+ggsave_golden(filename = 'Figures_original/Purity_LOY_correlation.pdf', plot = mpurity_mloy, width = 8)
+
+
 
 
 ##----------------+
@@ -217,6 +241,7 @@ clean()
 gc()
 .rs.restartR()
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
 
 genome_scores = data.frame()
 for(i in unique(cohort$CANCER_TYPE)){
@@ -248,17 +273,26 @@ Aneuploidy_correlation = ggplot(genome_scores,
                                 aes(x = fraction_LOY, 
                                     y = Aneuploidy_score)) +
   geom_point(data = genome_scores, aes(size = n), shape = 20) +
-  scale_size(breaks = c(100, 500, 1000, 3000), range = c(0, 8),
+  scale_size(breaks = c(100, 500, 1000, 1500), range = c(0, 8),
              labels = c(100, 500, 1000, '>1500')) +
-  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_x_continuous(expand = c(0.01, 0), 
+                     limits = c(0, 80)) +
   geom_text_repel(aes(label = CancerType), 
-                  size = as_points(8), point.padding = as_points(1)) +
+                  size = as_points(7), 
+                  point.padding = as_points(1)) +
   stat_smooth(method = lm)  +
-  theme_std(base_size = 14, base_line_size = 1) + 
-  theme(aspect.ratio = 1) +
-  labs(y = 'Average # of chr. arms gained & lost', x = 'Fraction LOY', size = 'n patients')
+  theme_std(base_size = 14, base_line_size = .5) + 
+  theme(aspect.ratio = 1,
+        axis.line = element_blank()) +
+  labs(y = 'Average # of chromosome arms gained & lost', x = 'LOY [%]', size = 'n patients')
 
-Aneuploidy_correlation = Aneuploidy_correlation + stat_cor(method = "spearman", label.x = 5, label.y = 30)
+Aneuploidy_correlation = Aneuploidy_correlation + 
+  stat_cor(method = "spearman", label.x = 4, label.y = 30, size = 6) +
+  panel_border(size = 2, color = 'black')
+
+
+ggsave_golden(filename = 'Figures_original/ArmsGain_Loss_LOY.pdf', plot = Aneuploidy_correlation, width = 12)
+
 
 
 ##-------
@@ -269,18 +303,25 @@ Loss_correlation = ggplot(genome_scores,
                           aes(x = fraction_LOY, 
                               y = Loss_score)) +
   geom_point(data = genome_scores, aes(size = n), shape = 20) +
-  scale_size(breaks = c(100, 500, 1000, 3000), range = c(0, 8),
+  scale_size(breaks = c(100, 500, 1000, 1500), range = c(0, 8),
              labels = c(100, 500, 1000, '>1500')) +
-  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_x_continuous(expand = c(0.01, 0), 
+                     limits = c(0, 80)) +
   geom_text_repel(aes(label = CancerType), 
-                  size = as_points(8), point.padding = as_points(1)) +
-  stat_smooth(method = lm) +
-  theme_std(base_size = 14, base_line_size = 1) + 
-  theme(aspect.ratio = 1) +
-  labs(y = 'Average # of chr. arms lost', x = 'Fraction LOY', size = 'n patients')
+                  size = as_points(7), 
+                  point.padding = as_points(1)) +
+  stat_smooth(method = lm)  +
+  theme_std(base_size = 14, base_line_size = .5) + 
+  theme(aspect.ratio = 1,
+        axis.line = element_blank()) +
+  labs(y = 'Average # of chromosome arms lost', x = 'LOY [%]', size = 'n patients')
 
-Loss_correlation = Loss_correlation + stat_cor(method = "spearman", label.x = 5, label.y = 20)
+Loss_correlation = Loss_correlation + 
+  stat_cor(method = "spearman", label.x = 4, label.y = 30, size = 6) +
+  panel_border(size = 2, color = 'black')
+
 ggsave_golden(filename = 'Figures_original/ArmsLost_LOY_Correlation.pdf', plot = Loss_correlation, width = 12)
+
 
 
 ##-------
@@ -291,17 +332,22 @@ FGA_correlation = ggplot(genome_scores,
                          aes(x = fraction_LOY, 
                              y = FGA_score)) +
   geom_point(data = genome_scores, aes(size = n), shape = 20) +
-  scale_size(breaks = c(100, 500, 1000, 3000), range = c(0, 8),
+  scale_size(breaks = c(100, 500, 1000, 1500), range = c(0, 8),
              labels = c(100, 500, 1000, '>1500')) +
-  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_x_continuous(expand = c(0.01, 0), 
+                     limits = c(0, 80)) +
   geom_text_repel(aes(label = CancerType), 
-                  size = as_points(8), point.padding = as_points(1)) +
-  stat_smooth(method = lm) +
-  theme_std(base_size = 14, base_line_size = 1) + 
-  theme(aspect.ratio = 1) +
-  labs(y = 'Average Fraction Genome Altered', x = 'Fraction LOY', size = 'n patients')
+                  size = as_points(7), 
+                  point.padding = as_points(1)) +
+  stat_smooth(method = lm)  +
+  theme_std(base_size = 14, base_line_size = .5) + 
+  theme(aspect.ratio = 1,
+        axis.line = element_blank()) +
+  labs(y = 'Fraction Genome Altered', x = 'LOY [%]', size = 'n patients')
   
-FGA_correlation = FGA_correlation + stat_cor(method = 'spearman', label.x = 5, label.y = 0.7)
+FGA_correlation = FGA_correlation + 
+  stat_cor(method = "spearman", label.x = 4, label.y = 0.7, size = 6) +
+  panel_border(size = 2, color = 'black')
 
 GenomeScore_Correlation = Aneuploidy_correlation + theme(legend.position = 'none') + FGA_correlation
 ggsave_golden(filename = 'Figures_original/GenomeScore_Correlation.pdf', plot = GenomeScore_Correlation, width = 16)
@@ -318,6 +364,7 @@ ggsave_golden(filename = 'Figures_original/GenomeScore_Correlation.pdf', plot = 
 ## WGD and LOY association;
 ##----------------+
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
 
 WGD_LOY = data.frame()
 for(i in unique(cohort$genome_doubled)){
@@ -333,6 +380,13 @@ for(i in unique(cohort$genome_doubled)){
 WGD_LOY$group[which(WGD_LOY$group == 'TRUE')] = '1x'
 WGD_LOY$group[which(WGD_LOY$group == 'FALSE')] = 'none'
 WGD_LOY$group = factor(WGD_LOY$group, levels = c('none', '1x'))
+WGD_LOY$Var1 = factor(WGD_LOY$Var1, levels = rev(c('complete_loss',
+                                                           'relative_loss',
+                                                           'partial_loss',
+                                                           'gain',
+                                                           'partial_gain',
+                                                           'gain_loss',
+                                                           'wt')))
 
 ##-------
 ## Visualization
@@ -356,13 +410,13 @@ WGD_LOY_plot = ggplot(WGD_LOY,
   theme(aspect.ratio = 2) +
   labs(x = '# genome doublings', y = 'Fraction of tumors')
 
-ggsave(filename = 'Figures_original/Fraction_Y_loss_WGD.pdf', plot = WGD_LOY_plot, device = 'pdf', width = 4)
+ggsave_golden(filename = 'Figures_original/Fraction_Y_loss_WGD.pdf', plot = WGD_LOY_plot, width = 4)
 
 
 
 ##----------------+
 ## MSI_Type; 
-## it seems like that MSI instable 
+## it seems like that MSI
 ## tumors show a tendency for 
 ## retaining the Y chromosome
 ## - work with QC TRUE samples
@@ -372,15 +426,24 @@ clean()
 gc()
 .rs.restartR()
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
-clinical_glm = cohort[,c('SAMPLE_ID', 'CANCER_TYPE', 'QC', 'classification', 'MSI_SCORE', 'MSI_TYPE')]
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
+clinical_glm = cohort[,c('SAMPLE_ID', 'CANCER_TYPE', 'classification', 'MSI_SCORE', 'MSI_TYPE')]
 clinical_glm$classification[which(clinical_glm$classification %in% c('complete_loss', 'partial_loss', 'relative_loss'))] = 'LOY'
-clinical_glm$classification[which(clinical_glm$classification %in% c('wt', 'partial_gain', 'gain_loss', 'gain'))] = 'nonLOY'
+clinical_glm$classification[which(clinical_glm$classification %in% c('wt', 'partial_gain', 'gain_loss', 'gain'))] = 'wt'
 clinical_glm$MSI_TYPE = as.character(as.factor(clinical_glm$MSI_TYPE))
 clinical_glm$CANCER_TYPE = as.character(as.factor(clinical_glm$CANCER_TYPE))
-colnames(clinical_glm)[4] = 'Y_call'
+colnames(clinical_glm)[3] = 'Y_call'
 clinical_glm = clinical_glm[which(clinical_glm$MSI_TYPE %in% c('Instable', 'Stable')), ]
 clinical_glm = clinical_glm[!is.na(clinical_glm$MSI_SCORE), ]
 clinical_glm$MSI_TYPE = factor(clinical_glm$MSI_TYPE, levels = c('Instable', 'Stable'))
+
+##-------
+## MSI-MSS SCNA comparison
+##-------
+IMPACT_segs = read.csv('Data/04_Loss/010523/IGV_out.seg', sep = '\t')
+IMPACT_instable = IMPACT_segs[which(IMPACT_segs$ID %in% clinical_glm$SAMPLE_ID[which(clinical_glm$MSI_TYPE == 'Instable')]), ]
+IMPACT_stable = IMPACT_segs[which(IMPACT_segs$ID %in% clinical_glm$SAMPLE_ID[which(clinical_glm$MSI_TYPE == 'Stable')]), ]
+
 
 ##-------
 ## Can we use MSISensor
@@ -407,16 +470,54 @@ MSIsensor_plot = ggplot(clinical_glm, aes(x = MSI_TYPE, y = MSI_SCORE, color = M
 ggsave_golden(filename = 'Figures_original/MSISensor.pdf', plot = MSIsensor_plot, width = 7)
 
 
+
 ##----------------+
 ## Tumor Types with both
-## MSI and MSS
+## MSI and MSS;
+## general overview
 ##----------------+
-clinical_glm_msi = clinical_glm[which(clinical_glm$CANCER_TYPE %in% c('Ampullary Cancer', 'Anal Cancer', 'Appendiceal Cancer',
-                                                                      'Bladder Cancer', 'Cancer of Unknown Primary', 'Colorectal Cancer',
-                                                                      'Esophagogastric Cancer', 'Glioma', 'Head and Neck Cancer', 'Hepatobiliary Cancer',
-                                                                      'Melanoma', 'Non-Small Cell Lung Cancer', 'Pancreatic Cancer', 'Prostate Cancer', '
-                                                                      Skin Cancer, Non-Melanoma', 'Small Bowel Cancer', 'Small Cell Lung Cancer',
-                                                                      'Soft Tissue Sarcoma', 'Thyroid Cancer')), ]
+MSI_all = data.frame()
+for(i in unique(clinical_glm$CANCER_TYPE)){
+  print(i)
+  try({
+    cancer = i
+    n = length(clinical_glm$SAMPLE_ID[which(clinical_glm$CANCER_TYPE == i)])
+    n_instable = length(clinical_glm$SAMPLE_ID[which(clinical_glm$CANCER_TYPE == i & clinical_glm$MSI_TYPE == 'Instable')])
+    stable_loy = table(clinical_glm$Y_call[which(clinical_glm$CANCER_TYPE == i & clinical_glm$MSI_TYPE == 'Stable')])[['LOY']]
+    s_loy_fraction = stable_loy / sum(table(clinical_glm$Y_call[which(clinical_glm$CANCER_TYPE == i & clinical_glm$MSI_TYPE == 'Stable')]))
+    instable_loy = table(clinical_glm$Y_call[which(clinical_glm$CANCER_TYPE == i & clinical_glm$MSI_TYPE == 'Instable')])[['LOY']]
+    i_loy_fraction = instable_loy / sum(table(clinical_glm$Y_call[which(clinical_glm$CANCER_TYPE == i & clinical_glm$MSI_TYPE == 'Instable')]))
+    out = data.frame(cancer = cancer,
+                     category = c('MSS', 'MSI'),
+                     value = c(s_loy_fraction, i_loy_fraction),
+                     n = n,
+                     n_MSI = n_instable)
+    MSI_all = rbind(MSI_all, out)
+  })
+}
+
+MSI_tumors = ggplot(MSI_all[which(MSI_all$n_MSI > 10), ], aes(x = category, y = value)) +
+  geom_jitter(width = 0.2, size = 2) +
+  stat_compare_means(label.y = 0.75) +
+  stat_summary(fun.y = mean,
+               fun.ymin = function(x) quantile(x, .25),
+               fun.ymax = function(x) quantile(x, .75),
+               geom = 'errorbar', width = 0.01, color = 'springgreen4') +
+  stat_summary_bin(geom = 'point', fun.y = 'mean', shape = 21, color = 'springgreen4', fill = 'white', size = 2) +
+  scale_y_continuous(limits = c(0, 0.8),
+                     expand = c(0.01, 0),
+                     labels = c(0, 20, 40, 60, 80)) +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 1.8,
+        axis.line = element_blank()) +
+  labs(x = '', y = 'LOY [%]') +
+  panel_border(size = 2, color = 'black')
+
+
+ggsave_golden(filename = 'Figures_original/MSI_LOY.pdf', plot = MSI_tumors, width = 6)
+
+
+clinical_glm_msi = clinical_glm[which(clinical_glm$CANCER_TYPE %in% ctypes_keep), ] 
 clinical_glm_msi = clinical_glm_msi[!is.na(clinical_glm_msi$Y_call), ]
 clinical_glm_msi = clinical_glm_msi[which(clinical_glm_msi$CANCER_TYPE %in% c('Bladder Cancer', 'Colorectal Cancer', 'Esophagogastric Cancer',
                                                                               'Glioma', 'Non-Small Cell Lung Cancer', 'Prostate Cancer')), ]
@@ -441,35 +542,67 @@ MSI_LOY_plot = ggplot(clinical_glm_msi, aes(x = Y_call, y = MSI_SCORE, color = M
 ggsave_golden(filename = 'Figures_original/MSI_LOY_association.pdf', plot = MSI_LOY_plot, width = 16)  
 
 
-# MSI_out = data.frame()
-# for(i in unique(clinical_glm$CANCER_TYPE)){
-#   try({
-#     da = clinical_glm[which(clinical_glm$CANCER_TYPE == i), ]
-#     Y.stable = table(da$Y_call[which(da$MSI_TYPE == 'Stable')])[[2]] / sum(table(da$Y_call[which(da$MSI_TYPE == 'Stable')]))
-#     Y.instable = table(da$Y_call[which(da$MSI_TYPE == 'Instable')])[[2]] / sum(table(da$Y_call[which(da$MSI_TYPE == 'Instable')]))
-#     show = ifelse(Y.stable > Y.instable, 'yes', 'no')
-#     out = data.frame(CancerType = i,
-#                      Type = c('Stable', 'Instable'),
-#                      prop = c(Y.stable, Y.instable),
-#                      n = c(nrow(da[which(da$MSI_TYPE == 'Stable'), ]),
-#                            nrow(da[which(da$MSI_TYPE == 'Instable'), ])),
-#                      show = rep(show, 2))
-#     MSI_out = rbind(MSI_out, out)
-#   })
-# }
+
+
+
+
+##----------------+
+## Investigate the purity
+## category; what there
+##----------------+
+
+## Hypothesis:
+#' The lower the purity, 
+#' the less likely we observe 
+#' a Y-chromosome loss call. 
+library(dplyr)
+
+purity_out = data.frame()
+for(i in seq(0, 0.9, by = 0.1)){
+  try({
+    da = clinical_glm[dplyr::between(x = clinical_glm$purity, left = i, right = i+0.1), ]
+    if(all(da$classification %in% c('0', '1'))){
+      frac = (table(da$classification)[[2]] / sum(table(da$classification))) *100
+      print(frac)
+      out = data.frame(group = i,
+                       n = nrow(da),
+                       frac = frac,
+                       average_age = mean(da$Age_Sequencing, na.rm = T))
+    } else {
+      frac = NA
+      out = data.frame(group = i,
+                       n = nrow(da),
+                       frac = frac,
+                       average_age = mean(da$Age_Sequencing, na.rm = T))
+    }
+    purity_out = rbind(purity_out, out)
+  })
+}
+
+purity_out$group = as.factor(as.numeric(purity_out$group))
 
 #' Visualization
-# MSI.plot = ggplot(MSI_out, aes(x = Type, y = prop, label = CancerType)) +
-#   geom_text_repel(aes(label = CancerType), hjust = 1) +
-#   geom_hline(yintercept = seq(0.2, 0.6, 0.2), color = 'grey85', size = 0.2) +
-#   geom_line(aes(group = CancerType), size = 0.35) +
-#   geom_point() +
-#   theme_std(base_size = 14) +
-#   theme(panel.border = element_rect(fill = NA, size = 2, color = 'black'),
-#         aspect.ratio = 1) +
-#   labs(x = 'MSI Type', y = 'Fraction LOY')
-# 
-# ggsave_golden(filename = 'Figures_original/MSI_Type_Y.loss.pdf', plot = MSI.plot, width = 6)
+n.purity = ggplot(purity_out, aes(x = group, y = n)) +
+  geom_bar(stat = 'identity', width = 0.8) +
+  labs(x = '', y = 'cases (n)') + 
+  theme_std(base_size = 14) +
+  theme(axis.text.x = element_blank())
+frac.purity = ggplot(purity_out, aes(x = group, y = frac)) +
+  geom_bar(stat = 'identity', width = 0.8) +
+  scale_x_discrete(labels = c('[0-0.1]', '[0.1-0.2]', '[0.2-0.3]', '[0.3-0.4]', '[0.4-0.5]',
+                              '[0.5-0.6]', '[0.6-0.7]', '[0.7-0.8]', '[0.8-0.9]', '[0.9-1]')) +
+  scale_y_continuous(limits = c(0, 50)) +
+  labs(x = 'purity-group', y = 'Y-chromosome loss [%]') +
+  theme_std(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+purity_clinical_glm = n.purity / frac.purity
+ggsave_golden('Figures_original/Purity_cases_LOY.pdf', plot = purity_clinical_glm, width = 7)
+
+
+
+
+
 
 
 #' out
