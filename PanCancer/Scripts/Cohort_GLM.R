@@ -36,10 +36,10 @@ library(cowplot)
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 cohort = cohort[which(cohort$Study_include == 'yes'), ]
 
-cohort$classification[which(cohort$classification %in% c('complete_loss', 'relative_loss', 'partial_loss'))] = 1
+cohort$classification[which(cohort$classification %in% c('complete_loss', 'partial_loss', 'relative_loss', 'gain_loss'))] = 1
 cohort$classification[which(cohort$classification %in% c('gain', 'wt', 'partial_gain'))] = 0
-cohort = cohort[!cohort$classification %in% c('NA', 'gain_loss'), ]
 cohort = cohort[!is.na(cohort$classification), ]
+
 
 # cohort$classification[which(cohort$sample == 'P-0002130-T02-IM3')] = 0
 # cohort$classification[which(cohort$sample == 'P-0013100-T01-IM5')] = 0
@@ -59,9 +59,7 @@ clinical_glm$Age_Sequencing = as.numeric(as.character(clinical_glm$Age_Sequencin
 clinical_glm$SAMPLE_TYPE = as.factor(as.character(clinical_glm$SAMPLE_TYPE))
 clinical_glm$MSI_TYPE = as.factor(as.character(clinical_glm$MSI_TYPE))
 clinical_glm$MSI_TYPE = factor(clinical_glm$MSI_TYPE, levels = c('Stable', 'Instable', 'Indeterminate', 'Do not report'))
-# clinical_glm$genome_doubled[which(clinical_glm$genome_doubled == TRUE)] = 1
-# clinical_glm$genome_doubled[which(clinical_glm$genome_doubled == FALSE)] = 0
-# clinical_glm$genome_doubled = as.factor(clinical_glm$genome_doubled)
+clinical_glm$genome_doubled = as.integer(clinical_glm$genome_doubled)
 
 
 ##----------------+
@@ -71,7 +69,7 @@ clinical_glm$MSI_TYPE = factor(clinical_glm$MSI_TYPE, levels = c('Stable', 'Inst
 glm_model = clinical_glm[, -which(names(clinical_glm) == "CANCER_TYPE")]
 glm_model = glm_model[!is.na(glm_model$purity), ]
 glm_model$classification = as.integer(as.character(glm_model$classification))
-model_full = glm(classification ~ purity+MSI_TYPE+Age_Sequencing+SAMPLE_TYPE+genome_doubled+fraction_cna, data = glm_model, family = binomial)
+model_full = glm(classification ~ purity + MSI_TYPE + Age_Sequencing + SAMPLE_TYPE + genome_doubled + fraction_cna, data = glm_model, family = binomial)
 summary(model_full)
 
 #' check for multicollinearity with car::vif()
@@ -107,23 +105,29 @@ model.vars = model.vars[model.vars$adjusted < 0.05, ]
 #' exclude intercept and MSI type in plotting
 model.vars = model.vars[which(model.vars$rn != '(Intercept)'), ]
 model.vars = model.vars[which(model.vars$rn != 'MSI_TYPEIndeterminate'), ]
+model.vars = model.vars[which(model.vars$rn != 'MSI_TYPEDo not report'), ]
+model.vars$rn = c('FGA', 'Purity', 'WGD', 'Age', 'MSI')
 
 #' Visualization
-ggplot(data = model.vars, aes(x = reorder(rn, Estimate), y = Estimate)) +
-  geom_point(size = 1.5) +
+cohort_glm_plot = ggplot(data = model.vars, 
+       aes(x = reorder(rn, Estimate), 
+           y = Estimate)) +
   geom_pointrange(aes(ymin = Estimate - `Std. Error`,
                       ymax = Estimate + `Std. Error`),
-                  size = 0.5) +
+                  size = 1, fatten = 2, linewidth = 1) +
   coord_flip() +
+  theme_std(base_size = 14) +
   theme(panel.background = element_blank(),
         panel.border = element_rect(fill = NA, size = 1),
         aspect.ratio = 1,
-        axis.title.x.top = element_blank(),
-        axis.text = element_text(size = 10, face = 'bold', color = 'black')) +
+        axis.title.x.top = element_blank()) +
   geom_hline(yintercept = 0) +
-  scale_y_continuous(sec.axis = dup_axis()) +
+  scale_y_continuous(sec.axis = dup_axis(),
+                     limits = c(-2,3.5)) +
   labs(x = '', y = 'log(odds ratio)')
 
+
+ggsave_golden(filename = 'Figures_original/Cohort_GLM_all.pdf', plot = cohort_glm_plot, width = 6)
 
 
 
@@ -140,13 +144,24 @@ library(dplyr)
 
 purity_out = data.frame()
 for(i in seq(0, 0.9, by = 0.1)){
-  da = clinical_glm[dplyr::between(x = clinical_glm$purity, left = i, right = i+0.1), ]
-  frac = (table(da$Y_call)[[2]] / sum(table(da$Y_call))) *100
-  out = data.frame(group = i,
-                   n = nrow(da),
-                   frac = frac,
-                   average_age = mean(da$Age, na.rm = T))
-  purity_out = rbind(purity_out, out)
+  try({
+    da = clinical_glm[dplyr::between(x = clinical_glm$purity, left = i, right = i+0.1), ]
+    if(all(da$classification %in% c('0', '1'))){
+      frac = (table(da$classification)[[2]] / sum(table(da$classification))) *100
+      print(frac)
+      out = data.frame(group = i,
+                       n = nrow(da),
+                       frac = frac,
+                       average_age = mean(da$Age_Sequencing, na.rm = T))
+    } else {
+      frac = NA
+      out = data.frame(group = i,
+                       n = nrow(da),
+                       frac = frac,
+                       average_age = mean(da$Age_Sequencing, na.rm = T))
+    }
+    purity_out = rbind(purity_out, out)
+  })
 }
 
 purity_out$group = as.factor(as.numeric(purity_out$group))
@@ -154,7 +169,8 @@ purity_out$group = as.factor(as.numeric(purity_out$group))
 #' Visualization
 n.purity = ggplot(purity_out, aes(x = group, y = n)) +
   geom_bar(stat = 'identity', width = 0.8) +
-  labs(x = '', y = 'cases (n)') + theme_std() +
+  labs(x = '', y = 'cases (n)') + 
+  theme_std(base_size = 14) +
   theme(axis.text.x = element_blank())
 frac.purity = ggplot(purity_out, aes(x = group, y = frac)) +
   geom_bar(stat = 'identity', width = 0.8) +
@@ -162,35 +178,11 @@ frac.purity = ggplot(purity_out, aes(x = group, y = frac)) +
                               '[0.5-0.6]', '[0.6-0.7]', '[0.7-0.8]', '[0.8-0.9]', '[0.9-1]')) +
   scale_y_continuous(limits = c(0, 50)) +
   labs(x = 'purity-group', y = 'Y-chromosome loss [%]') +
-  theme_std() +
+  theme_std(base_size = 14) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-n.purity / frac.purity
-
-#' #' relative contribution cancer types
-#' relCancer = data.frame()
-#' for(i in seq(0, 0.9, by = 0.1)){
-#'   da = clinical_glm[dplyr::between(x = clinical_glm$purity, left = i, right = i+0.1), ]
-#'   freq = data.frame(table(da$CANCER_TYPE))
-#'   for(j in 1:nrow(freq)){
-#'     type = freq$Var1[j]
-#'     proc = freq$Freq[j] / sum(freq$Freq)
-#'     out = data.frame(group = factor(i),
-#'                      CancerType = type,
-#'                      frac = proc)
-#'     relCancer = rbind(relCancer, out)
-#'   }
-#' }
-#' 
-# purity_Cancer = ggplot(relCancer[order(relCancer$frac, decreasing = T), ], 
-#                        aes(x = group, y = frac, fill = CancerType, label = CancerType)) +
-#   geom_bar(stat = 'identity', position = 'stack') +
-#   scale_fill_viridis_d(begin = 0, option = 'B') +
-#   geom_text(size = 2, position = position_stack(vjust = 0.5), color = 'white') +
-#   labs(x = 'purity-group', y = 'Fraction') +
-#   theme(legend.position = 'none')
-# 
-# 
-# sum = plot_grid(n.purity, frac.purity, purity_Cancer, rel_heights = c(1,1,3), nrow = 3, align = 'h')
+purity_clinical_glm = n.purity / frac.purity
+ggsave_golden('Figures_original/Purity_cases_LOY.pdf', plot = purity_clinical_glm, width = 7)
 
 
+#' out
