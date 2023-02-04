@@ -14,6 +14,7 @@
 ## revision: 01/12/2023
 ## revision: 01/13/2023
 ## revision: 01/20/2023
+## revision: 02/04/2023
 ## 
 ## chris-kreitzer
 
@@ -40,6 +41,7 @@ source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.
 
 
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
 
 
 ##----------------+
@@ -52,7 +54,7 @@ Y_calls$purity[which(Y_calls$purity == 0)] = 0.0001
 Y_calls = Y_calls[!is.na(Y_calls$purity), ]
 
 purity_bin = data.frame()
-for(i in seq(0, 0.9, 0.1)){
+for(i in seq(0.1, 0.9, 0.1)){
   #print(c(i, i+0.2))
   data_sub = Y_calls[which(Y_calls$purity > i & Y_calls$purity <= i + 0.1), ]
   n_loss = length(data_sub$SAMPLE_ID[which(data_sub$classification %in% c('complete_loss'))])
@@ -90,9 +92,10 @@ ggsave_golden(filename = 'Figures_original/LOY_by_Purity.pdf', plot = purity_com
 ## LOY based on cancer types
 ##----------------+
 purity_out = data.frame()
-for(i in unique(cohort$CANCER_TYPE_ritika)){
-  cancer = gsub("\\s*\\([^\\)]+\\)", "", i)
-  data.sub = cohort[which(cohort$CANCER_TYPE_ritika == i), ]
+for(i in unique(cohort$CANCER_TYPE)){
+  cancer = i
+  #cancer = gsub("\\s*\\([^\\)]+\\)", "", i)
+  data.sub = cohort[which(cohort$CANCER_TYPE== i), ]
   data.sub = data.sub[!is.na(data.sub$purity), ]
   n = nrow(data.sub)
   out = data.frame(cancer = cancer,
@@ -102,12 +105,12 @@ for(i in unique(cohort$CANCER_TYPE_ritika)){
   purity_out = rbind(purity_out, out)
   rm(data.sub)
 }
-
+purity_out = purity_out[which(purity_out$cancer %in% ctypes_keep), ]
 purity_summary = purity_out[,c('cancer', 'n', 'median_value')]
 purity_summary = unique(purity_summary)
-purity_summary$cancer = gsub("\\s*\\([^\\)]+\\)", "", purity_summary$cancer)
+# purity_summary$cancer = gsub("\\s*\\([^\\)]+\\)", "", purity_summary$cancer)
 purity_summary = purity_summary[order(purity_summary$median_value, decreasing = F), ]
-fn = factor(unique(x$cancer), levels = purity_summary$cancer)
+fn = factor(unique(purity_summary$cancer), levels = purity_summary$cancer)
 
 ##-------
 ## Visualization
@@ -131,15 +134,20 @@ Purity.plot = ggplot(purity_out, aes(x = reorder(cancer, median_value), y = valu
                      labels = seq(0, 1, 0.25)) +
   labs(x = '', y = 'Purity')
 
+Purity.plot
+
 
 ##-------
 ## Add info for LOY
 ##-------
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
+
 fLOY = data.frame()
-for(i in unique(cohort$CANCER_TYPE_ritika)){
-  cancer = gsub("\\s*\\([^\\)]+\\)", "", i)
-  data.sub = cohort[which(cohort$CANCER_TYPE_ritika == i), ]
+for(i in unique(cohort$CANCER_TYPE)){
+  cancer = i
+  #cancer = gsub("\\s*\\([^\\)]+\\)", "", i)
+  data.sub = cohort[which(cohort$CANCER_TYPE == i), ]
   n = nrow(data.sub)
   n_loss = length(data.sub$SAMPLE_ID[which(data.sub$classification %in% c('complete_loss', 'partial_loss', 'relative_loss'))])
   out = data.frame(cancer = cancer,
