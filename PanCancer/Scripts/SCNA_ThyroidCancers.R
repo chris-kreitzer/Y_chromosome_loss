@@ -13,6 +13,7 @@ clean()
 gc()
 setwd('~/Documents/MSKCC/10_MasterThesis/')
 source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
+source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/IGV-like_plot.R')
 
 
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
@@ -32,5 +33,19 @@ hurthle_plot = hurthle_plot + labs(title = 'Hurthle Cell Thyroid Cancer (THHC)')
 
 thyroid_cancer = papillary_plot / hurthle_plot
 ggsave_golden(filename = 'Figures_original/ThyroidCancer_Segmentation.pdf', plot = thyroid_cancer, width = 12)
+
+
+##----------------+
+## SCNA for MSI vs MSS
+##----------------+
+MSI_SCNA = plot_segmentation(segs = IMPACT_instable[which(IMPACT_instable$chrom %in% c(1:22)), ], cap_log_ratios = 3)
+MSI_SCNA = MSI_SCNA + theme(legend.position = 'none') + labs(title = 'MSI (n=299)')
+MSS_SCNA = plot_segmentation(segs = IMPACT_stable[which(IMPACT_stable$chrom %in% c(1:22)), ], cap_log_ratios = 3)
+MSS_SCNA = MSS_SCNA + labs(title = 'MSS (n=11,876)')
+
+MSI_SCNA = MSI_SCNA / MSS_SCNA
+MSI_SCNA
+ggsave_golden(filename = 'Figures_original/MSI_SCNA.pdf', plot = MSI_SCNA, width = 14)
+
 
 #' out

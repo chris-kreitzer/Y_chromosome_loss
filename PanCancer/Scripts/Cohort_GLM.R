@@ -91,6 +91,13 @@ summary(model_final)
 
 
 ##----------------+
+## Wald-test
+##----------------+
+library(aod)
+wald.test(Sigma = vcov(model_final), b = coef(model_final), Terms = 2)
+
+
+##----------------+
 ## Extract model variables
 ## compute 95% CI
 ##----------------+
