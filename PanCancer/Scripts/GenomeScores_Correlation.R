@@ -48,9 +48,6 @@ cohort = cohort[which(cohort$Study_include == 'yes'), ]
 ## Fraction LOY; 
 ## purity all
 ##----------------+
-cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
-cohort = cohort[which(cohort$Study_include == 'yes'), ]
-
 genome_scores = data.frame()
 for(i in unique(cohort$CANCER_TYPE)){
   type = i
