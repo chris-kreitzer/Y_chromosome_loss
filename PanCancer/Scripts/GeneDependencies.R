@@ -14,6 +14,7 @@
 ## revision: 01/25/2023
 ## revision: 01/26/2023
 ## revision: 01/27/2023
+## revision: 02/06/2023
 ## 
 ## chris-kreitzer
 
@@ -32,13 +33,13 @@ downsample = union(unique(cohort$SAMPLE_ID), unique(allFemaleSamples))
 
 dmp_facets_gene = data.table::fread('~/Documents/MSKCC/10_MasterThesis/Data/signedOut/msk_impact_facets_annotated.gene_level.txt.gz')
 dmp_facets_gene$sample = substr(x = dmp_facets_gene$sample, start = 1, stop = 17)
-dmp_facets_gene = dmp_facets_gene[which(dmp_facets_gene$sample %in% downsample), ]
+dmp_facets_gene = dmp_facets_gene[which(dmp_facets_gene$sample %in% cohort$SAMPLE_ID), ]
 dmp_muts = data.table::fread('Data/signedOut/data_mutations_extended.oncokb.txt.gz', sep = '\t') 
-dmp_muts = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% downsample), ]
+dmp_muts = dmp_muts[which(dmp_muts$Tumor_Sample_Barcode %in% cohort$SAMPLE_ID), ]
 dmp_cna = data.table::fread('Data/signedOut/data_CNA.oncokb.txt.gz', sep = '\t')
 data_gam = readRDS('Data/05_Mutation/data_gam.rds')
 data_gam = data_gam$GAM_Analysis
-
+gc()
 
 femaleReno = read.csv('Data/06_Sex_Disparity/FemaleRenoSamples.tsv', sep = '\t')
 femaleReno = unique(femaleReno$Sample.ID)
@@ -161,6 +162,7 @@ write.table(female_out, file = 'Data/06_Sex_Disparity/Female_biallelicEnrichment
 ## tumor samples;
 ##----------------+
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
 ctypes_keep
 male_out = data.frame()
 for(i in unique(ctypes_keep)){
@@ -521,6 +523,85 @@ for(i in unique(maleRenoX$gene)){
 }
 
 write.table(reno_out, file = 'Data/06_Sex_Disparity/Male_RenalCellCarcinoma_Fisher.txt', sep = '\t', row.names = F, quote = F)
+
+
+
+
+
+
+
+
+
+
+
+
+##----------------+
+## Investigate gene-level GLM;
+## specifically: CRLF2 and Prostate;
+##----------------+
+clean()
+gc()
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+IGV = read.csv('Data/04_Loss/010523/IGV_out.seg', sep = '\t')
+clinical_glm = cohort[,c('SAMPLE_ID', 'QC', 'ploidy', 'classification', 'purity', 'CANCER_TYPE', 'MSI_TYPE',
+                         'MSI_SCORE', 'Age_Sequencing', 'IMPACT_TMB_SCORE', 'MUTATION_COUNT', 'SAMPLE_TYPE',
+                         'genome_doubled', 'fraction_cna')]
+clinical_glm$classification[which(clinical_glm$classification %in% c('relative_loss', 'partial_loss','complete_loss'))] = 1
+clinical_glm$classification[which(clinical_glm$classification %in% c('wt', 'gain', 'gain_loss', 'partial_gain'))] = 0
+clinical_glm = clinical_glm[!is.na(clinical_glm$classification), ]
+colnames(clinical_glm) = c('sample', 'QC', 'ploidy', 'Y_call', 'purity', 'CANCER_TYPE', 'MSI_TYPE', 
+                           'MSI_SCORE', 'Age', 'TMB', 'Mut_Count', 'SAMPLE_TYPE', 'WGD', 'FGA')
+data_gam = readRDS('Data/05_Mutation/data_gam.rds')
+data_gam = data_gam$GAM_Analysis
+
+##----------------+
+## Merging
+##----------------+
+clinical_glm = merge(clinical_glm, data_gam, by.x = 'sample', by.y = 'sample', all.x = T)
+clinical_glm$QC = NULL
+clinical_glm$TMB = NULL
+clinical_glm$Mut_Count = NULL
+clinical_glm$SAMPLE_TYPE = NULL
+clinical_glm$MSI_SCORE = NULL
+clinical_glm$Age = as.numeric(as.character(clinical_glm$Age))
+clinical_glm$Y_call = as.integer(as.character(clinical_glm$Y_call))
+
+##-------
+## TP53 status fixed variable;
+##-------
+clinical_glm$TP53_Status = ifelse(clinical_glm$TP53_Deletion == 1, 1,
+                                  ifelse(clinical_glm$TP53_fusion == 1, 1,
+                                         ifelse(clinical_glm$TP53_mut == 1, 1,
+                                                ifelse(clinical_glm$TP53_intragenic == 1, 1, 0))))
+
+clinical_glm$TP53_Deletion = NULL
+clinical_glm$TP53_mut = NULL
+clinical_glm$TP53_fusion = NULL
+clinical_glm$TP53_intragenic = NULL
+
+##-------
+## Prostate cancer with LOY
+##-------
+Prostate_LOY = clinical_glm$sample[which(clinical_glm$CANCER_TYPE == 'Prostate Cancer' & clinical_glm$Y_call == 1)]
+Prostate_nonLOY = clinical_glm$sample[which(clinical_glm$CANCER_TYPE == 'Prostate Cancer' & clinical_glm$Y_call == 0)]
+Prostate_LOY_IGV = IGV[which(IGV$ID %in% Prostate_LOY), ]
+Prostate_LOY_IGV$group = 'LOY'
+Prostate_nonLOY_IGV = IGV[which(IGV$ID %in% Prostate_nonLOY), ]
+Prostate_nonLOY_IGV$group = 'nonLOY'
+
+prostate = rbind(Prostate_LOY_IGV, Prostate_nonLOY_IGV)
+
+write.table(Prostate_LOY_IGV, file = '~/Desktop/Prostate_IGV.seg', sep = '\t', quote = F, row.names = F)
+write.table(prostate[,c(1:6)], file = '~/Desktop/ProstateA_IGV.seg', sep = '\t', quote = F, row.names = F)
+
+write.table(x = prostate[,c('ID', 'group')], file = '~/Desktop/atributes.txt', sep = '\t', row.names = F, quote = F)
+
+
+dim(Prostate_LOY_IGV)
+
+
+
+
 
 
 #' out
