@@ -34,7 +34,7 @@ suppressPackageStartupMessages({
 ##----------------+
 ## Current cohort
 ##----------------+
-cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
 cohort_study = cohort[which(cohort$Study_include == 'yes'), ]
 
 ##----------------+
