@@ -235,19 +235,20 @@ male_out$chrX_gene = ifelse(male_out$chrX_gene_filter %in% c('suppress_segment_t
 male_out = male_out[!duplicated(male_out), ]
 male_out$chrX_gene = ifelse(male_out$chrX_gene == 'HOMDEL', 'HOMDEL', 'wt')
 male_out$chrX = ifelse(male_out$chrX_mut == male_out$chrX_cna & male_out$chrX_mut == male_out$chrX_gene, 'wt', 'mono')
+male_out = male_out[!duplicated(male_out), ]
+male_out = male_out[,c(1,2,3,4,5,7,8)]
+male_out = male_out[!duplicated(male_out), ]
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
 
-
-male_out = read.csv()
-
-yy = merge(xx, cohort[,c('SAMPLE_ID', 'classification')], by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
-yy = yy[!duplicated(yy), ]
-colnames(yy)[9] = 'chrY'
-yy$chrY = ifelse(yy$chrY %in% c('complete_loss', 'relative_loss', 'partial_loss', 'gain_loss'), 'loss', 'wt')
+male_out = merge(male_out, cohort[,c('SAMPLE_ID', 'classification')], by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
+colnames(male_out)[8] = 'chrY'
+male_out$chrY = ifelse(male_out$chrY %in% c('complete_loss', 'relative_loss', 'partial_loss', 'gain_loss'), 'loss', 'wt')
 
 
 male_summary = data.frame()
-for(i in unique(yy$cancer)){
-  data_sub = yy[which(yy$cancer == i), ]
+for(i in unique(male_out$cancer)){
+  data_sub = male_out[which(male_out$cancer == i), ]
   for(j in unique(data_sub$gene)){
     Cancer = i
     print(Cancer)
@@ -297,7 +298,12 @@ write.table(male_summary, file = 'Data/06_Sex_Disparity/Male_biallelicEnrichment
 ## Visualization and post
 ## EDA; especially for CRLF2
 ##----------------+
-fema = rbind(male_summary, female_out)
+female_biallelic = read.csv('Data/06_Sex_Disparity/Female_biallelicEnrichment.txt', sep = '\t')
+female_biallelic = female_biallelic[!is.infinite(female_biallelic$ODDS), ]
+male_biallelic = read.csv('Data/06_Sex_Disparity/Male_biallelicEnrichment.txt', sep = '\t')
+male_biallelic = male_biallelic[!is.infinite(male_biallelic$ODDS), ]
+
+fema = rbind(female_biallelic, male_biallelic)
 
 fema_long = data.frame()
 for(i in unique(fema$Cancer)){
@@ -311,6 +317,7 @@ for(i in unique(fema$Cancer)){
   })
 }
 
+fema_long = fema_long[complete.cases(fema_long),]
 fema_long = merge(fema_long, fema[which(fema$cohort == 'male'), c('Cancer', 'gene', 'p_adj')],
                   by.x = c('Cancer', 'gene'), by.y = c('Cancer', 'gene'), all.x = T)
 fema_long$plot = ifelse(fema_long$p_adj < 0.05, 'plot', 'noplot')
@@ -339,7 +346,33 @@ for(i in unique(fema_long$Cancer)){
   plot_fema_all[[i]] = plot_fema
 }
 
+selected = plot_fema_all$`Bladder Cancer` + plot_fema_all$Glioma + plot_fema_all$`Pancreatic Cancer` + plot_fema_all$`Renal Cell Carcinoma` +
+  plot_layout(ncol = 4)
+
+
 ggsave_golden(filename = 'Figures_original/ODDS_fema_SoftSarcoma.pdf', plot = plot_fema_all$`Soft Tissue Sarcoma`, width = 6)
+
+
+
+
+##----------------+
+## Deep dive Bladder Cancer
+##----------------+
+female = read.csv('Data/06_Sex_Disparity/Female_biallelicEnrichment.txt', sep = '\t')
+female = female[which(female$Cancer == 'Bladder Cancer'), ]
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
