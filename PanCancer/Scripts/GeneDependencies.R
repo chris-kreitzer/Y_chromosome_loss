@@ -229,11 +229,15 @@ for(i in unique(ctypes_keep)){
   })
 }
 
-xx = male_out
-xx$chrX_gene = ifelse(xx$chrX_gene_filter %in% c('suppress_segment_too_large', 'suppress_large_homdel', 'suppress_likely_unfocal_large_gain'),  'wt', xx$chrX_gene)
-xx = xx[!duplicated(xx), ]
-xx$chrX_gene = ifelse(xx$chrX_gene == 'HOMDEL', 'HOMDEL', 'wt')
-xx$chrX = ifelse(xx$chrX_mut == xx$chrX_cna & xx$chrX_mut == xx$chrX_gene, 'wt', 'mono')
+# write.table(x = male_out, file = 'Data/05_Mutation/gene_level/Male_chrX_mutations.txt', sep = '\t', row.names = F, quote = F)
+
+male_out$chrX_gene = ifelse(male_out$chrX_gene_filter %in% c('suppress_segment_too_large', 'suppress_large_homdel', 'suppress_likely_unfocal_large_gain'), 'wt', male_out$chrX_gene)
+male_out = male_out[!duplicated(male_out), ]
+male_out$chrX_gene = ifelse(male_out$chrX_gene == 'HOMDEL', 'HOMDEL', 'wt')
+male_out$chrX = ifelse(male_out$chrX_mut == male_out$chrX_cna & male_out$chrX_mut == male_out$chrX_gene, 'wt', 'mono')
+
+
+male_out = read.csv()
 
 yy = merge(xx, cohort[,c('SAMPLE_ID', 'classification')], by.x = 'sample', by.y = 'SAMPLE_ID', all.x = T)
 yy = yy[!duplicated(yy), ]
