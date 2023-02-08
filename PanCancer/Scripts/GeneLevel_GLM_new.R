@@ -35,6 +35,7 @@ source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.
 library(patchwork)
 library(data.table)
 library(ggpubr)
+library(cowplot)
 
 
 cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
@@ -676,9 +677,11 @@ write.table(x = log_results_df, file = 'Data/05_Mutation/011823/GLM_gene_level_f
 ##----------------+
 ## Visualization;
 ##----------------+
+log_results_df = read.csv('Data/05_Mutation/011823/GLM_gene_level_full_out.txt', sep = '\t')
 gene_glm = log_results_df[which(log_results_df$p_adj <= 0.15 & 
                                   log_results_df$estimate > -15 & 
                                   log_results_df$estimate < 15), ]
+gene_glm = gene_glm[!gene_glm$cancer_type %in% c('Colorectal Hypermutated', 'Melanoma'), ]
 length_genes = length(unique(gene_glm$gene))
 pos = position_jitter(width = 0.2, seed = 2)
 
@@ -695,8 +698,10 @@ gene_glm_plot = ggplot(gene_glm,
   geom_vline(xintercept = seq(1.5, length_genes, 1), linetype = 'dashed', color = 'grey35', size = 0.4) +
   geom_text_repel(aes(label = cancer_type), color = 'black', size = 4, position = pos) +
   scale_y_continuous(expand = c(0.1, 0),
-                     limits = c(-2, 5),
+                     limits = c(-0.5, 5),
                      sec.axis = dup_axis()) +
+  scale_x_discrete(labels = rev(c('CRLF2 Deltion', 'KDM5C', 'PTPRD', 'CUL3', 
+                                  'RB1 Deletion', 'KDM6A', 'ATM', 'MYC Amplification'))) +
   coord_flip() +
   theme_std(base_size = 14) +
   theme(legend.position = 'none',
@@ -707,7 +712,7 @@ gene_glm_plot = ggplot(gene_glm,
 
 gene_glm_plot
 
-ggsave_golden(filename = 'Figures_original/GeneLevel_CancerTypes_out.pdf', plot = gene_glm_plot, width = 12)
+ggsave_golden(filename = 'Figures_original/GeneLevel_CancerTypes_out.pdf', plot = gene_glm_plot, width = 11)
 
 
 #' out
