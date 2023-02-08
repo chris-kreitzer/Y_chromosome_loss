@@ -29,3 +29,64 @@ xx = lapply(unique(low_purity_samples), function(x) depth_Y(samples = x))
 xx = Filter(function(x) length(x) > 1, xx)
 xx = data.table::rbindlist(xx)
 write.table(xx, file = '~/Master/Average_Depth_lowPurity.txt', sep = '\t', row.names = F, quote = F)
+
+
+##-- using MADSEQ output in normals
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
+lowp = cohort$SAMPLE_ID[which(cohort$purity <= 0.3)]
+highp = cohort$SAMPLE_ID[which(cohort$purity >= 0.8)]
+
+files = list.files('Data/03_Mosaicism/NormalizedDepth/', full.names = T)
+
+pp = function(samples){
+  try({
+    print(samples)
+    if(any(grepl(pattern = samples, x = files))){
+      data.in = data.table::fread(input = files[grep(pattern = samples, x = files)], sep = '\t')
+      data.in = data.in[which(data.in$seqnames == 'chrY')]
+      data.in$sample = samples
+    } else next
+  })
+  data.in
+}
+
+
+yy = lapply(lowp, function(x) pp(samples = x))
+yy = Filter(function(x) length(x) > 1, yy)
+yy = data.table::rbindlist(yy)
+
+
+xx = lapply(highp, function(x) pp(samples = x))
+xx = Filter(function(x) length(x) > 1, xx)
+xx = data.table::rbindlist(xx)
+
+summary(xx$normed_depth)
+summary(yy$normed_depth)
+
+
+
+##-- low purity
+count = read.csv('Data/01_Coverage_Depth/Average_Depth_lowPurity.txt', sep = '\t')
+count$Sample = substr(x = count$Sample, start = 17, stop = 33)
+lowpf = data.frame()
+for(i in unique(yy$sample)){
+  print(i)
+  sample = i
+  mean_p = mean(yy$normed_depth[which(yy$sample == i)], na.rm = T)
+  out = data.frame(sample = sample,
+                   mean_depth_f = mean_p)
+  lowpf = rbind(lowpf, out)
+}
+
+low = merge(count, lowpf, by.x = 'Sample', by.y = 'sample', all.x = T)
+low = low[!is.na(low$mean_depth_f), ]
+
+cor.test(low$average_depth_NOR, low$mean_depth_f)
+ggplot(low, aes(x = average_depth_NOR, y = mean_depth_f)) +
+  geom_jitter() +
+  scale_y_continuous(limits = c(0,600))
+
+
+
+
