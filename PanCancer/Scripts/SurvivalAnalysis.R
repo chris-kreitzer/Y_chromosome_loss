@@ -30,7 +30,7 @@ library(data.table)
 library(survival)
 library(survminer)
 library(dplyr)
-
+library(rms)
 
 
 ##-------
@@ -38,10 +38,11 @@ library(dplyr)
 ##-------
 Cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
 Cohort = Cohort[which(Cohort$Study_include == 'yes'), ]
-OS_cohort = Cohort[,c('PATIENT_ID', 'SAMPLE_ID', 'CANCER_TYPE', 'QC', 'Age_Sequencing', 'genome_doubled', 'SAMPLE_TYPE', 'MSI_TYPE',
+OS_cohort = Cohort[,c('PATIENT_ID', 'SAMPLE_ID', 'CANCER_TYPE', 'QC', 'Age_Sequencing', 'genome_doubled', 
+                      'SAMPLE_TYPE', 'MSI_TYPE', 'fraction_cna', 'purity',
                       'classification', 'OS_Status', 'OS_months')]
 OS_cohort = OS_cohort[!is.na(OS_cohort$OS_Status) & !is.na(OS_cohort$OS_months), ]
-colnames(OS_cohort)[9] = 'LOY'
+colnames(OS_cohort)[11] = 'LOY'
 OS_cohort$LOY = ifelse(OS_cohort$LOY == 'complete_loss', TRUE, FALSE)
 OS_cohort$OS_Status = ifelse(OS_cohort$OS_Status == '1:DECEASED', 'Dead', 'Alive')
 OS_cohort$OS_Status_INT = ifelse(OS_cohort$OS_Status == 'Dead', 2L, 1L)
@@ -96,9 +97,10 @@ ggsave_golden(filename = 'Figures_original/OS_wholeCohort.pdf', plot = p1, width
 ## - accounting for TP53 mutational status
 ## - and cancer type
 ##-------
-pancancer_TP53_ct = coxph(formula = Surv(OS_months, as.numeric(factor(OS_Status))) ~ LOY+TP53_Status+CANCER_TYPE, data = OS_cohort)
+OS_cohort = OS_cohort[which(OS_cohort$CANCER_TYPE %in% ctypes_keep), ]
+pancancer_TP53_ct = coxph(formula = Surv(OS_months, as.numeric(factor(OS_Status))) ~ LOY+TP53_Status+CANCER_TYPE+fraction_cna+purity, data = OS_cohort)
 summary(pancancer_TP53_ct)
-coxph(Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status+CANCER_TYPE, data = OS_cohort) %>%
+coxph(Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status+CANCER_TYPE+fraction_cna+purity, data = OS_cohort) %>%
   gtsummary::tbl_regression(exp = TRUE)
 
 
@@ -134,7 +136,7 @@ for(i in unique(OS_cohort$CANCER_TYPE)){
   if(n < 60) next
   else {
     model_raw = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY, data = data_sub)
-    model_adj = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status, data = data_sub)
+    model_adj = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status+fraction_cna+purity, data = data_sub)
     estimate_raw = summary(model_raw)$coefficients[[1]]
     estimate_se_raw = summary(model_raw)$coefficients[[3]]
     significance_raw = summary(model_raw)$coefficients[[5]]
@@ -199,6 +201,154 @@ ggsave_golden(filename = 'Figures_original/OS_CancerTypes_adj.pdf', plot = OS_Ca
 
 
 
+
+##----------------+
+## Prostate Cancer
+##----------------+
+osp = OS_cohort[which(OS_cohort$CANCER_TYPE == 'Prostate Cancer'), ]
+tmperg = read.csv('Data/05_Mutation/TMPERG.tsv', sep = '\t')
+tmperg = as.character(tmperg$Sample.ID)
+osp$SAMPLE_TYPE[osp$SAMPLE_TYPE == 'Local Recurrence'] = 'Primary'
+osp$TMPERG = NA
+for(i in 1:nrow(osp)){
+  if(osp$SAMPLE_ID[i] %in% tmperg){
+    osp$TMPERG[i] = 1
+  } else {
+    osp$TMPERG[i] = 0
+  }
+}
+osp$TMPERG = as.integer(as.numeric(osp$TMPERG))
+
+model.p = coxph(formula = Surv(as.numeric(OS_months), as.numeric(factor(OS_Status_INT))) ~ LOY+SAMPLE_TYPE+TP53_Status+Age_Sequencing+TMPERG+fraction_cna, 
+                data = osp)
+summary(model.p)
+
+
+install.packages('Matrix')
+cvif = rms::vif(fit = model.p)
+
+
+
+coef_prost = data.frame(c(model.p$coefficients, model.p$)
+coef_prost$variable = row.names(coef_prost)
+coef_prost$se = summary(model.p)$coefficients[,3]
+coef_prost$p = summary(model.p)$coefficients[,5]
+coef_prost$variable = c('LOY', 'Primary', 'TP53 mut', 'Age', 'TMPRSS2/ERG+')
+coef_prost$print = ifelse(coef_prost$p < 0.05, 'plot', 'notplot')
+
+Prostate = ggplot(coef_prost, aes(reorder(x = variable, model.p.coefficients),
+                       y = model.p.coefficients, color = print)) +
+  geom_point(shape = 15) +
+  geom_pointrange(aes(ymin = model.p.coefficients - se,
+                      ymax = model.p.coefficients + se,
+                      colour = print),
+                  size = 0.75, shape = 15,  linewidth = 1) +
+  scale_y_continuous(sec.axis = dup_axis()) +
+  geom_hline(yintercept = 0, linetype = 'dashed', linewidth = 0.35, color = 'black') +
+  scale_color_manual(values = c('notplot' = 'grey35',
+                                'plot' = '#a22231'), 
+                     name = 'P-value', labels = c('> 0.01', '< 0.01')) +
+  coord_flip() +
+  theme_std(base_size = 14) +
+  theme(axis.line.x.bottom = element_blank(),
+        aspect.ratio = 0.95, 
+        axis.text.x.bottom = element_blank(),
+        axis.ticks.x.bottom = element_blank(),
+        axis.title.x.bottom = element_blank()) +
+  labs(x = '', y = 'Model coefficient (log [HR])')
+
+
+ggsave_golden(filename = 'Figures_original/OS_Cox_prostate.pdf', plot = Prostate, width = 6)
+
+
+##------- KM on prostate
+prostatekm = survfit(Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status, data = osp)
+p1 = ggsurvplot(prostatekm,
+                palette = c('lightblue', 'pink', "#3d4397", "#a22231"),
+                size = 0.8,
+                legend = 'top',
+                xlab = 'Time (months)',
+                ylab = 'Overall survival (%)',pval = T)$plot +
+  theme_std(base_size = 14, base_line_size = 1) +
+  theme(aspect.ratio = 1)
+p1
+
+ggsave_golden(filename = 'Figures_original/KM_prostateTP53.pdf', plot = p1, width = 6)
+
+
+
+
+##----------------+
+## Renal Cell Carcinoma
+##----------------+
+reno = OS_cohort[which(OS_cohort$CANCER_TYPE == 'Renal Cell Carcinoma'), ]
+reno$SAMPLE_TYPE[reno$SAMPLE_TYPE == 'Unknown'] = 'Primary'
+renoX = read.csv('Data/06_Sex_Disparity/RenalCellCarcinoma_Male_KDM5C.txt', sep = '\t')
+reno = merge(reno, renoX[,c('sample', 'call')], by.x = 'SAMPLE_ID', by.y = 'sample', all.x = T)
+reno$call = factor(reno$call, levels = c('wt','mono','biallelic'))
+
+model.r = coxph(formula = Surv(as.numeric(OS_months), as.numeric(factor(OS_Status_INT))) ~ LOY+SAMPLE_TYPE+TP53_Status+Age_Sequencing+call, 
+                data = reno)
+summary(model.r)
+
+coef_reno = data.frame(model.r$coefficients)
+coef_reno$variable = row.names(coef_reno)
+coef_reno$se = summary(model.r)$coefficients[,3]
+coef_reno$p = summary(model.r)$coefficients[,5]
+coef_reno$variable = c('LOY', 'Primary', 'TP53 mut', 'Age', 'mono chrX/chrY', 'bi chrX/chrY')
+coef_reno$print = ifelse(coef_reno$p < 0.05, 'plot', 'notplot')
+                        
+Renal = ggplot(coef_reno, 
+               aes(reorder(x = variable, model.r.coefficients),
+                   y = model.r.coefficients, 
+                   color = print)) +
+  geom_point(shape = 15) +
+  geom_pointrange(aes(ymin = model.r.coefficients - se,
+                      ymax = model.r.coefficients + se,
+                      colour = print),
+                  size = 0.75, shape = 15,  linewidth = 1) +
+  scale_y_continuous(sec.axis = dup_axis()) +
+  geom_hline(yintercept = 0, linetype = 'dashed', linewidth = 0.35, color = 'black') +
+  scale_color_manual(values = c('notplot' = 'grey35',
+                                'plot' = '#a22231'), 
+                     name = 'P-value', labels = c('> 0.01', '< 0.01')) +
+  coord_flip() +
+  theme_std(base_size = 14) +
+  theme(axis.line.x.bottom = element_blank(),
+        aspect.ratio = 0.95, 
+        axis.text.x.bottom = element_blank(),
+        axis.ticks.x.bottom = element_blank(),
+        axis.title.x.bottom = element_blank()) +
+  labs(x = '', y = 'Model coefficient (log [HR])')
+Renal
+                        
+ggsave_golden(filename = 'Figures_original/OS_Cox_Renal.pdf', plot = Renal, width = 6)
+                        
+
+renokm = survfit(Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status+call, data = reno)
+ggsurvplot(renokm)
+model.r = coxph(formula = Surv(as.numeric(OS_months), as.numeric(factor(OS_Status_INT))) ~ LOY+SAMPLE_TYPE+TP53_Status+Age_Sequencing, 
+                data = reno)
+summary(model.r)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+model.breast <- coxph(
+  formula = Surv(as.numeric(os_days) / 30,
+                 as.numeric(factor(VitalStatus))) ~ gd + DetailedTumorType2 + age_at_diagnosis + menopause_status + stage + grade + esr1_mutant,
+  data = xx
+  
 
 
 
