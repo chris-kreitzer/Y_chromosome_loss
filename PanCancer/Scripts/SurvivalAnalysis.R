@@ -136,7 +136,7 @@ for(i in unique(OS_cohort$CANCER_TYPE)){
   if(n < 60) next
   else {
     model_raw = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY, data = data_sub)
-    model_adj = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status+fraction_cna+purity, data = data_sub)
+    model_adj = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status, data = data_sub)
     estimate_raw = summary(model_raw)$coefficients[[1]]
     estimate_se_raw = summary(model_raw)$coefficients[[3]]
     significance_raw = summary(model_raw)$coefficients[[5]]
@@ -166,7 +166,7 @@ OS_cancertypes
 OS_cancertypes$cancer = paste0(OS_cancertypes$cancer, ' (n=', OS_cancertypes$n, ')')
 OS_cancertypes$plot_color = ifelse(OS_cancertypes$significance <= 0.05, 'plot', 'notplot')
 OS_cancertypes$plot_adjusted = ifelse(OS_cancertypes$significance_adj <= 0.05, 'plot', 'notplot')
-
+View(OS_cancertypes)
 
 
 ##-------
@@ -219,17 +219,12 @@ for(i in 1:nrow(osp)){
 }
 osp$TMPERG = as.integer(as.numeric(osp$TMPERG))
 
-model.p = coxph(formula = Surv(as.numeric(OS_months), as.numeric(factor(OS_Status_INT))) ~ LOY+SAMPLE_TYPE+TP53_Status+Age_Sequencing+TMPERG+fraction_cna, 
+model.p = coxph(formula = Surv(as.numeric(OS_months), as.numeric(factor(OS_Status_INT))) ~ LOY+SAMPLE_TYPE+TP53_Status+Age_Sequencing+TMPERG, 
                 data = osp)
+cvif = rms::vif(fit = model.p)
 summary(model.p)
 
-
-install.packages('Matrix')
-cvif = rms::vif(fit = model.p)
-
-
-
-coef_prost = data.frame(c(model.p$coefficients, model.p$)
+coef_prost = data.frame(model.p$coefficients)
 coef_prost$variable = row.names(coef_prost)
 coef_prost$se = summary(model.p)$coefficients[,3]
 coef_prost$p = summary(model.p)$coefficients[,5]
@@ -259,6 +254,7 @@ Prostate = ggplot(coef_prost, aes(reorder(x = variable, model.p.coefficients),
 
 
 ggsave_golden(filename = 'Figures_original/OS_Cox_prostate.pdf', plot = Prostate, width = 6)
+
 
 
 ##------- KM on prostate
