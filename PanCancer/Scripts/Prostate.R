@@ -17,6 +17,9 @@ prostate = prostate[!is.na(prostate$classification), ]
 data_gam = readRDS('Data/05_Mutation/data_gam.rds')
 data_gam = data_gam$GAM_Analysis
 prad_muts = data_gam[which(data_gam$sample %in% prostate$SAMPLE_ID), ]
+copynumber = read.csv('Data/04_Loss/010523/CopyNumberStates.txt', sep = '\t')
+copynumber = copynumber[which(copynumber$id %in% prostate$SAMPLE_ID), ]
+IGV = read.csv('Data/04_Loss/010523/IGV_out.seg', sep = '\t')
 
 full_prostate = merge(prostate, prad_muts, by.x = 'SAMPLE_ID', by.y = 'sample', all.x = T)
 
@@ -76,6 +79,87 @@ alteration_frequency = ggplot(pro_summary, aes(x = wt, y = complete_loss, color 
 ggsave_golden(filename = 'Figures_original/Prostate_AlterationFreq.pdf', plot = alteration_frequency, width = 6)
 
 
+##----------------+
+## Univariate and multivariate Cox model
+##----------------+
+gain_loss = full_prostate$SAMPLE_ID[which(full_prostate$classification == 'gain_loss')]
+gain_loss_prad = copynumber[which(copynumber$id %in% gain_loss & copynumber$chrom == 24), ]
+gain_loss_prad = gain_loss_prad[which(gain_loss_prad$tcn.em == 0), ]
 
 
+pGL = c('P-0003040-T01-IM5',
+'P-0013100-T01-IM5',
+'P-0016288-T01-IM6',
+'P-0025571-T01-IM6',
+'P-0026808-T01-IM6',
+'P-0029183-T01-IM6',
+'P-0037069-T01-IM6',
+'P-0042930-T01-IM6',
+'P-0053240-T01-IM6',
+'P-0060161-T01-IM7',
+'P-0067186-T01-IM7',
+'P-0075758-T01-IM7')
+
+partial_loss = full_prostate$SAMPLE_ID[which(full_prostate$classification == 'partial_loss')]
+partial_loss = copynumber[which(copynumber$id %in% partial_loss & copynumber$chrom == 24 & copynumber$tcn.em == 0), ]
+partial_loss[,c('id', "start", 'end')]
+
+
+pLoss = c('P-0001698-T01-IM3',
+'P-0016450-T01-IM6',
+'P-0017964-T01-IM6',
+'P-0018217-T01-IM6',
+'P-0018798-T01-IM6',
+'P-0021792-T01-IM6',
+'P-0028784-T01-IM6',
+'P-0029339-T01-IM6',
+'P-0033767-T01-IM6',
+'P-0053666-T01-IM6',
+'P-0058347-T01-IM6',
+'P-0063708-T01-IM7',
+'P-0069465-T01-IM7',
+'P-0074727-T01-IM7',
+'P-0077871-T01-IM7')
+
+pLoss_density = partial_loss[which(partial_loss$id %in% pLoss), ]
+pLoss_density = pLoss_density[-1,]
+pLoss_vector = data.frame()
+for(i in 1:nrow(pLoss_density)){
+  print(i)
+  sample = pLoss_density$id[i]
+  value = seq(from = pLoss_density$start[i], to = pLoss_density$end[i], by = 1000)
+  out = data.frame(sample = sample,
+                   vec = value)
+  pLoss_vector = rbind(pLoss_vector, out)
+}
+
+dim(pLoss_vector)
+head(pLoss_vector)
+head(pLoss_density)
+plot(density(pLoss_vector$vec))
+
+
+
+IGV_pLoss = IGV[which(IGV$ID %in% c(pGL) & IGV$chrom == 24), ]
+breakpoints = c()
+for(i in unique(IGV_pLoss$ID)){
+  n = length(IGV_pLoss$seg.mean[which(IGV_pLoss$ID == i)])
+  m = n-1
+  if(m == 0) next
+  loc.end = IGV_pLoss$loc.end[which(IGV_pLoss$ID == i)][seq(1,m,1)]
+  breakpoints = c(breakpoints, loc.end)
+}
+
+plot(density(breakpoints), 
+     ylab = '',
+     xlab = '',
+     xaxt = 'n',
+     yaxt = 'n',
+     main = '', lwd = 2)
+axis(side = 1, at = c(1e+07, 1.5e+07, 2e+07), labels = c('10Mb', '15Mb', '20Mb'))
+mtext(text = 'Genomic Position', side = 1, line = 1.8)
+mtext(text = 'Density', side = 2, line = 0.8)
+mtext(text = 'Gain/Loss; Chromosome Y', side = 3, line = 0.8, adj = 0, cex = 1.5)
+text(x = 1.98e+07, y = 0.2e-06, label = 'KDM5D')
+box(lwd = 2)
 
