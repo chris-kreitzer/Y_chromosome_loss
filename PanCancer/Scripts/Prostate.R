@@ -163,3 +163,48 @@ mtext(text = 'Gain/Loss; Chromosome Y', side = 3, line = 0.8, adj = 0, cex = 1.5
 text(x = 1.98e+07, y = 0.2e-06, label = 'KDM5D')
 box(lwd = 2)
 
+
+
+##----------------+
+## univariate model
+##----------------+
+LOY = c(full_prostate$SAMPLE_ID[which(full_prostate$classification == 'complete_loss')],
+        pLoss, pGL)
+
+full_prostate$Y_call = ifelse(full_prostate$SAMPLE_ID %in% LOY, 'loss', 'intact')
+os_prostate = full_prostate[,c(colnames(full_prostate)[1:32], 'TP53_mut', 'TP53_Deletion')]
+osp = os_prostate
+tmperg = read.csv('Data/05_Mutation/TMPRSS2_ETS.tsv', sep = '\t')
+tmperg = as.character(tmperg$Sample.ID)
+osp$SAMPLE_TYPE[osp$SAMPLE_TYPE == 'Local Recurrence'] = 'Primary'
+osp$TMPERG = NA
+for(i in 1:nrow(osp)){
+  if(osp$SAMPLE_ID[i] %in% tmperg){
+    osp$TMPERG[i] = 1
+  } else {
+    osp$TMPERG[i] = 0
+  }
+}
+osp$TMPERG = as.integer(as.numeric(osp$TMPERG))
+osp$TP53_Deletion = as.numeric(as.integer(osp$TP53_Deletion))
+
+osp$TP53_Status = ifelse(osp$TP53_Deletion == 1, 1,
+                               ifelse(osp$TP53_mut == 1, 1, 0))
+osp$TP53_Deletion = NULL
+osp$TP53_mut = NULL
+osp$TP53_Status = as.integer(as.numeric(osp$TP53_Status))
+
+summary(coxph(Surv(bcr.time, bcr.bin) ~ ZNRF3, data = znrf3.mvcox.table))
+
+
+
+
+
+
+
+
+
+
+
+
+
