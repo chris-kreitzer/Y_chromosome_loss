@@ -1,6 +1,13 @@
 ##----------------+
-## Prostate; LOY investigations
+## Prostate; 
+## close-up investigations
+## especially OS; with CoxPH
 ##----------------+
+##
+## start: 02/13/2023
+## revision: 02/14/2023
+## chris-kreitzer
+
 
 
 clean()
@@ -172,7 +179,7 @@ LOY = c(full_prostate$SAMPLE_ID[which(full_prostate$classification == 'complete_
         pLoss, pGL)
 
 full_prostate$Y_call = ifelse(full_prostate$SAMPLE_ID %in% LOY, 'loss', 'intact')
-os_prostate = full_prostate[,c(colnames(full_prostate)[1:32], 'TP53_mut', 'TP53_Deletion')]
+os_prostate = full_prostate[,c(colnames(full_prostate)[1:32], 'TP53_mut', 'TP53_Deletion', 'Y_call')]
 osp = os_prostate
 tmperg = read.csv('Data/05_Mutation/TMPRSS2_ETS.tsv', sep = '\t')
 tmperg = as.character(tmperg$Sample.ID)
@@ -193,17 +200,123 @@ osp$TP53_Status = ifelse(osp$TP53_Deletion == 1, 1,
 osp$TP53_Deletion = NULL
 osp$TP53_mut = NULL
 osp$TP53_Status = as.integer(as.numeric(osp$TP53_Status))
-
-summary(coxph(Surv(bcr.time, bcr.bin) ~ ZNRF3, data = znrf3.mvcox.table))
-
-
-
+osp$Y_call = as.factor(osp$Y_call)
+osp$SAMPLE_TYPE = as.factor(osp$SAMPLE_TYPE)
+osp$OS_Status_INT = ifelse(osp$OS_Status == 'Dead', 2L, 1L)
 
 
 
+summary(coxph(formula = Surv(as.numeric(OS_months), as.numeric(factor(OS_Status_INT))) ~ Y_call+SAMPLE_TYPE+TP53_Status+Age_Sequencing+TMPERG, 
+      data = osp))
+
+summary(coxph(formula = Surv(as.numeric(OS_months), as.numeric(factor(OS_Status_INT))) ~ Y_call, 
+              data = osp))
+
+fit.prostate = survfit(Surv(as.numeric(OS_months), as.numeric(factor(OS_Status_INT))) ~ Y_call, data = osp)
+prostate_KM = ggsurvplot(
+  fit.prostate,
+  data = osp,
+  size = 1,
+  palette = 
+    c("#FF0000", "#104E8B"),
+  conf.int = FALSE,
+  pval = FALSE,
+  risk.table = TRUE,
+  xlab = "Time (Months)",
+  ylab = "Overall survival (%)",
+  xlim = c(0,96),
+  ylim = c(0, 1.01),
+  break.time.by = 24,
+  axes.offset = FALSE,
+  font.legend =
+    c(22),
+  font.x =
+    c(26, "bold"),
+  font.y =
+    c(26,"bold"),
+  legend =
+    c(.07, 0.4),
+  legend.labs =
+    c("wild type", "loss"),
+  legend.title = "Chromosome Y",
+  risk.table.height = 0.25,
+  risk.table.y.text = FALSE,
+  fontsize = 8
+)
+
+prostate_KM$plot = prostate_KM$plot +
+  ggplot2::annotate("text",
+                    x = 1, 
+                    y = 0.15,
+                    label = "HR = 1.48 (1.28, 1.70)", 
+                    hjust=0, 
+                    size=10)
+prostate_KM$plot = prostate_KM$plot +
+  ggplot2::annotate("text",
+                    x= 1, 
+                    y=0.08,
+                    label = "P: 6.39 %*% 10^-8",
+                    hjust=0,
+                    size=10,
+                    parse = TRUE)
+
+ggsave_golden(filename = 'Figures_original/ProstateKM_pdf', plot = as_ggplot(ggplotGrob(prostate_KM)), width = 12)
+
+ggsave(filename = 'Figures_original/ProstateKM_pdf', plot = prostate_KM, device = 'pdf')
+
+##----------------+
+## multivariate Cox
+##----------------+
+osp$Y_call = relevel(osp$Y_call, ref = "intact")
+osp$TP53_Status = as.factor(osp$TP53_Status)
+osp$TP53_Status = relevel(osp$TP53_Status, ref = '0')
+osp$TMPERG = as.factor(osp$TMPERG)
+osp$TMPERG = relevel(osp$TMPERG, ref = '0')
+osp$SAMPLE_TYPE = as.factor(osp$SAMPLE_TYPE)
+osp$SAMPLE_TYPE = relevel(osp$SAMPLE_TYPE, ref = 'Primary')
+osp$MSI_TYPE[osp$MSI_TYPE == 'Do not report'] = NA
+osp$MSI_TYPE[osp$MSI_TYPE == 'Indeterminate'] = NA
+osp$MSI_TYPE = as.factor(osp$MSI_TYPE)
+osp$MSI_TYPE = relevel(osp$MSI_TYPE, ref = 'Stable')
 
 
+median(osp$OS_months, na.rm = T)
+panels <- list(
+  list(width = 0.03),
+  list(width = 0.1, display = ~variable, fontface = "bold", heading = "Variable"),
+  list(width = 0.1, display = ~level),
+  list(width = 0.05, display = ~n, hjust = 1, heading = "N"),
+  list(width = 0.03, item = "vline", hjust = 0.5),
+  list(
+    width = 0.55, item = "forest", hjust = 0.5, heading = "Hazard ratio", linetype = "dashed",
+    line_x = 0
+  ),
+  list(width = 0.03, item = "vline", hjust = 0.5),
+  list(width = 0.12, display = ~ ifelse(reference, "Reference", sprintf(
+    "%0.2f (%0.2f, %0.2f)",
+    trans(estimate), trans(conf.low), trans(conf.high)
+  )), display_na = NA),
+  list(
+    width = 0.05,
+    display = ~ ifelse(reference, "", format.pval(p.value, digits = 1, eps = 0.001)),
+    display_na = NA, hjust = 1, heading = "p"
+  ),
+  list(width = 0.03)
+)
 
+
+osp_forest = forest_model(coxph(Surv(as.numeric(OS_months), as.numeric(factor(OS_Status_INT))) ~ Y_call+SAMPLE_TYPE+MSI_TYPE+Age_Sequencing+TP53_Status+TMPERG, data = osp), panels)
+
+osp_forest = osp_forest +
+  theme(
+    axis.text.x = element_text(size = 18,
+                               face = "bold",
+                               color = "black"),
+    aspect.ratio = 0.5
+  )
+
+ggsave_golden(filename = 'Figures_original/CoxPH_prostate.pdf', plot = osp_forest, width = 14.5)
+summary(coxph(Surv(as.numeric(OS_months), as.numeric(factor(OS_Status_INT))) ~ Y_call+SAMPLE_TYPE+MSI_TYPE+Age_Sequencing+TP53_Status+TMPERG, data = osp))
 
 
 
