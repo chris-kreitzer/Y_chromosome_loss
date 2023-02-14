@@ -75,6 +75,10 @@ coxph(Surv(OS_months, OS_Status_INT) ~ LOY, data = OS_cohort) %>%
 ## Kaplan-Meier method
 ##-------
 loy.pancancer_KM = survfit(Surv(OS_months, OS_Status_INT) ~ LOY, data = OS_cohort)
+yy = survfit(Surv(OS_months, OS_Status_INT) ~ LOY, data = OS_cohort)
+summary(yy)$table
+survdiff(Surv(OS_months, OS_Status_INT) ~ LOY, data = OS_cohort)
+
 p1 = ggsurvplot(loy.pancancer_KM,
                 palette = c("#3d4397", "#a22231"),
                 size = 0.8,
@@ -84,9 +88,15 @@ p1 = ggsurvplot(loy.pancancer_KM,
                 )$plot +
   theme_std(base_size = 14, base_line_size = 1) +
   theme(aspect.ratio = 1,
-        legend.position = 'none')
+        legend.position = 'none') +
+  geom_hline(yintercept = 0.50) +
+  geom_vline(xintercept = 27.6)+
+  geom_vline(xintercept = 44.15)
  
+p1
+
 ggsave_golden(filename = 'Figures_original/OS_wholeCohort.pdf', plot = p1, width = 6)
+
 
 
 
@@ -98,9 +108,9 @@ ggsave_golden(filename = 'Figures_original/OS_wholeCohort.pdf', plot = p1, width
 ## - and cancer type
 ##-------
 OS_cohort = OS_cohort[which(OS_cohort$CANCER_TYPE %in% ctypes_keep), ]
-pancancer_TP53_ct = coxph(formula = Surv(OS_months, as.numeric(factor(OS_Status))) ~ LOY+TP53_Status+CANCER_TYPE+fraction_cna+purity, data = OS_cohort)
-summary(pancancer_TP53_ct)
-coxph(Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status+CANCER_TYPE+fraction_cna+purity, data = OS_cohort) %>%
+pancancer_controlled = coxph(formula = Surv(OS_months, as.numeric(factor(OS_Status))) ~ LOY+TP53_Status+CANCER_TYPE, data = OS_cohort)
+summary(pancancer_controlled)
+coxph(Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status+CANCER_TYPE, data = OS_cohort) %>%
   gtsummary::tbl_regression(exp = TRUE)
 
 
@@ -133,10 +143,10 @@ for(i in unique(OS_cohort$CANCER_TYPE)){
   data_sub = OS_cohort[which(OS_cohort$CANCER_TYPE == i), ]
   cancer = i
   n = nrow(data_sub)
-  if(n < 60) next
+  if(n < 20) next
   else {
     model_raw = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY, data = data_sub)
-    model_adj = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status, data = data_sub)
+    model_adj = coxph(formula = Surv(OS_months, OS_Status_INT) ~ LOY+TP53_Status+SAMPLE_, data = data_sub)
     estimate_raw = summary(model_raw)$coefficients[[1]]
     estimate_se_raw = summary(model_raw)$coefficients[[3]]
     significance_raw = summary(model_raw)$coefficients[[5]]
@@ -162,17 +172,43 @@ for(i in unique(OS_cohort$CANCER_TYPE)){
   }
 }
 
-OS_cancertypes
 OS_cancertypes$cancer = paste0(OS_cancertypes$cancer, ' (n=', OS_cancertypes$n, ')')
 OS_cancertypes$plot_color = ifelse(OS_cancertypes$significance <= 0.05, 'plot', 'notplot')
 OS_cancertypes$plot_adjusted = ifelse(OS_cancertypes$significance_adj <= 0.05, 'plot', 'notplot')
-View(OS_cancertypes)
+
 
 
 ##-------
-## Visualization
+## Visualization:
+## - without controlling TP53
+## - with TP53 as factor
 ##-------
 OS_CancerTypes_plot = ggplot(data = OS_cancertypes, 
+                             aes(x = reorder(cancer, estimate), 
+                                 y = estimate)) +
+  geom_point(aes(colour = plot_color), size = 1.5) +
+  geom_pointrange(aes(ymin = estimate - estimate_se,
+                      ymax = estimate + estimate_se,
+                      colour = plot_color),
+                  size = 0.5) +
+  coord_flip() +
+  theme_std(base_size = 14) +
+  theme(panel.background = element_blank(),
+        panel.border = element_rect(fill = NA, size = 1),
+        aspect.ratio = 1,
+        axis.title.x.top = element_blank(),
+        axis.text = element_text(size = 10, face = 'bold', color = 'black')) +
+  scale_color_manual(values = c('notplot' = 'grey',
+                                'plot' = 'red'),
+                     labels = c('> 0.05', '< 0.05'),
+                     name = 'P value') +
+  geom_hline(yintercept = 0) +
+  scale_y_continuous(sec.axis = dup_axis()) +
+  labs(x = '', y = 'Model coefficient (log [HR])')
+
+
+##------- adjusted
+OS_CancerTypes_adj_plot = ggplot(data = OS_cancertypes, 
                              aes(x = reorder(cancer, estimate_adj), 
                                  y = estimate_adj)) +
   geom_point(aes(colour = plot_adjusted), size = 1.5) +
@@ -181,6 +217,7 @@ OS_CancerTypes_plot = ggplot(data = OS_cancertypes,
                       colour = plot_adjusted),
                   size = 0.5) +
   coord_flip() +
+  theme_std(base_size = 14) +
   theme(panel.background = element_blank(),
         panel.border = element_rect(fill = NA, size = 1),
         aspect.ratio = 1,
@@ -188,16 +225,16 @@ OS_CancerTypes_plot = ggplot(data = OS_cancertypes,
         axis.text = element_text(size = 10, face = 'bold', color = 'black')) +
   scale_color_manual(values = c('notplot' = 'grey',
                                 'plot' = 'red'),
-                     labels = c('not_significant', 'significant'),
-                     name = '') +
+                     labels = c('> 0.05', '< 0.05'),
+                     name = 'P value') +
   geom_hline(yintercept = 0) +
   scale_y_continuous(sec.axis = dup_axis()) +
   labs(x = '', y = 'Model coefficient (log [HR])')
 
-OS_CancerTypes_plot
+OS_CancerTypes_plot = OS_CancerTypes_plot + theme(legend.position = 'none')
+panCancer_univariate = OS_CancerTypes_plot + OS_CancerTypes_adj_plot
 
-
-ggsave_golden(filename = 'Figures_original/OS_CancerTypes_adj.pdf', plot = OS_CancerTypes_plot, width = 8)
+ggsave_golden(filename = 'Figures_original/OS_CancerTypes_adj.pdf', plot = panCancer_univariate, width = 20)
 
 
 
