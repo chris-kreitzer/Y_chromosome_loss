@@ -79,7 +79,7 @@ yy = survfit(Surv(OS_months, OS_Status_INT) ~ LOY, data = OS_cohort)
 summary(yy)$table
 survdiff(Surv(OS_months, OS_Status_INT) ~ LOY, data = OS_cohort)
 
-p1 = ggsurvplot(loy.pancancer_KM,
+p_raw = ggsurvplot(loy.pancancer_KM,
                 palette = c("#3d4397", "#a22231"),
                 size = 0.8,
                 legend = 'top',
@@ -88,16 +88,10 @@ p1 = ggsurvplot(loy.pancancer_KM,
                 )$plot +
   theme_std(base_size = 14, base_line_size = 1) +
   theme(aspect.ratio = 1,
-        legend.position = 'none') +
-  geom_hline(yintercept = 0.50) +
-  geom_vline(xintercept = 27.6)+
-  geom_vline(xintercept = 44.15)
- 
-p1
+        legend.position = 'none')
+p_raw
 
 ggsave_golden(filename = 'Figures_original/OS_wholeCohort.pdf', plot = p1, width = 6)
-
-
 
 
 
@@ -126,10 +120,12 @@ p1 = ggsurvplot(pancancerTP53,
                 xlab = 'Time (months)',
                 ylab = 'Overall survival (%)',pval = T)$plot +
   theme_std(base_size = 14, base_line_size = 1) +
-  theme(aspect.ratio = 1)
-p1
+  theme(aspect.ratio = 1,
+        legend.position = 'none')
 
-ggsave_golden(filename = 'Figures_original/OS_wholeCohort_TP53mut.pdf', plot = p1, width = 8)
+OS_PanCancer = p_raw + p1
+
+ggsave_golden(filename = 'Figures_original/OS_PanCancer_raw_adj.pdf', plot = OS_PanCancer, width = 8)
 
 
 
