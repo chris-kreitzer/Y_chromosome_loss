@@ -1,4 +1,4 @@
-# Y-chromosome-loss
+# Y-chromosome-loss [update 2022/2023]
 
 ## Methological approach for the definition of a Y-chromosome loss  
 Both, whole-exome and IMPACT panel seq. data was analyzed with FacetsY. FacetsY, is slight modification of the original Facets-pipeline, which considers and include seq. reads coming from the Y-chromosome (big credits to Bastien, for re-writing this script). 
