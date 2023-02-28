@@ -149,4 +149,45 @@ TreePlot = ggplot(all_types, aes(area = n, fill = CancerType,
 ggsave_golden(filename = 'Figures_original/TreePlot.pdf', plot = TreePlot, width = 9)
 
 
+
+
+##----------------+
+## Cohort overview: 
+## PieDonut
+##----------------+
+cohort = readRDS('Data/00_CohortData/Cohort_071322.rds')
+cohort = cohort[which(cohort$Study_include == 'yes'), ]
+cancer = sort(table(cohort$CANCER_TYPE), decreasing = T)
+cancer = cancer[1:19]
+
+bigcohort = cohort[which(cohort$CANCER_TYPE %in% names(cancer)), c('CANCER_TYPE', 'CANCER_TYPE_DETAILED_ritika', 'ONCOTREE_CODE')]
+cc = data.frame()
+for(i in unique(bigcohort$CANCER_TYPE)){
+  data_sub = sort(table(bigcohort$CANCER_TYPE_DETAILED_ritika[which(bigcohort$CANCER_TYPE == i)]), decreasing = T)
+  data_sub = data_sub[1:2]
+  out = data.frame(cancer = i,
+                   cancer_detailed = names(data_sub))
+  cc = rbind(cc, out)
+}
+
+pie_cohort = cohort
+pie_cohort$CANCER_TYPE[!pie_cohort$CANCER_TYPE %in% cc$cancer] = 'Other'
+uu = data.frame()
+for(i in unique(pie_cohort$CANCER_TYPE)){
+  data_sub = pie_cohort[which(pie_cohort$CANCER_TYPE == i), ]
+  data_sub$CANCER_TYPE_DETAILED_ritika[!data_sub$CANCER_TYPE_DETAILED_ritika %in% cc$cancer_detailed[which(cc$cancer == i)]] = 'Other'
+  uu = rbind(uu, data_sub)
+}
+
+cohortPie = PieDonut(uu, 
+         aes(CANCER_TYPE, CANCER_TYPE_DETAILED_ritika),
+         labelposition = 1, labelpositionThreshold = 0.9,
+         showPieName = F,
+         pieLabelSize = 4,
+         donutLabelSize = 4,
+         r0=0.0, r1 = 0.9, start=pi/2,explodeDonut=TRUE)
+
+ggsave_golden(filename = 'Figures_original/PieDonut_Cohort.pdf', plot = cohortPie, width = 12)
+
+
 #' out
