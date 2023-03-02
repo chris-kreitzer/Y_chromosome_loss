@@ -16,6 +16,7 @@
 ## start: 11/07/2022
 ## revision: 01/13/2023
 ## revision: 02/02/2023
+## revision: 03/02/2023
 ## 
 ## chris-kreitzer
 
@@ -63,8 +64,8 @@ n_segment_plot = ggplot(Barchart_all,
                             label = paste0((round(value/n* 100, 1)), '%'))) +
   geom_bar(stat = 'identity', position = 'fill') +
   geom_text(size = 3, position = position_stack(vjust = 0.5), fontface = 'bold') +
-  scale_fill_manual(values = c('whole-chromosome event' = '#D7D8DA',
-                               'chromosome-arm imbalance' = '#d0664b'),
+  scale_fill_manual(values = c('whole-chromosome event' = '#B7DBE9',
+                               'chromosome-arm imbalance' = '#0478b3'),
                                name = '') +
   scale_y_continuous(expand = c(0,0),
                      breaks = seq(0, 1, 0.2)) +
@@ -77,6 +78,29 @@ n_segment_plot = ggplot(Barchart_all,
 
 
 n_segment_plot
+
+
+
+##----------------+
+## Which cancer types are
+## affected by arm-imbalances
+##----------------+
+CancerTypes_multi = cohort[which(cohort$SAMPLE_ID %in% multi_segments), ]
+cases = as.data.frame(sort(table(CancerTypes_multi$CANCER_TYPE), decreasing = T))
+cases = cases[1:7, ]
+cases = rbind(cases, data.frame(Var1 = 'Other',
+                                Freq = 82))
+
+multi_cases = ggplot(cases, aes(x = Var1, y = Freq)) +
+  geom_bar(stat = 'identity', color = 'black', fill = 'black') +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  theme_std(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        aspect.ratio = 0.2) +
+  labs(x = '', y = '# Tumors')
+ggsave_golden(filename = 'Figures_original/Multisegment_Tumors.pdf', plot = multi_cases, width = 12)
+
+
 
 ##-------
 ## chromosome-arm imbalance
@@ -157,6 +181,19 @@ gain_loss = data.frame(x = c('gain', 'gain', 'loss', 'loss'),
 
 
 
+gl_plot = ggplot(gain_loss, aes(x = category, y = value, fill = x)) +
+  geom_bar(stat = 'identity', position = 'fill') +
+  scale_fill_manual(values = c('loss' = '#0E3F7C',
+                               'gain' = '#D53833'), name = '') +
+  scale_y_continuous(expand = c(0.0, 0)) +
+  theme_minimal() +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 2.5,
+        legend.position = 'top',
+        plot.margin = unit(c(0,0,0,0), units = 'mm')) +
+  labs(y = '', x = '')
+
+
 ##-------
 ## partial_gain
 ##-------
@@ -182,6 +219,24 @@ partial_gain_df = data.frame(x = c('gain', 'gain', 'wt', 'wt'),
                                  length(partial_gain$id[which(partial_gain$tcn.em == partial_gain$Y_expected & partial_gain$arm == 'Yq')])),
                        category = c('Yp', 'Yq', 'Yp', 'Yq'),
                        family = 'partial_gain')
+partial_gain_df$x = factor(partial_gain_df$x, levels = rev(c('gain', 'wt')))
+
+pg_plot = ggplot(partial_gain_df, aes(x = category, y = value, fill = x)) +
+  geom_bar(stat = 'identity', position = 'fill') +
+  scale_fill_manual(values = c('wt' = 'grey90',
+                               'gain' = '#D53833'),
+                    name = '') +
+  scale_y_continuous(expand = c(0.0, 0)) +
+  theme_minimal() +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 2.5,
+        legend.position = 'top',
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank(),
+        plot.margin = unit(c(0,0,0,0), units = 'mm')) +
+  labs(y = '', x = '')
+
 
 
 ##-------
@@ -210,12 +265,37 @@ partial_loss_df = data.frame(x = c('loss', 'loss', 'wt', 'wt'),
                                        length(partial_loss$id[which(partial_loss$tcn.em == partial_loss$Y_expected & partial_loss$arm == 'Yq')])),
                              category = c('Yp', 'Yq', 'Yp', 'Yq'),
                              family = 'partial_loss')
+partial_loss_df$x = factor(partial_loss_df$x, levels = rev(c('loss', 'wt')))
+
+pl_plot = ggplot(partial_loss_df, aes(x = category, y = value, fill = x)) +
+  geom_bar(stat = 'identity', position = 'fill') +
+  scale_fill_manual(values = c('wt' = 'grey90',
+                               'loss' = '#0E3F7C'),
+                    name = '') +
+  scale_y_continuous(expand = c(0.0, 0)) +
+  theme_minimal() +
+  theme_std(base_size = 14) +
+  theme(aspect.ratio = 2.5,
+        legend.position = 'top',
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank(),
+        plot.margin = unit(c(0,0,0,0), units = 'mm')) +
+  labs(y = '', x = '')
+
+
+
+all_clases = gl_plot + pg_plot + pl_plot
+ggsave_golden(filename = 'Figures_original/chromosomeArmImbalances.pdf', plot = all_clases, width = 8)
+
+
+all_plot = n_segment_plot + multi_segment_plot + gl_plot + pg_plot + pl_plot + plot_layout(ncol = 5)
+ggsave_golden(filename = 'Figures_original/chromosomeArmImbalances.pdf', plot = all_plot, width = 18)
 
 
 Focality_out = rbind(gain_loss, partial_gain_df, partial_loss_df)
 colnames(Focality_out) = c('Event', 'value', 'arm', 'category')
 write.table(x = Focality_out, file = 'Data/04_Loss/Focality_summary.txt', sep = '\t', row.names = F, quote = F)
-
 
 
 
