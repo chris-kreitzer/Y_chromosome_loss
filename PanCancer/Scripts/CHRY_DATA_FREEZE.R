@@ -292,14 +292,18 @@ saveRDS(Cohort071322, file = 'Data/00_CohortData/Cohort_071322.rds')
 ## start: 08/24/2022
 ## revision: 12/13/2022
 ## revision: 01/28/2023
+## revision: 03/02/2023
 ##----------------+
 cohort = readRDS('~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
 mLOY_df = read.csv('Data/03_Mosaicism/IMPACT_mLOY_summary.txt', sep = '\t')
-cohort = merge(cohort, mLOY_df[,c('id', 'OY', 'mLOY')], by.x = 'SAMPLE_ID', by.y = 'id', all.x = T)
-cohort$mLOY[which(cohort$mLOY == 'no_mLOY')] = 'no'
-cohort$mLOY[which(cohort$mLOY == 'mLOY')] = 'yes'
-
+cohort$OY = NULL
+cohort$mLOY = NULL
+cohort = merge(cohort, mLOY_df[,c('id', 'observed_Y', 'mLOY')], by.x = 'SAMPLE_ID', by.y = 'id', all.x = T)
+cohort$mLOY[which(cohort$mLOY == 'wt')] = 'no'
+cohort$mLOY[which(cohort$mLOY == 'mloy')] = 'yes'
+cohort$Study_include[which(cohort$mLOY == 'yes')] = 'no'
 saveRDS(cohort, file = '~/Documents/MSKCC/10_MasterThesis/Data/00_CohortData/Cohort_071322.rds')
+
 
 
 
