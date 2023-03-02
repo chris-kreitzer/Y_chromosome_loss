@@ -2,12 +2,15 @@
 ## MADSEQ; script to assess read-depth at Y 
 ## Detection of mosaic loss of the Y-chromosome
 ## downstream analysis; 
+## Obvious signs of bi-modality in the data
+## distribution; investigate what's happening there
 ##----------------+
 
 ## start: 12/09/2022
 ## revision: 12/12/2022
 ## revision: 01/27/2023
 ## revision: 01/30/2023
+## revision: 03/01/2023
 ## 
 ## chris-kreitzer
 
@@ -31,6 +34,7 @@ mLOY_files = list.files('Data/03_Mosaicism/NormalizedDepth/', full.names = T)
 mLOY_files_short = substr(x = basename(mLOY_files), start = 1, stop = 17)
 length(intersect(mLOY_files_short, IMPACT_mLOY$SAMPLE_ID))
 length(intersect(mLOY_files_short, IMPACT_mLOY$SAMPLE_ID)) == length(mLOY_files)
+
 
 ## TODO: number may be different
 ## because lymphoid and myeloid cancers
@@ -60,9 +64,12 @@ x = data.table::rbindlist(x)
 xx = as.data.frame(x)
 
 
+##----------------+
+mloy = merge(xx, cohort[,c('SAMPLE_ID', 'GENE_PANEL')], by.x = 'id', by.y = 'SAMPLE_ID', all.x = T)
+
 
 ##----------------+
-## Downstream anlysis
+## Downstream analysis
 ##----------------+
 loy_ratio = function(id, data){
   name = id
@@ -80,46 +87,135 @@ loy_ratio = function(id, data){
                    ratio = ratio,
                    ratio_norm = ratio_norm,
                    c22 = c22_ratio,
-                   X_ratio = X_ratio)
+                   X_ratio = X_ratio,
+                   ChromY = Y,
+                   Chrom22 = c22)
   out
 }
 
-y = lapply(unique(xx$id), function(x) loy_ratio(id = x, data = xx))
+y = lapply(unique(mloy$id), function(x) loy_ratio(id = x, data = mloy))
 y = data.table::rbindlist(y)
-colnames(y) = c('id', 'Y_Autosome_ratio', 'Y_RefDepth_ratio', 'chromosome22_ratio', 'X_Autosome_ratio')
-y = na.omit(y)
-write.table(x = y, file = 'Data/03_Mosaicism/SeqRatios_IMPACT.txt', sep = '\t', row.names = F, quote = F)
+colnames(y) = c('id', 'Y_Autosome_ratio', 'Y_RefDepth_ratio', 'chromosome22_ratio', 'X_Autosome_ratio', 'ChromY', 'Chrom22')
+mloy_out = na.omit(y)
+write.table(x = mloy_out, file = 'Data/03_Mosaicism/SeqRatios_NEW_IMPACT.txt', sep = '\t', row.names = F, quote = F)
 
 
 ##----------------+
-## expected ploidy:
-## correction factor
+## Y DNA concentration
+## based on gene panel;
+## absolute and relative concentration
 ##----------------+
+mloy_out$panel = substr(mloy_out$id, start = 15, stop = 17)
+
+##-- absolute DNA concentration
+dev.off()
 par(mfrow = c(1,2))
-plot(density(y$chromosome22_ratio),
+boxplot(mloy_out$ChromY ~ mloy_out$panel,
      yaxt = 'n',
      ylab = '',
      xlab = '',
      main = '',
-     lwd = 1.5,
-     xlim = c(0, 2))
+     lwd = 1.5)
 box(lwd = 2)
-mtext(text = 'Density', side = 2, line = 1)
-mtext(text = 'DNA concentration [target chr./autosomes]', side = 1, line = 2)
-mtext(text = 'Chromosome 22', side = 3, line = 0.5, adj = 0)
-
-plot(density(y$Y_Autosome_ratio),
-     yaxt = 'n',
-     ylab = '',
-     xlab = '',
-     main = '',
-     lwd = 1.5,
-     xlim = c(0, 1))
-box(lwd = 2)
-mtext(text = 'Density', side = 2, line = 1)
-mtext(text = 'DNA concentration [target chr./autosomes]', side = 1, line = 2)
+mtext(text = 'Absolute DNA concentration', side = 2, line = 1)
+mtext(text = 'GenePanel', side = 1, line = 2)
 mtext(text = 'Chromosome Y', side = 3, line = 0.5, adj = 0)
-# save: (device size): 8.61 x 3.82
+
+##-- relative DNA concentration
+boxplot(mloy_out$Y_Autosome_ratio ~ mloy_out$panel,
+        yaxt = 'n',
+        ylab = '',
+        xlab = '',
+        main = '',
+        lwd = 1.5)
+box(lwd = 2)
+mtext(text = 'relative DNA concentration [target chr./autosomes]', side = 2, line = 1)
+mtext(text = 'GenePanel', side = 1, line = 2)
+mtext(text = 'Chromosome Y', side = 3, line = 0.5, adj = 0)
+
+
+
+##----------------+
+## Determine correction factor
+## E(Y) = 1, based on experimental 
+## variation and determine 95th percentile
+## cutoff for every gene panel individually
+## 
+## Cut-off through percentiles; 
+## and the surrounding 95% CI
+## (lower 5th percentile)
+##----------------+
+
+mosaic_out = data.frame()
+for(i in unique(mloy_out$panel)){
+  data = mloy_out[which(mloy_out$panel == i), ]
+  data$expected_Y = data$Y_Autosome_ratio * 2
+  density.chromoY = density(data$expected_Y, na.rm = T)
+  density.maxY = density.chromoY$x[which.max(density.chromoY$y)]
+  correction_factorY = density.maxY - 1
+  data$observed_Y = abs(data$expected_Y - correction_factorY)
+  lower_cutoff = quantileCI(x = data$observed_Y, probs = 0.05, conf.level = .95)
+  lower = lower_cutoff[1]
+  data$cutoff = lower
+  data$mLOY = ifelse(data$observed_Y < lower, 'mloy', 'wt')
+  mosaic_out = rbind(mosaic_out, data)
+}
+
+
+##-------
+## Plot; Visualization
+##-------
+plot_list = list()
+for(i in unique(mosaic_out$panel)){
+  y = mosaic_out[which(mosaic_out$panel == i), ]
+  
+  y$seq = seq(1, nrow(y), 1)
+  jitter = ggplot(y, aes(x = observed_Y, y = seq)) +
+    geom_jitter(shape = 17, size = 1) +
+    scale_x_continuous(limits = c(0.5, 1.5),
+                       breaks = c(0.5, 1, 1.5)) +
+    geom_vline(xintercept = lower, col = '#a22231', linewidth = 0.75, linetype = 'dashed') +
+    theme_std(base_size = 14, base_line_size = 0.2) +
+    theme(panel.background = element_blank(),
+          panel.border = element_rect(fill = NA, linewidth = 1.5),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          plot.margin = unit(x = c(0,0,0,0), units = 'mm')) +
+    labs(y = 'Individuals', x = 'Ploidy')
+  
+  histo = ggplot(y, aes(x = observed_Y, y = ..density..)) +
+    geom_histogram(bins = 400, col = 'black', fill = 'black') +
+    geom_vline(xintercept = lower, col = '#a22231', linewidth = 0.75, linetype = 'dashed') +
+    scale_x_continuous(limits = c(0.5, 1.5),
+                       breaks = c(0.5, 1, 1.5)) +
+    theme_std(base_size = 14, base_line_size = 0.2) +
+    theme(panel.background = element_blank(),
+          panel.border = element_rect(fill = NA, linewidth = 1.5),
+          axis.text.x = element_blank(),
+          axis.title = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          plot.margin = unit(x = c(0, 0, 0, 0), units = 'mm')) +
+    labs(title = paste0('GenePanel: ', i, ' (n=', dim(y)[[1]], ')'))
+  
+  plot_combined = plot_grid(histo, jitter, nrow = 2, rel_heights = c(1,3), align = 'hv')
+  plot_list[[i]] = plot_combined
+}
+
+
+mosaic_out_plot = plot_list[[1]] + plot_list[[2]] + plot_list[[4]] + plot_list[[3]] + plot_layout(nrow = 1, ncol = 4)
+ggsave_golden(filename = 'Figures_original/Mosaic_out_genePanel.pdf', plot = mosaic_out_plot, width = 15)
+
+write.table(x = mosaic_out, file = 'Data/03_Mosaicism/IMPACT_mLOY_summary.txt', sep = '\t', row.names = F, quote = F)
+
+
+
+
+
+
+
+
 
 
 ##----------------+
@@ -201,63 +297,6 @@ mtext(text = 'Chromosome Y: corrected', side = 3, line = 0.5, adj = 0)
 
 # save: (device size): 8.61 x 5
 
-
-
-##----------------+
-## determine the cut-off
-## through percentiles; 
-## and the surrounding 95% CI
-## (lower 2.5% percentile)
-##----------------+
-lower_cutoff = quantileCI(x = y$OY, probs = 0.025, conf.level = .95)
-lower = lower_cutoff[1]
-
-##-------
-## Plot
-##-------
-y$seq = seq(1, nrow(y), 1)
-jitter = ggplot(y, aes(x = OY, y = seq)) +
-  geom_jitter(shape = 17, size = 0.5) +
-  scale_x_continuous(limits = c(0.5, 1.5),
-                     breaks = c(0.5, 1, 1.5)) +
-  geom_vline(xintercept = lower, col = '#a22231', linewidth = 0.75, linetype = 'dashed') +
-  theme_std(base_size = 14, base_line_size = 0.2) +
-  theme(panel.background = element_blank(),
-        panel.border = element_rect(fill = NA, linewidth = 1.5),
-        axis.text.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        plot.margin = unit(x = c(0,0,0,0), units = 'mm')) +
-  labs(y = 'Individuals', x = 'Ploidy')
-
-histo = ggplot(y, aes(x = OY, y = ..density..)) +
-  geom_histogram(bins = 400, col = 'black', fill = 'black') +
-  geom_vline(xintercept = lower, col = '#a22231', linewidth = 0.75, linetype = 'dashed') +
-  scale_x_continuous(limits = c(0.5, 1.5),
-                     breaks = c(0.5, 1, 1.5)) +
-  theme_std(base_size = 14, base_line_size = 0.2) +
-  theme(panel.background = element_blank(),
-        panel.border = element_rect(fill = NA, linewidth = 1.5),
-        axis.text.x = element_blank(),
-        axis.title = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        plot.margin = unit(x = c(0, 0, 0, 0), units = 'mm'))
-
-jitter_histo = plot_grid(histo, jitter, nrow = 2, rel_heights = c(1,3), align = 'hv')
-ggsave_golden(filename = 'Figures_original/mLOY_determination.pdf', plot = jitter_histo, width = 8)
-
-
-# save: (custom device)
-
-
-
-##----------------+
-## cut-off threshold
-##----------------+
-lower = quantileCI(x = y$OY, probs = 0.025, conf.level = .95)[1]
-y$mLOY = ifelse(y$OY < lower, 'mLOY', 'no_mLOY')
-write.table(x = y, file = 'Data/03_Mosaicism/IMPACT_mLOY_summary.txt', sep = '\t', row.names = F, quote = F)
 
 
 
