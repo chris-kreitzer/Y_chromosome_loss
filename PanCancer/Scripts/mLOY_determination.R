@@ -210,116 +210,55 @@ ggsave_golden(filename = 'Figures_original/Mosaic_out_genePanel.pdf', plot = mos
 write.table(x = mosaic_out, file = 'Data/03_Mosaicism/IMPACT_mLOY_summary.txt', sep = '\t', row.names = F, quote = F)
 
 
-
-
-
-
-
-
-
-
-##----------------+
-## correction factor
-## - for autosomes (chr22)
-## - for the Y-chromosome
-## - for the X-chromosome
-##----------------+
-y = read.csv('Data/03_Mosaicism/SeqRatios_IMPACT.txt', sep = '\t')
-y$E22 = y$chromosome22_ratio * 2
-density.chromo22 = density(y$E22, na.rm = T)
-density.max22 = density.chromo22$x[which.max(density.chromo22$y)]
-correction_factor22 = density.max22 - 2
-
-y$EY = y$Y_Autosome_ratio * 2
-density.chromoY = density(y$EY, na.rm = T)
-density.maxY = density.chromoY$x[which.max(density.chromoY$y)]
-correction_factorY = density.maxY - 1
-
-y$EX = y$X_Autosome_ratio * 2
-density.chromoX = density(y$EX, na.rm = T)
-density.maxX = density.chromoX$x[which.max(density.chromoX$y)]
-correction_factorX = density.maxX - 1
-
-y$O22 = abs(y$E22 - correction_factor22)
-y$OY = abs(y$EY - correction_factorY)
-y$OX = abs(y$EX - correction_factorX)
-
-
-## plot: observed vs corrected
-par(mfrow = c(2,2))
-plot(density(y$chromosome22_ratio),
-     yaxt = 'n',
-     ylab = '',
-     xlab = '',
-     main = '',
-     lwd = 1.5,
-     xlim = c(0, 2))
-box(lwd = 2)
-mtext(text = 'Density', side = 2, line = 1)
-mtext(text = 'DNA concentration [target chr./autosomes]', side = 1, line = 2)
-mtext(text = 'Chromosome 22: observed', side = 3, line = 0.5, adj = 0)
-
-plot(density(y$Y_Autosome_ratio),
-     yaxt = 'n',
-     ylab = '',
-     xlab = '',
-     main = '',
-     lwd = 1.5,
-     xlim = c(0, 1))
-box(lwd = 2)
-mtext(text = 'Density', side = 2, line = 1)
-mtext(text = 'DNA concentration [target chr./autosomes]', side = 1, line = 2)
-mtext(text = 'Chromosome Y: observed', side = 3, line = 0.5, adj = 0)
-
-plot(density(y$O22),
-     yaxt = 'n',
-     ylab = '',
-     xlab = '',
-     main = '',
-     lwd = 1.5,
-     xlim = c(0, 4))
-box(lwd = 2)
-mtext(text = 'Density', side = 2, line = 1)
-mtext(text = 'Ploidy', side = 1, line = 2)
-mtext(text = 'Chromosome 22: corrected', side = 3, line = 0.5, adj = 0)
-
-plot(density(y$OY),
-     yaxt = 'n',
-     ylab = '',
-     xlab = '',
-     main = '',
-     lwd = 1.5,
-     xlim = c(0, 2))
-box(lwd = 2)
-mtext(text = 'Density', side = 2, line = 1)
-mtext(text = 'Ploidy', side = 1, line = 2)
-mtext(text = 'Chromosome Y: corrected', side = 3, line = 0.5, adj = 0)
-
-# save: (device size): 8.61 x 5
-
-
-
-
-
 ##----------------+
 ## Association studies;
-## Age
+## mosaic loss of Y and Age
+## 03/02/2023
 ##----------------+ 
 IMPACT = readRDS('Data/00_CohortData/Cohort_071322.rds')
-# IMPACT = IMPACT[which(IMPACT$Study_include == 'yes'), ]
 IMPACT$Age_Sequencing = as.integer(as.character(IMPACT$Age_Sequencing))
 IMPACT = IMPACT[!is.na(IMPACT$Age_Sequencing), ]
-IMPACT = IMPACT[!is.na(IMPACT$OY), ]
+IMPACT = IMPACT[!is.na(IMPACT$observed_Y), ]
+
+
+##-- simple comparison
+mLOY_Age_plot = ggplot(IMPACT, 
+                       aes(x = mLOY, y = Age_Sequencing)) +
+  geom_violin(width = .75) + 
+  geom_quasirandom(alpha = 0.1, 
+                   width = 0.2) +
+  stat_summary(fun.y = "mean",
+               geom = "crossbar", 
+               mapping=aes(ymin = ..y.., ymax = ..y..), 
+               width = 0.5, 
+               position = position_dodge(),
+               show.legend = FALSE,
+               color = 'darkgrey') +
+  scale_y_continuous(expand = c(0.01, 0),
+                     limits = c(18, 92)) +
+  scale_x_discrete(labels = c(paste0('wildtype\n(n= ', length(IMPACT$SAMPLE_ID[which(IMPACT$mLOY == 'no')]), ')'),
+                              paste0('mosaic loss chromosome Y\n(n= ', length(IMPACT$SAMPLE_ID[which(IMPACT$mLOY == 'yes')]), ')'))) +
+  theme_std(base_size = 14) +
+  theme(
+    panel.border = element_rect(fill = NA, linewidth = 2),
+    plot.margin = unit(x = c(0, 0, 0, 0), units = 'mm'),
+    aspect.ratio = 1,
+    axis.text = element_text(size = 16)) +
+  stat_compare_means(label = 'p.format', label.y = 88, label.x = 1.3) +
+  labs(x = '', y = 'Age [reported at sequencing]')
+
+mLOY_Age_plot
+ggsave_golden(filename = 'Figures_original/mLRR-Y_Age_correlation.pdf', plot = mLOY_Age_plot, width = 9.9)
 
 
 ## Visualization
-intercept = summary(lm(IMPACT$OY ~ IMPACT$Age_Sequencing))[[4]][1]
-slope = summary(lm(IMPACT$OY ~ IMPACT$Age_Sequencing))[[4]][2]
-p.value = summary(lm(IMPACT$OY ~ IMPACT$Age_Sequencing))[[4]][8]
+intercept = summary(lm(IMPACT$observed_Y ~ IMPACT$Age_Sequencing))[[4]][1]
+slope = summary(lm(IMPACT$observed_Y ~ IMPACT$Age_Sequencing))[[4]][2]
+p.value = summary(lm(IMPACT$observed_Y ~ IMPACT$Age_Sequencing))[[4]][8]
 
 Y_chromosome = ggplot(IMPACT, 
                       aes(x = Age_Sequencing, 
-                          y = OY)) +
+                          y = observed_Y)) +
   geom_jitter(shape = 17, size = 0.5) +
   scale_y_continuous(limits = c(0.5, 1.5),
                      breaks = c(0.5, 1, 1.5)) +
@@ -334,49 +273,92 @@ Y_chromosome = ggplot(IMPACT,
   annotate(geom = 'text',
            x = 25,
            y = 1.40,
-           label = paste0('y = ', ceiling(intercept), round(slope, 4), '\np: ', round(p.value, 4)),
+           label = paste0('y = ', round(intercept), round(slope, 4), '\np: ', round(p.value, 4)),
            size = 5.0) +
   labs(x = 'Age [reported at sequencing]', y = 'Chromosome Y ploidy')
 
 Y_chromosome
-ggsave_golden(filename = 'Figures_original/mLRR-Y_Age_correlation.pdf', plot = Y_chromosome, width = 8)
+ggsave_golden(filename = 'Figures_original/mLOY_Age_correlation.pdf', plot = Y_chromosome, width = 6)
 
 
+
+##-- depreciated; misc
+##-----------------
+## correction factor
+## - for autosomes (chr22)
+## - for the Y-chromosome
+## - for the X-chromosome
 ##----------------+
-## different visualization
-##----------------+
-mLOY_CI = quantileCI(x = Cohort$Age_Sequencing[which(Cohort$mLOY_file == 'yes' & Cohort$mLOY == 'yes' & !is.na(Cohort$Age_Sequencing))], 
-                     probs = 0.5, conf.level = .95)
-nonLOY_CI = quantileCI(x = Cohort$Age_Sequencing[which(Cohort$mLOY_file == 'yes' & Cohort$mLOY == 'no' & !is.na(Cohort$Age_Sequencing))], 
-                     probs = 0.5, conf.level = .95)
-
-
-mLOY_Age_plot = ggplot(IMPACT, aes(x = mLOY, y = Age_Sequencing)) +
-  geom_violin(width = .75) + 
-  geom_quasirandom(alpha = 0.2, 
-                   width = 0.2) +
-  stat_summary(fun.y = "mean",
-               geom = "crossbar", 
-               mapping=aes(ymin=..y.., ymax=..y..), 
-               width = 0.5, 
-               position = position_dodge(),
-               show.legend = FALSE,
-               color = 'darkgrey') +
-  scale_y_continuous(expand = c(0.01, 0),
-                     limits = c(18, 92)) +
-  scale_x_discrete(labels = c('no (n=20712)', 'yes (n=491)')) +
-  theme_std(base_size = 14) +
-  theme(
-        panel.border = element_rect(fill = NA, linewidth = 2),
-        plot.margin = unit(x = c(0, 0, 0, 0), units = 'mm')) +
-  stat_compare_means(label = 'p.format', label.y = 88, label.x = 1.3) +
-  labs(x = 'mosaic loss of chromosome Y', y = 'Age [reported at sequencing]')
-
-ggsave_golden(filename = 'Figures_original/mLOY_Age.pdf', plot = mLOY_Age_plot, width = 6.5)
-
-
-Figure1C = plot_grid(Y_chromosome, mLOY_Age_plot, ncol = 1, align = 'v', axis = 'l')
-ggsave_golden(filename = 'Figures_original/Figure1C.pdf', plot = Figure1C, width = 8)
+# y = read.csv('Data/03_Mosaicism/SeqRatios_IMPACT.txt', sep = '\t')
+# y$E22 = y$chromosome22_ratio * 2
+# density.chromo22 = density(y$E22, na.rm = T)
+# density.max22 = density.chromo22$x[which.max(density.chromo22$y)]
+# correction_factor22 = density.max22 - 2
+# 
+# y$EY = y$Y_Autosome_ratio * 2
+# density.chromoY = density(y$EY, na.rm = T)
+# density.maxY = density.chromoY$x[which.max(density.chromoY$y)]
+# correction_factorY = density.maxY - 1
+# 
+# y$EX = y$X_Autosome_ratio * 2
+# density.chromoX = density(y$EX, na.rm = T)
+# density.maxX = density.chromoX$x[which.max(density.chromoX$y)]
+# correction_factorX = density.maxX - 1
+# 
+# y$O22 = abs(y$E22 - correction_factor22)
+# y$OY = abs(y$EY - correction_factorY)
+# y$OX = abs(y$EX - correction_factorX)
+# 
+# 
+# ## plot: observed vs corrected
+# par(mfrow = c(2,2))
+# plot(density(y$chromosome22_ratio),
+#      yaxt = 'n',
+#      ylab = '',
+#      xlab = '',
+#      main = '',
+#      lwd = 1.5,
+#      xlim = c(0, 2))
+# box(lwd = 2)
+# mtext(text = 'Density', side = 2, line = 1)
+# mtext(text = 'DNA concentration [target chr./autosomes]', side = 1, line = 2)
+# mtext(text = 'Chromosome 22: observed', side = 3, line = 0.5, adj = 0)
+# 
+# plot(density(y$Y_Autosome_ratio),
+#      yaxt = 'n',
+#      ylab = '',
+#      xlab = '',
+#      main = '',
+#      lwd = 1.5,
+#      xlim = c(0, 1))
+# box(lwd = 2)
+# mtext(text = 'Density', side = 2, line = 1)
+# mtext(text = 'DNA concentration [target chr./autosomes]', side = 1, line = 2)
+# mtext(text = 'Chromosome Y: observed', side = 3, line = 0.5, adj = 0)
+# 
+# plot(density(y$O22),
+#      yaxt = 'n',
+#      ylab = '',
+#      xlab = '',
+#      main = '',
+#      lwd = 1.5,
+#      xlim = c(0, 4))
+# box(lwd = 2)
+# mtext(text = 'Density', side = 2, line = 1)
+# mtext(text = 'Ploidy', side = 1, line = 2)
+# mtext(text = 'Chromosome 22: corrected', side = 3, line = 0.5, adj = 0)
+# 
+# plot(density(y$OY),
+#      yaxt = 'n',
+#      ylab = '',
+#      xlab = '',
+#      main = '',
+#      lwd = 1.5,
+#      xlim = c(0, 2))
+# box(lwd = 2)
+# mtext(text = 'Density', side = 2, line = 1)
+# mtext(text = 'Ploidy', side = 1, line = 2)
+# mtext(text = 'Chromosome Y: corrected', side = 3, line = 0.5, adj = 0)
 
 
 ##----------------+

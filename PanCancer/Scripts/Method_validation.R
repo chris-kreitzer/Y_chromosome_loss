@@ -19,6 +19,7 @@
 ## revision: 01/30/2023
 ## revision: 01/31/23
 ## revision: 02/28/2023
+## revision: 03/02/2023
 ##
 ## chris-kreitzer
 
@@ -332,6 +333,7 @@ ggsave_golden(filename = 'Figures_original/TCGA_mRNA_confirmation.pdf', plot = g
 
 
 
+
 ##----------------+
 ## mRNA expression of
 ## chromosome Y genes depending 
@@ -346,61 +348,58 @@ tcga_loy$Y_status_by_expression = NULL
 tcga_loy = tcga_loy[which(tcga_loy$Y_status_source == 'tcn.em'), ]
 tcga_loy$Genome_doublings_tcga = NULL
 tcga_loy$control_tcga_sample_id = NULL
-
 mrna = read.csv('Data/02_Method_Validation/TCGA/mRNA_Expression_PanCancerTCGA.txt', sep = '\t')
 mrna$STUDY_ID = NULL
 
 tcga_cohort = merge(tcga_loy, mrna, by.x = 'case_tcga_sample_id', by.y = 'SAMPLE_ID', all.x = T)
 
+tcga_summary = data.frame()
+for(i in unique(tcga_cohort$Cohort)){
+  data_tumor = tcga_cohort[which(tcga_cohort$Cohort == i), ]
+  for(j in c('ATM', 'AMELY', 'DDX3Y', 'KDM5D', 'RPS4Y1', 'RPS4Y2', 'SRY', 'UTY', 'ZFY')){
+    gene_wt = log2(data_tumor[which(data_tumor$Y_status == 'WT'), j] + 1)
+    gene_wt = ifelse(is.na(gene_wt), 0 , gene_wt)
+    gene_loss = log2(data_tumor[which(data_tumor$Y_status == 'LOY'), j] + 1)
+    gene_loss = ifelse(is.na(gene_loss), 0 , gene_loss)
+    gene_gain = log2(data_tumor[which(data_tumor$Y_status == 'Gain'), j] + 1)
+    gene_gain = ifelse(is.na(gene_gain), 0 , gene_gain)
+    
+    wt_loss_diff = median(gene_wt, na.rm = T) - median(gene_loss, na.rm = T)
+    wt_gain_diff = median(gene_wt, na.rm = T) - median(gene_gain, na.rm = T)
+    
+    out = data.frame(cohort = i,
+                     gene = j,
+                     median_wt = median(gene_wt),
+                     median_loss = median(gene_loss),
+                     median_gain = median(gene_gain),
+                     stat = wilcox.test(gene_wt, gene_loss)$p.value,
+                     difference_wt_loss = wt_loss_diff,
+                     difference_wt_gain = wt_gain_diff)
+    tcga_summary = rbind(tcga_summary, out)
+  }
+}
 
+tcga_summary$adj = p.adjust(tcga_summary$stat, method = 'BH')
+tcga_summary$plot = ifelse(tcga_summary$adj < 0.01, 'plot', 'not_plot')
+tcga_summary$plot = ifelse(tcga_summary$difference_wt_loss == 0, 'not_plot', tcga_summary$plot)
 
+tcga_mrna = ggplot(tcga_summary, aes(x = reorder(cohort, difference_wt_loss), 
+                         y = difference_wt_loss, color = plot)) +
+  geom_point(size = 4) +
+  scale_color_manual(values = c('not_plot' = 'grey',
+                                'plot' = 'red'),
+                     name = '',
+                     labels = c('ns', 'Q<0.01')) +
+  coord_flip() +
+  theme_minimal() +
+  panel_border(color = 'black') +
+  theme(axis.text = element_text(size = 12, color = 'black'),
+        strip.text = element_text(size = 12),
+        axis.title = element_text(size = 12, colour = 'black')) +
+  facet_grid(~gene) +
+  labs(x = '', y = 'mRNA expression difference [wildtype VS LOY]')
 
-table(tcga_cohort$Cohort)
-test = tcga_cohort[which(tcga_cohort$Cohort == 'PRAD'),] 
-
-boxplot(test$RPS4Y1[which(test$Y_status == 'WT')], test$RPS4Y1[which(test$Y_status == 'LOY')])
-boxplot(test$DDX3Y[which(test$Y_status == 'WT')], test$DDX3Y[which(test$Y_status == 'LOY')])
-boxplot(test$KDM5D[which(test$Y_status == 'WT')], test$KDM5D[which(test$Y_status == 'LOY')])
-boxplot(test$ZFY[which(test$Y_status == 'WT')], test$ZFY[which(test$Y_status == 'LOY')])
-boxplot(test$UTY[which(test$Y_status == 'WT')], test$UTY[which(test$Y_status == 'LOY')])
-boxplot(test$USP9Y[which(test$Y_status == 'WT')], test$USP9Y[which(test$Y_status == 'LOY')])
-boxplot(test$EIF1AX[which(test$Y_status == 'WT')], test$EIF1AX[which(test$Y_status == 'LOY')])
-boxplot(test$TMSB4Y[which(test$Y_status == 'WT')], test$TMSB4Y[which(test$Y_status == 'LOY')])
-
-
-boxplot(test$TSPY1[which(test$Y_status == 'WT')], test$TSPY1[which(test$Y_status == 'LOY')], na.rm = T)
-boxplot(test$TSPY8[which(test$Y_status == 'WT')], test$TSPY8[which(test$Y_status == 'LOY')], na.rm = T)
-boxplot(test$PCDH11Y[which(test$Y_status == 'WT')], test$PCDH11Y[which(test$Y_status == 'LOY')])
-
-boxplot(test$AMELY[which(test$Y_status == 'WT')], test$AMELY[which(test$Y_status == 'LOY')])
-boxplot(test$SRY[which(test$Y_status == 'WT')], test$SRY[which(test$Y_status == 'LOY')])
-
-
-
-boxplot(test$ATM[which(test$Y_status == 'WT')], test$ATM[which(test$Y_status == 'LOY')])
-boxplot(test$RPS4Y2[which(test$Y_status == 'WT')], test$RPS4Y2[which(test$Y_status == 'LOY')])
-
-
-wilcox.test(test$ATM[which(test$Y_status == 'WT')], test$ATM[which(test$Y_status == 'LOY')])
-wilcox.test(test$EIF1AX[which(test$Y_status == 'WT')], test$EIF1AX[which(test$Y_status == 'LOY')])
-wilcox.test(test$DDX3Y[which(test$Y_status == 'WT')], test$DDX3Y[which(test$Y_status == 'LOY')])
-wilcox.test(test$RPS4Y2[which(test$Y_status == 'WT')], test$RPS4Y2[which(test$Y_status == 'LOY')])
-wilcox.test(test$KDM5D[which(test$Y_status == 'WT')], test$KDM5D[which(test$Y_status == 'LOY')])
-wilcox.test(test$UTY[which(test$Y_status == 'WT')], test$UTY[which(test$Y_status == 'LOY')])
-
-
-table(tcga_cohort$Cohort)
-
-
-
-
-
-
-
-
-
-
-
+ggsave_golden(filename = 'Figures_original/TCGA_mRNA_correlation.pdf', plot = tcga_mrna, width = 12)
 
 
 #' out
