@@ -63,3 +63,4 @@ A. Transform binary call (50% rule tcn.em == 0) into continious scale. Plot WES 
 
 Updated Mosaic approach - adding TCGA expression data
 negative selection: coocur in R (co-occurrence of loss)
+co-occurrence with R package (Nature communications)
