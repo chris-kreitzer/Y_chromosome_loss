@@ -249,3 +249,4 @@ write.table(x = WES_IGV_out, file = '~/Master/Data/TCGA/WES_IGV_out.seg', row.na
 write.table(x = Arm_changes, file = '~/Master/Data/TCGA/WES_arm_change_out.txt', row.names = F, sep = '\t', quote = F)
 
 
+#' out
