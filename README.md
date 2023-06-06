@@ -72,4 +72,5 @@ minor update
 arrange meeting with phillip kantoff!
 
 
-negative or positive selection!
+negative or positive selection!   
+Intro finish / section 1
