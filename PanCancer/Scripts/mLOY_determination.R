@@ -98,7 +98,7 @@ y = data.table::rbindlist(y)
 colnames(y) = c('id', 'Y_Autosome_ratio', 'Y_RefDepth_ratio', 'chromosome22_ratio', 'X_Autosome_ratio', 'ChromY', 'Chrom22')
 mloy_out = na.omit(y)
 write.table(x = mloy_out, file = 'Data/03_Mosaicism/SeqRatios_NEW_IMPACT.txt', sep = '\t', row.names = F, quote = F)
-
+#mloy_out = read.csv('Data/03_Mosaicism/SeqRatios_NEW_IMPACT.txt', sep = '\t')
 
 ##----------------+
 ## Y DNA concentration
