@@ -4,6 +4,7 @@
 ##
 ## start: 12/13/2022
 ## revision: 01/30/2023
+## revision: 06/07/2023
 ## 
 ## chris-kreitzer
 ##----------------+
@@ -13,6 +14,7 @@ gc()
 setwd('~/Documents/MSKCC/10_MasterThesis/')
 #install.packages("treemapify")
 library(treemapify)
+library(webr)
 source('~/Documents/GitHub/Y_chromosome_loss/PanCancer/Scripts/UtilityFunctions.R')
 
 ## TODO:
@@ -189,5 +191,25 @@ cohortPie = PieDonut(uu,
 
 ggsave_golden(filename = 'Figures_original/PieDonut_Cohort.pdf', plot = cohortPie, width = 12)
 
+
+##-- Numbers
+a_out = data.frame()
+for(i in unique(uu$CANCER_TYPE)){
+  datasub = uu[which(uu$CANCER_TYPE == i), ]
+  n = nrow(datasub)
+  for(j in unique(datasub$CANCER_TYPE_DETAILED_ritika)){
+    datasub2 = datasub[which(datasub$CANCER_TYPE_DETAILED_ritika == j), ]
+    n2 = nrow(datasub2)
+    out = data.frame(cancer_type = i,
+                     cancer_type_detailed = j,
+                     n = n2,
+                     Frequency = round((n2 / n) * 100, 2))
+    a_out = rbind(a_out, out)
+  }
+}
+
+
+write.xlsx(x = a_out, file = 'Data/00_CohortData/CancerTypes.xlsx')
+write.xlsx(x = aa, file = 'Data/00_CohortData/CancerTypes_Summary.xlsx')
 
 #' out
