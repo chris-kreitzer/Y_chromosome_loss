@@ -68,3 +68,9 @@ co-occurrence with R package (Nature communications)
 
 Negative selection for chromosome Y or random passanger event?   
 minor update 
+
+arrange meeting with phillip kantoff!
+
+
+negative or positive selection!   
+Intro finish / section 1
