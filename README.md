@@ -65,7 +65,8 @@ Updated Mosaic approach - adding TCGA expression data
 negative selection: coocur in R (co-occurrence of loss)
 co-occurrence with R package (Nature communications)   
 
-
 Negative selection for chromosome Y or random passanger event?   
 
-arrange meeting with phillip kantoff!
+arrange meeting with phillip kantoff!   
+
+Finishing the script by tomorrow!
