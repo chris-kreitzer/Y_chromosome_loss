@@ -70,3 +70,4 @@ Negative selection for chromosome Y or random passanger event?
 arrange meeting with phillip kantoff!   
 
 Finishing the script by tomorrow!
+Forgotten update
