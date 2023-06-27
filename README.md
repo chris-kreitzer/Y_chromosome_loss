@@ -66,7 +66,6 @@ negative selection: coocur in R (co-occurrence of loss)
 co-occurrence with R package (Nature communications)   
 
 Negative selection for chromosome Y or random passanger event?   
+Also - the impact of Chromosome X mutations!
 
-arrange meeting with phillip kantoff!   
-Tomorrow 10AM!
 
